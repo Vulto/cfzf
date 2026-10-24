@@ -64,21 +64,20 @@ a recorded revision do not establish parity.
   threading.
 - [ ] Re-run the full compatibility and safety suites after each optimization.
 
-## Current evidence and known documentation conflicts
+## Current evidence and known inventory gaps
 
-- `PORTING_STATUS.md` says some features and tests are unstarted while
-  `FEATURES.md` and `FINAL_REPORT.md` claim later coverage.
-- `FEATURES.md` reports 76/131 CLI options verified, 17 implemented, and 38
-  unstarted; `FINAL_REPORT.md` reports 70/131 verified and 38 unstarted.
-  These totals must be recalculated from the inventory, not copied.
-- The action totals also conflict: some reports say 68 implemented while other
-  reports claim 39 actions verified. Implementation and differential
-  verification are separate states.
-- The existing `tests/ref.sh` prefers `/usr/bin/fzf` before building the
-  pinned source, so a different installed version can invalidate a differential
-  run without making it obvious.
-- Existing benchmark numbers in the reports are historical claims until rerun
-  from a clean build. They do not establish a universal performance regression.
+- `tests/ref.sh` now builds from the pinned source commit in a fresh Git
+  worktree and does not silently select a system executable.
+- `tests/batch-diff.sh`, `tests/algo-diff.sh`, and `tests/nth-diff.sh`
+  regenerate their input corpus and compare output streams and exit status.
+- `FEATURES.md` currently has 131 option rows (77 marked verified, 20
+  implemented but unverified, 34 unstarted), 125 action rows (64 implemented
+  but unverified, 61 unstarted), and 13 event rows (all unstarted). Seven
+  action IDs from the 001–132 range are absent; the canonical action inventory
+  must be reconciled against the pinned upstream source.
+- Historical test totals and benchmark numbers are not evidence of a current
+  baseline. `BASELINE_EVIDENCE.md` records the latest clean CI run and its
+  exact coverage. Benchmark claims remain historical until rerun in milestone 5.
 
 ## Reporting rule
 
