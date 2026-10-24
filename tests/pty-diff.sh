@@ -285,6 +285,9 @@ run_preview_case 'preview-left'      --preview-window=left:50% --preview 'echo {
 run_preview_case 'preview-top'       --preview-window=top:40% --preview 'echo {}'
 run_preview_case 'preview-bottom'    --preview-window=bottom:40% --preview 'echo {}'
 run_preview_case 'preview-border'    --preview 'echo {}' --border
+run_preview_case 'preview-border-default' --preview 'echo {}' --preview-border
+run_preview_case 'preview-border-sharp'   --preview 'echo {}' --preview-border=sharp
+run_preview_case 'preview-border-none'    --preview 'echo {}' --preview-border=none
 run_preview_case 'preview-header'    --preview 'echo {}' --border --header H
 run_preview_case 'layout-no-info'    --no-info
 run_preview_case 'layout-header'     --header H
