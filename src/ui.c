@@ -561,8 +561,11 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
        horizontal line.  With --reverse it sits at the bottom instead. */
     bool has_footer = ui->footer && *ui->footer;
     header_row = header_lines_row = -1;
-    bool draw_component_boxes = ui->style_full && !ui->header_first;
-    bool draw_header_box = draw_component_boxes && has_header;
+    bool full_component_style = ui->style_full && !ui->header_first;
+    bool draw_list_box = full_component_style ||
+                         (ui->list_border_set && ui->list_border != MM_BORDER_NONE);
+    bool draw_header_box = full_component_style && has_header;
+    bool draw_component_boxes = full_component_style || draw_list_box;
     if (ui->reverse) {
         /* prompt on top, info below it, list grows downwards. */
         prompt_row = content_top;
@@ -610,9 +613,9 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         list_last  = row;
         list_first = content_top + (has_footer ? 2 : 0);
     }
-    if (draw_component_boxes) {
-        /* Reserve the input border rows and the list's top/bottom edges.
-           The adjacent list/header/input borders share divider rows. */
+    if (full_component_style) {
+        /* Reserve input, list, and optional header borders; adjacent boxes
+           share their divider rows. */
         if (ui->reverse) {
             prompt_row++;
             if (info_row >= 0) info_row++;
@@ -632,6 +635,10 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             }
             list_first++;
         }
+    } else if (draw_list_box) {
+        if (ui->reverse) list_first += 2;
+        else list_first++;
+        list_last--;
     }
 
     int list_rows = list_last - list_first + 1;
@@ -1323,13 +1330,18 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     if (draw_component_boxes) {
         const mm_border_glyphs_t *g = ui->no_unicode
             ? mm_border_glyphs_ascii(ui->border) : mm_border_glyphs(ui->border);
+        int list_shape = ui->list_border_set ? ui->list_border : ui->border;
+        const mm_border_glyphs_t *lg = ui->no_unicode
+            ? mm_border_glyphs_ascii(list_shape) : mm_border_glyphs(list_shape);
         mm_color_t bcol = ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER);
         int left = area_x + (b_left ? 1 : 0);
         int right = area_x + area_w - 1;
-        ui_draw_border_box(listwin, g, bcol, left, right,
-                           prompt_row - 1, prompt_row + 1, total);
-        ui_draw_border_box(listwin, g, bcol, left, right,
-                           list_first - 1, list_last + 1, total);
+        if (full_component_style)
+            ui_draw_border_box(listwin, g, bcol, left, right,
+                               prompt_row - 1, prompt_row + 1, total);
+        if (draw_list_box)
+            ui_draw_border_box(listwin, lg, bcol, left, right,
+                               list_first - 1, list_last + 1, total);
         if (draw_header_box)
             ui_draw_border_box(listwin, g, bcol, left, right,
                                header_row - 1, header_row + header_rows, total);
