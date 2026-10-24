@@ -261,6 +261,7 @@ run_preview_case 'pointer-custom'    --pointer '>'
 run_preview_case 'marker-custom'     --multi --marker '*'
 run_preview_case 'multi-select'      --multi
 run_preview_case 'preview-default'   --preview 'echo {}'
+run_preview_case 'preview-window-comma-border-left' --preview 'echo {}' --preview-window='right,58%,border-left,wrap'
 run_preview_case 'preview-query'     --preview 'echo {q}'
 run_preview_case 'preview-static'    --preview 'echo hello'
 run_preview_case 'preview-scroll'    --preview 'seq 1 20'
