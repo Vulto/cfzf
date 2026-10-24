@@ -139,6 +139,7 @@ int main(int argc, char **argv) {
     bool border_label_bottom = false;
     const char *preview_cmd = NULL;
     const char *preview_label = NULL;
+    const char *preview_wrap_sign = NULL;
     int preview_label_pos = 0;
     bool preview_label_bottom = false;
     const char *pointer_spec = NULL;
@@ -489,8 +490,11 @@ int main(int argc, char **argv) {
     else if (!strcmp(a, "--freeze-left")) { if (i+1<argc) i++; }
     else if (ARG_EQ("--freeze-right")) { /* accepted */ }
     else if (!strcmp(a, "--freeze-right")) { if (i+1<argc) i++; }
-    else if (ARG_EQ("--preview-wrap-sign")) { if (i+1<argc || strchr(a,'=')) {} }
-    else if (!strcmp(a, "--preview-wrap-sign")) { if (i+1<argc) i++; }
+    else if (ARG_EQ("--preview-wrap-sign")) preview_wrap_sign = a + strlen("--preview-wrap-sign") + 1;
+    else if (!strcmp(a, "--preview-wrap-sign")) {
+        if (i + 1 < argc) preview_wrap_sign = argv[++i];
+        else { fprintf(stderr, "--preview-wrap-sign requires a value\\n"); return 2; }
+    }
     else if (ARG_EQ("--border-label-pos")) { /* already handled */ }
     else if (!strcmp(a, "--border-label-pos")) { /* handled */ }
     else if (!strcmp(a, "--listen")) { if (i+1<argc) listen_spec = argv[++i]; }
@@ -931,6 +935,7 @@ int main(int argc, char **argv) {
         ui.border = border_shape;
         ui.preview_border = preview_border_shape;
         ui.preview_label = preview_label;
+        ui.preview_wrap_sign = preview_wrap_sign;
         ui.preview_label_pos = preview_label_pos;
         ui.preview_label_bottom = preview_label_bottom;
         ui.list_border = list_border_shape;
