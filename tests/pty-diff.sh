@@ -113,6 +113,7 @@ run_case 'list-border-sharp' 'sleep 300'     "$WORK/items.txt" --list-border=sha
 run_case 'list-border-reverse' 'sleep 300'   "$WORK/items.txt" --reverse --list-border=sharp
 run_case 'list-label' 'sleep 300' "$WORK/items.txt" --list-border=sharp --list-label='RESULTS'
 run_case 'list-label-pos' 'sleep 300' "$WORK/items.txt" --list-border=sharp --list-label='RESULTS' --list-label-pos=4
+run_case 'list-label-center' 'sleep 300' "$WORK/items.txt" --list-border=sharp --list-label='RESULTS' --list-label-pos=center
 run_case 'list-label-bottom' 'sleep 300' "$WORK/items.txt" --list-border=sharp --list-label='RESULTS' --list-label-pos=4:bottom
 run_case 'list-label-reverse' 'sleep 300' "$WORK/items.txt" --reverse --list-border=sharp --list-label='RESULTS'
 run_case 'header-border-default' 'sleep 300'  "$WORK/items.txt" --header=HEADER --header-border
@@ -120,12 +121,14 @@ run_case 'header-border-sharp' 'sleep 300'    "$WORK/items.txt" --header=HEADER 
 run_case 'header-border-reverse' 'sleep 300'  "$WORK/items.txt" --reverse --header=HEADER --header-border=sharp
 run_case 'header-label' 'sleep 300' "$WORK/items.txt" --header=HEADER --header-border=sharp --header-label='GROUPS'
 run_case 'header-label-pos' 'sleep 300' "$WORK/items.txt" --header=HEADER --header-border=sharp --header-label='GROUPS' --header-label-pos=4
+run_case 'header-label-center' 'sleep 300' "$WORK/items.txt" --header=HEADER --header-border=sharp --header-label='GROUPS' --header-label-pos=center
 run_case 'header-label-bottom' 'sleep 300' "$WORK/items.txt" --header=HEADER --header-border=sharp --header-label='GROUPS' --header-label-pos=4:bottom
 run_case 'input-border-default' 'sleep 300' "$WORK/items.txt" --input-border
 run_case 'input-border-sharp' 'sleep 300' "$WORK/items.txt" --input-border=sharp
 run_case 'input-border-reverse' 'sleep 300' "$WORK/items.txt" --reverse --input-border=sharp
 run_case 'input-label' 'sleep 300' "$WORK/items.txt" --input-border=sharp --input-label='SEARCH'
 run_case 'input-label-pos' 'sleep 300' "$WORK/items.txt" --input-border=sharp --input-label='SEARCH' --input-label-pos=4
+run_case 'input-label-center' 'sleep 300' "$WORK/items.txt" --input-border=sharp --input-label='SEARCH' --input-label-pos=center
 run_case 'input-label-bottom' 'sleep 300' "$WORK/items.txt" --input-border=sharp --input-label='SEARCH' --input-label-pos=4:bottom
 run_case 'gentoo-command-layout' 'sleep 600' "$WORK/items.txt" --multi --ansi --style=full --border=rounded --layout=reverse --height=100% --info=inline-right --scroll-off=5 --cycle --prompt='Portage ❯ ' --header='TYPE TO SEARCH | TAB: SELECT MULTIPLE | ENTER: INSTALL | ESC: CANCEL' --preview='printf "preview: %s\\n" "{}"' --preview-window='right,58%,border-left,wrap'
 run_case 'no-cycle' 'sleep 300\nkey down\nkey down\nkey down\nkey down\nkey down\nkey down\nsleep 200' "$WORK/items.txt" --no-cycle
