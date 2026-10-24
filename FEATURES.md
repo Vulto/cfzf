@@ -88,8 +88,8 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-059 | `--list-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-060 | `--listen` | src/main.c | - | implemented |
 | OPT-061 | `--listen-unsafe` | src/main.c | - | implemented |
-| OPT-062 | `--list-label` | - | - | unstarted |
-| OPT-063 | `--list-label-pos` | - | - | unstarted |
+| OPT-062 | `--list-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
+| OPT-063 | `--list-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-064 | `--literal` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-065 | `--margin` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-066 | `\-\-marker` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
