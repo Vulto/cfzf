@@ -429,7 +429,7 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--list-border")) {
             list_border_shape = mm_border_parse(a + strlen("--list-border") + 1);
             if (list_border_shape < 0) {
-                fprintf(stderr, "invalid --list-border style: %s\\n", a + strlen("--list-border") + 1);
+                fprintf(stderr, "invalid --list-border style: %s\n", a + strlen("--list-border") + 1);
                 return 2;
             }
             list_border_set = true;
