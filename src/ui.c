@@ -196,6 +196,32 @@ static int ui_str_width(const char *s) {
     return w;
 }
 
+static void ui_draw_border_box(mm_window_t *win,
+                                const mm_border_glyphs_t *g,
+                                mm_color_t color, int left, int right,
+                                int top, int bottom, int total) {
+    if (!g || left < 0 || right <= left || top < 0 || bottom >= total ||
+        bottom <= top) return;
+    mm_window_move(win, top, left);
+    mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->top_left);
+    for (int x = left + 1; x < right; x++)
+        mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->top);
+    mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->top_right);
+
+    mm_window_move(win, bottom, left);
+    mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->bottom_left);
+    for (int x = left + 1; x < right; x++)
+        mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->bottom);
+    mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->bottom_right);
+
+    for (int y = top + 1; y < bottom; y++) {
+        mm_window_move(win, y, left);
+        mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->left);
+        mm_window_move(win, y, right);
+        mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->right);
+    }
+}
+
 /* Blank out the rest of the current line. */
 /* Fill the row with spaces up to the given column.  `used` is the number
    of columns that are already filled from the start of the row. */
@@ -535,7 +561,8 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
        horizontal line.  With --reverse it sits at the bottom instead. */
     bool has_footer = ui->footer && *ui->footer;
     header_row = header_lines_row = -1;
-    bool draw_header_box = ui->style_full && has_header && !ui->header_first;
+    bool draw_component_boxes = ui->style_full && !ui->header_first;
+    bool draw_header_box = draw_component_boxes && has_header;
     if (ui->reverse) {
         /* prompt on top, info below it, list grows downwards. */
         prompt_row = content_top;
@@ -583,15 +610,27 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         list_last  = row;
         list_first = content_top + (has_footer ? 2 : 0);
     }
-    if (draw_header_box) {
-        /* The header box consumes one row above and below its text. The
-           adjacent list edge shares the corresponding horizontal divider. */
+    if (draw_component_boxes) {
+        /* Reserve the input border rows and the list's top/bottom edges.
+           The adjacent list/header/input borders share divider rows. */
         if (ui->reverse) {
-            header_row++;
-            list_first += 2;
+            prompt_row++;
+            if (info_row >= 0) info_row++;
+            if (draw_header_box) {
+                header_row += 3;
+                list_first += 4;
+            } else {
+                list_first += 2;
+            }
+            list_last--;
         } else {
-            header_row--;
-            list_last -= 2;
+            if (draw_header_box) {
+                header_row -= 2;
+                list_last -= 3;
+            } else {
+                list_last--;
+            }
+            list_first++;
         }
     }
 
@@ -1281,36 +1320,19 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         }
     }
 
-    if (draw_header_box) {
+    if (draw_component_boxes) {
         const mm_border_glyphs_t *g = ui->no_unicode
             ? mm_border_glyphs_ascii(ui->border) : mm_border_glyphs(ui->border);
-        if (g) {
-            mm_color_t bcol = ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER);
-            int left = area_x + (b_left ? 1 : 0);
-            int right = area_x + area_w - 1;
-            int top = header_row - 1;
-            int bottom = header_row + header_rows;
-            if (right - left >= 1 && top >= 0 && bottom < total) {
-                mm_window_move(listwin, top, left);
-                mm_window_cprint(listwin, bcol, MM_COL_DEFAULT, 0, g->top_left);
-                for (int x = left + 1; x < right; x++)
-                    mm_window_cprint(listwin, bcol, MM_COL_DEFAULT, 0, g->top);
-                mm_window_cprint(listwin, bcol, MM_COL_DEFAULT, 0, g->top_right);
-
-                mm_window_move(listwin, bottom, left);
-                mm_window_cprint(listwin, bcol, MM_COL_DEFAULT, 0, g->bottom_left);
-                for (int x = left + 1; x < right; x++)
-                    mm_window_cprint(listwin, bcol, MM_COL_DEFAULT, 0, g->bottom);
-                mm_window_cprint(listwin, bcol, MM_COL_DEFAULT, 0, g->bottom_right);
-
-                for (int y = top + 1; y < bottom; y++) {
-                    mm_window_move(listwin, y, left);
-                    mm_window_cprint(listwin, bcol, MM_COL_DEFAULT, 0, g->left);
-                    mm_window_move(listwin, y, right);
-                    mm_window_cprint(listwin, bcol, MM_COL_DEFAULT, 0, g->right);
-                }
-            }
-        }
+        mm_color_t bcol = ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER);
+        int left = area_x + (b_left ? 1 : 0);
+        int right = area_x + area_w - 1;
+        ui_draw_border_box(listwin, g, bcol, left, right,
+                           prompt_row - 1, prompt_row + 1, total);
+        ui_draw_border_box(listwin, g, bcol, left, right,
+                           list_first - 1, list_last + 1, total);
+        if (draw_header_box)
+            ui_draw_border_box(listwin, g, bcol, left, right,
+                               header_row - 1, header_row + header_rows, total);
     }
 
     /* Preview window. */
