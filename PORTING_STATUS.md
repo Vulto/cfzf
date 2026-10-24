@@ -102,18 +102,16 @@ logical screen states through `tests/screen.py`.
 
 ## Known mismatches / open gaps
 
-- **~38 of 131 CLI options are not implemented** (`--listen`, `--tmux`/`--popup`,
-  `--with-shell`, `--threads`, `--bench`, `--man`, layout, scrolling,
-  `--bind`, walker, shell integration). Several options are implemented but
-  not yet covered by differential tests. `--highlight-line`, `--header-first`,
-  `--info-command` are implemented and verified through differential tests.
-  Unknown options are rejected with `unknown option: X` and exit 2, matching
-  fzf's error style, rather than being silently ignored.
-- `--bind` is implemented (`src/bind.c`): key specifications, `+`-chained
-  actions and 68 actions are honoured. Event binding infrastructure is
-  implemented (start, load, change, result triggers), but no events are
-  yet verified through differential tests. All 13 events in `FEATURES.md`
-  remain `unstarted`.
+- The current `FEATURES.md` inventory marks 34 CLI options unstarted and
+  20 implemented without differential verification. Its 77 `verified` labels
+  are inherited inventory claims; the current CI suite covers only the cases
+  recorded in `BASELINE_EVIDENCE.md`. Some unsupported options are rejected,
+  but exact CLI parity has not been certified.
+- The action inventory currently has 125 rows, with 64 marked implemented but
+  unverified and 61 unstarted; seven IDs are absent from the table. Although
+  `--bind` and action handling exist in the source, no action is currently
+  marked differentially verified in `FEATURES.md`. All 13 events are marked
+  unstarted; infrastructure presence is not equivalent to event parity.
 - `--select-1` / `--exit-0` are parsed but not acted on in interactive mode.
 - fzf shows a spinner in the info line while the input is still being read;
   the C23 port reads the input synchronously and never shows one, so the
