@@ -11,12 +11,11 @@ the machine the work was done on; estimated numbers are marked as such.
 | Version | 0.74.3 |
 | Commit | `15f64c492a08f0840b81540c7d1de35737448086` (`v0.74.3`) |
 | Source of record | `/tmp/opencode/fzf-src`, checked out at that commit |
-| Reference binary | resolved by `tests/ref.sh`: `$FZF_REF`, else `/usr/bin/fzf`, else built from the pinned commit into `/tmp/opencode/fzf-ref` |
+| Reference binary | fresh build from the pinned source commit in an isolated Git worktree; no system-binary or stale-binary fallback |
 
-The system `/usr/bin/fzf` is no longer installed in this environment, so the
-harnesses build the reference from the pinned source. A copy of the C23
-binary was found installed at `/usr/local/bin/fzf` (root-owned, not removable
-from this account); it is **not** used as a reference.
+The reference resolver rejects a missing pinned source checkout and rebuilds the
+reference on each invocation. `FZF_REF` is available only as an explicit
+caller-supplied override whose provenance must be independently verified.
 
 ## 2. Architecture
 
@@ -47,20 +46,20 @@ Size: ~6 300 lines of C in `src/`, ~1 900 lines of harness in `tests/`.
 
 ## 3. Feature inventory completion
 
-`FEATURES.md` holds the per-feature matrix (131 options, 132 actions,
-13 events).
+`FEATURES.md` is the per-feature inventory. Its current row counts are:
 
-| Group | Verified | Total |
-|---|---|---|
-| CLI options | 70 | 131 |
-| `--bind` actions | 39 | 132 |
-| Events | 0 | 13 |
+| Group | Marked verified | Marked implemented (unverified) | Marked unstarted | Rows present |
+|---|---:|---:|---:|---:|
+| CLI options | 77 | 20 | 34 | 131 |
+| `--bind` actions | 0 | 64 | 61 | 125 |
+| Events | 0 | 0 | 13 | 13 |
 
-"Verified" means implemented **and** covered by an automated differential
-test against the reference. A feature is never marked verified because its
-name appears in the code.
+The action inventory is incomplete: seven IDs in the 001–132 range are absent
+from its table. Counts are inventory labels, not proof of fresh verification;
+see `TASKS.md` for the acceptance criteria and `BASELINE_EVIDENCE.md` for
+the exact coverage of the current CI run.
 
-## 4. Test results
+## 4. Historical test results (not a current full certification)
 
 | Suite | Command | Result |
 |---|---|---|
@@ -78,10 +77,10 @@ name appears in the code.
 | Static analysis | `gcc -fanalyzer` over `src/*.c` | **0 findings** |
 | Strict build | gcc and clang, `-std=c23 -Wall -Wextra -Wpedantic -Werror` | **clean** |
 
-The interactive harness compares *logical screen states* (a small ANSI screen
-emulator in `tests/screen.py`), so fzf's incremental repaint and the C23
-full repaint are compared on equal terms. The `--color` cases additionally
-compare the palette of SGR codes that both programs emit.
+These results originate from prior work logs and are not all re-established by
+current CI. The interactive harness compares logical screen states via
+`tests/screen.py`; color cases also compare SGR palettes. The currently
+reproducible CI scope is documented separately in `BASELINE_EVIDENCE.md`.
 
 ## 5. Differential compatibility
 
@@ -169,9 +168,11 @@ were:
 
 ## 9. Known limitations
 
-- 51 of 131 CLI options, 93 of 132 actions and all 13 events are not
-  implemented. Unimplemented options are **rejected** with the reference's
-  `unknown option: X` message and exit status 2 — never silently ignored.
+- The inventory currently marks 34 options unstarted and 20 implemented but
+  not differentially verified. Its action table has 125 rows, of which 61 are
+  unstarted and 64 implemented but unverified; seven action IDs are missing.
+  All 13 events are marked unstarted. These inventory counts need upstream
+  reconciliation before they can be treated as canonical totals.
 - No `--listen`, `--tmux`, `--popup`, `--with-shell`, `--threads`, `--bench`
   or `--man`.
 - The batch driver is faster than the reference on two of the three
@@ -183,8 +184,9 @@ were:
 
 ## 10. Commits
 
-Branch `fzf-c23-rewrite` (local only; nothing is pushed and the branch has
-no upstream configured). The port is a sequence of verified units:
+The following commit list is historical project provenance, not the current
+shared branch history. The active work is committed directly to `main` as
+requested.
 
 ```
 6daecc3 feat: add ANSI escape/color parser with fzf differential fixtures
@@ -206,8 +208,7 @@ the same commands the workflow runs.
 
 ## 11. Verified facts vs estimates
 
-Everything in §4, §5, §6 and §7 was measured. The only estimates are the
-feature-completion percentages in §3, which are counts over the inventory in
-`FEATURES.md`, and the note that the C23 port is "comparable" to the
-reference on interactive latency — the interactive path was verified
-screen-by-screen for the covered scenarios, not benchmarked.
+The historical measurements in §4–§7 are not all re-run by the current CI.
+Current, commit-specific verification is limited to the commands recorded in
+`BASELINE_EVIDENCE.md`. Performance numbers remain historical until the
+benchmark milestone repeats them with controlled measurements.
