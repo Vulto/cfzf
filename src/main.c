@@ -241,7 +241,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-multi")) multi = false;
         else if (ARG_EQ("--multi-max")) multi_max = atoi(a + 12);
         else if (!strcmp(a, "--multi-max")) { if (i+1<argc) multi_max = atoi(argv[++i]); }
-        else if (!strcmp(a, "--cycle") || !strcmp(a, "--no-cycle")) cycle = true;
+        else if (!strcmp(a, "--cycle")) cycle = true;
+        else if (!strcmp(a, "--no-cycle")) cycle = false;
         else if (!strcmp(a, "--reverse")) reverse = true;
         else if (!strcmp(a, "--no-reverse")) reverse = false;
         else if (!strcmp(a, "--info")) { info = true; info_inline_right = false; }
