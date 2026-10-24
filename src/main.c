@@ -82,8 +82,14 @@ static void *walk_thread_fn(void *arg) {
 
 static bool mm_parse_label_pos(const char *s, int *pos, bool *bottom) {
     char *end = NULL;
-    long v = strtol(s, &end, 10);
-    if (end == s) return false;
+    long v;
+    if (!strncmp(s, "center", 6) && (s[6] == 0 || s[6] == ':')) {
+        v = 0;
+        end = (char *)s + 6;
+    } else {
+        v = strtol(s, &end, 10);
+        if (end == s) return false;
+    }
     if (*end != 0) {
         if (*end != ':') return false;
         if (!strcmp(end + 1, "bottom")) *bottom = true;
