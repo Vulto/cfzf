@@ -1,0 +1,530 @@
+#!/usr/bin/env bash
+# pty-diff.sh - interactive differential test: run the reference fzf and the
+# C23 implementation under a pseudo-terminal with the same keystrokes and
+# compare the resulting logical screen state.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REF=${REF:-$("$HERE/ref.sh")}
+IMPL=${IMPL:-$HERE/../cfzf}
+WORK=${WORK:-/tmp/opencode/pty-diff}
+mkdir -p "$WORK"
+
+if [ ! -x "$IMPL" ]; then
+    printf 'implementation binary not found: %s\n' "$IMPL" >&2
+    exit 2
+fi
+
+printf 'apple\nbanana\ncherry\ndate\nelderberry\n' > "$WORK/items.txt"
+printf 'src/main.c\nsrc/util.c\nlib/foo.c\nREADME.md\n' > "$WORK/paths.txt"
+# A longer list, so that the list has to scroll.
+i=0; : > "$WORK/many.txt"
+while [ $i -lt 20 ]; do printf 'item%02d\n' "$i" >> "$WORK/many.txt"; i=$((i+1)); done
+# Long items for the list wrapping.
+printf 'x%.0s' $(seq 1 80) > "$WORK/long.txt"
+printf '\nshort\n' >> "$WORK/long.txt"
+
+pass=0
+fail=0
+
+# Comparing the captured screens can fail when the capture happens in the
+# middle of a redraw or when the machine is busy.  Such a failure is
+# retried before it is reported.
+compare() {
+    ref=$1; impl=$2; name=$3
+    for attempt in 1 2 3; do
+        if diff -q "$ref" "$impl" > /dev/null; then
+            return 0
+        fi
+        if [ "$attempt" -lt 3 ]; then
+            sleep 0.3
+        fi
+    done
+    # Keep the failing artifacts for inspection.
+    cp "$ref" "$ref.failed" 2>/dev/null
+    cp "$impl" "$impl.failed" 2>/dev/null
+    return 1
+}
+
+run_case() {
+    name=$1; script=$2; items=$3; shift 3
+    printf '%s\n' "$script" > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$items" --screen --stdout -- "$@" > "$WORK/ref.txt" 2> "$WORK/ref.err"
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$items" --screen --stdout -- "$@" > "$WORK/impl.txt" 2> "$WORK/impl.err"
+    if compare "$WORK/ref.txt" "$WORK/impl.txt" "$name"; then
+        pass=$((pass + 1))
+        printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.txt" "$WORK/impl.txt" | head -30
+    fi
+    # Compare the foreground colour of every cell as well, so that a
+    # difference in the highlighted line or in the attributes is caught.
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$items" --screen --color -- "$@" > "$WORK/ref.c" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$items" --screen --color -- "$@" > "$WORK/impl.c" 2>/dev/null
+    if compare "$WORK/ref.c" "$WORK/impl.c" "$name"; then
+        pass=$((pass + 1))
+        printf 'PASS %s (color)\n' "$name"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s (color)\n' "$name"
+        diff -u "$WORK/ref.c" "$WORK/impl.c" | head -30
+    fi
+}
+
+run_case 'initial'      'sleep 400'            "$WORK/items.txt"
+run_case 'query'        'sleep 350
+send an
+sleep 300'                                        "$WORK/items.txt"
+run_case 'query-enter'  'sleep 350
+send cherry
+sleep 200
+key enter
+sleep 200'                                        "$WORK/items.txt"
+run_case 'navigate'     'sleep 350
+key down
+sleep 150
+key down
+sleep 150
+key up
+sleep 200'                                        "$WORK/items.txt"
+run_case 'backspace'    'sleep 350
+send banana
+sleep 200
+key bspace
+sleep 200'                                        "$WORK/items.txt"
+run_case 'no-match'     'sleep 350
+send zzzz
+sleep 250'                                        "$WORK/items.txt"
+run_case 'paths'        'sleep 350
+send c
+sleep 250'                                        "$WORK/paths.txt"
+
+run_case 'reverse'      'sleep 300'            "$WORK/items.txt" --reverse
+run_case 'no-info'      'sleep 300'            "$WORK/items.txt" --no-info
+run_case 'highlight-line' 'sleep 350
+send a
+sleep 250'              "$WORK/many.txt" --highlight-line
+run_case 'info-command'   'sleep 300'            "$WORK/items.txt" --info-command 'echo INFO'
+run_case 'header'         'sleep 300'            "$WORK/items.txt" --header 'HEAD'
+run_case 'header-multiline' 'sleep 300'          "$WORK/items.txt" --header $'A\nB'
+run_case 'header-first'   'sleep 300'            "$WORK/items.txt" --header 'HEAD' --header-first
+run_case 'header-lines'   'sleep 300'            "$WORK/items.txt" --header-lines=2
+run_case 'header-lines-header' 'sleep 300'       "$WORK/items.txt" --header-lines=2 --header 'TOP'
+run_case 'header-lines-first' 'sleep 300'        "$WORK/items.txt" --header-lines=2 --header-first
+run_case 'header-lines-first-header' 'sleep 300' "$WORK/items.txt" --header-lines=2 --header 'TOP' --header-first
+run_case 'reverse-header' 'sleep 300'            "$WORK/items.txt" --reverse --header 'HEAD'
+run_case 'reverse-header-first' 'sleep 300'      "$WORK/items.txt" --reverse --header 'HEAD' --header-first
+run_case 'reverse-header-lines' 'sleep 300'      "$WORK/items.txt" --reverse --header-lines=2
+run_case 'reverse-header-lines-first' 'sleep 300' "$WORK/items.txt" --reverse --header-lines=2 --header-first
+run_case 'footer-reverse' 'sleep 300'            "$WORK/items.txt" --reverse --footer 'FOOT'
+run_case 'multi'        'sleep 350
+key tab
+sleep 150
+key tab
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --multi
+run_case 'prompt'       'sleep 300'            "$WORK/items.txt" --prompt 'search> '
+run_case 'expect'       'sleep 350
+send app
+sleep 150
+key ctrl-a
+sleep 200'                                        "$WORK/items.txt" --expect=ctrl-a
+
+run_case 'bind-jump-down'  'sleep 350
+key down
+sleep 150
+key down
+sleep 150
+key up
+sleep 200'                                        "$WORK/items.txt" --bind='up:up,down:down'
+run_case 'bind-first-last' 'sleep 350
+key end
+sleep 150
+key home
+sleep 200'                                        "$WORK/items.txt" --bind='home:first,end:last'
+run_case 'bind-toggle'    'sleep 350
+key tab
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind='tab:toggle' --multi
+run_case 'bind-abort'     'sleep 350
+key esc
+sleep 200'                                        "$WORK/items.txt" --bind='esc:abort'
+
+# Preview window: the layout, the command output and the box are compared.
+run_preview_case() {
+    name=$1; shift
+    # The preview command runs asynchronously; give it time to produce output.
+    printf 'sleep 800\n' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --cols 40 --rows 12 -- "$@" \
+        > "$WORK/ref.txt" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --cols 40 --rows 12 -- "$@" \
+        > "$WORK/impl.txt" 2>/dev/null
+    if compare "$WORK/ref.txt" "$WORK/impl.txt" "$name"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.txt" "$WORK/impl.txt" | head -12
+    fi
+}
+
+# The history file and the history navigation actions.
+run_history_case() {
+    name=$1; keys=$2
+    hist="$WORK/history.txt"
+    printf 'apple\nbanana\ncherry\n' > "$hist"
+    printf 'sleep 300\n%s\nsleep 300\n' "$keys" > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --cols 40 --rows 12 \
+        -- --history "$hist" --bind 'alt-up:prev-history,alt-down:next-history' \
+        > "$WORK/ref.txt" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --cols 40 --rows 12 \
+        -- --history "$hist" --bind 'alt-up:prev-history,alt-down:next-history' \
+        > "$WORK/impl.txt" 2>/dev/null
+    if compare "$WORK/ref.txt" "$WORK/impl.txt" "$name"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.txt" "$WORK/impl.txt" | head -12
+    fi
+}
+
+run_history_case 'history-prev'  'key alt-up'
+run_history_case 'history-prev2' 'key alt-up
+key alt-up'
+run_history_case 'history-next'  'key alt-down'
+
+# The print and become actions write to stdout, which the harness captures.
+run_stdout_case() {
+    name=$1; bind=$2; keys=$3
+    printf '%s' "$keys" > "$WORK/script.txt"
+    # The logical screen is compared as well, so that only the output of
+    # the action matters and not the exact escape sequences.
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --stdout -- --bind "$bind" \
+        > "$WORK/ref.out" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --stdout -- --bind "$bind" \
+        > "$WORK/impl.out" 2>/dev/null
+    if compare "$WORK/ref.out" "$WORK/impl.out" "$name"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.out" "$WORK/impl.out" | head -10
+    fi
+}
+
+run_stdout_case 'action-print'  'ctrl-t:print(hello)' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 300'
+run_stdout_case 'action-become' 'ctrl-t:become(echo BECAME)' 'sleep 350
+key ctrl-t
+sleep 300'
+
+# The reload action replaces the list with the output of a command.
+run_reload_case() {
+    name=$1; bind=$2
+    printf 'sleep 200\nkey ctrl-t\nsleep 300\n' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --color -- --bind "$bind" \
+        > "$WORK/ref.c" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --color -- --bind "$bind" \
+        > "$WORK/impl.c" 2>/dev/null
+    if diff -q "$WORK/ref.c" "$WORK/impl.c" > /dev/null; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.c" "$WORK/impl.c" | head -10
+    fi
+}
+
+run_reload_case 'action-reload' 'ctrl-t:reload(seq 1 3)'
+
+run_preview_case 'layout-reverse-list' --layout=reverse-list
+run_preview_case 'no-bold'           --no-bold
+run_preview_case 'no-color'          --no-color
+run_preview_case 'ellipsis-custom'   --ellipsis '...'
+run_preview_case 'pointer-custom'    --pointer '>'
+run_preview_case 'marker-custom'     --multi --marker '*'
+run_preview_case 'multi-select'      --multi
+run_preview_case 'preview-default'   --preview 'echo {}'
+run_preview_case 'preview-query'     --preview 'echo {q}'
+run_preview_case 'preview-static'    --preview 'echo hello'
+run_preview_case 'preview-scroll'    --preview 'seq 1 20'
+run_preview_case 'preview-text'     --preview 'echo hi'
+run_preview_case 'gap-1'            --gap=1
+run_preview_case 'gap-3'            --gap=3
+run_preview_case 'gap-3-preview'    --gap=3 --preview 'echo hi'
+run_preview_case 'gap-line'         --gap=2 --gap-line=-
+run_preview_case 'preview-wrap'      --preview 'seq 1 30' --preview-window wrap
+run_preview_case 'preview-long'     --preview 'seq 1 100'
+run_preview_case 'preview-right-30'  --preview-window=right:30% --preview 'echo {}'
+run_preview_case 'preview-left'      --preview-window=left:50% --preview 'echo {}'
+run_preview_case 'preview-top'       --preview-window=top:40% --preview 'echo {}'
+run_preview_case 'preview-bottom'    --preview-window=bottom:40% --preview 'echo {}'
+run_preview_case 'preview-border'    --preview 'echo {}' --border
+run_preview_case 'preview-header'    --preview 'echo {}' --border --header H
+run_preview_case 'layout-no-info'    --no-info
+run_preview_case 'layout-header'     --header H
+
+# The list wrapping (--wrap) and the layout options.
+run_long_case() {
+    name=$1; shift
+    printf 'sleep 400\n' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/long.txt" --screen --color --cols 40 --rows 12 -- "$@" \
+        > "$WORK/ref.c" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/long.txt" --screen --color --cols 40 --rows 12 -- "$@" \
+        > "$WORK/impl.c" 2>/dev/null
+    if compare "$WORK/ref.c" "$WORK/impl.c" "$name"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.c" "$WORK/impl.c" | head -12
+    fi
+}
+
+run_long_case 'wrap'                --wrap
+run_long_case 'wrap-sign'           --wrap --wrap-sign '>>> '
+run_long_case 'wrap-sign-long'      --wrap --wrap-sign 'LONGSIGN-'
+run_long_case 'wrap-gap'            --wrap --gap=2
+run_long_case 'wrap-reverse'        --wrap --reverse
+run_long_case 'wrap-reverse-list'   --wrap --layout=reverse-list
+run_long_case 'layout-reverse'      --layout=reverse
+run_long_case 'gap-1-long'          --gap=1
+run_long_case 'wrap-word'           --wrap=word
+run_long_case 'wrap-word-long'      --wrap-word
+run_long_case 'wrap-char'           --wrap=char
+run_case 'phony'          'sleep 350
+send zzz
+sleep 300'                                        "$WORK/items.txt" --phony
+run_case 'disabled'       'sleep 350
+send zzz
+sleep 300'                                        "$WORK/items.txt" --disabled
+run_long_case 'gap-3-long'          --gap=3
+
+# A live stream of items: the list grows while the program is running.
+run_stream_case() {
+    name=$1
+    printf 'sleep 350\nitem second\nsleep 350\nitem third\nsleep 350\nstdin close\nsleep 350\n' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --keep-stdin --screen --color \
+        --cols 40 --rows 12 > "$WORK/ref.c" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --keep-stdin --screen --color \
+        --cols 40 --rows 12 > "$WORK/impl.c" 2>/dev/null
+    if compare "$WORK/ref.c" "$WORK/impl.c" "$name"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.c" "$WORK/impl.c" | head -12
+    fi
+}
+
+run_stream_case 'live-stream'
+
+# The navigation direction and the scroll offset.
+run_scroll_case() {
+    name=$1; keys=$2; shift 2
+    printf 'sleep 300\n%s\nsleep 300\n' "$keys" > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/many.txt" --screen --color --cols 40 --rows 12 -- "$@" \
+        > "$WORK/ref.c" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/many.txt" --screen --color --cols 40 --rows 12 -- "$@" \
+        > "$WORK/impl.c" 2>/dev/null
+    if compare "$WORK/ref.c" "$WORK/impl.c" "$name"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.c" "$WORK/impl.c" | head -12
+    fi
+}
+
+run_scroll_case 'nav-down'  'key down
+key down
+key down'
+run_scroll_case 'nav-up'    'key up'
+run_scroll_case 'nav-mixed' 'key down
+key up
+key down'
+run_scroll_case 'scroll-off-0'  'key down
+key down
+key down
+key down' --scroll-off=0
+run_scroll_case 'scroll-off-1'  'key down
+key down
+key down
+key down' --scroll-off=1
+run_scroll_case 'scroll-off-5'  'key down
+key down
+key down
+key down' --scroll-off=5
+run_scroll_case 'scroll-off-20' 'key down
+key down
+key down
+key down' --scroll-off=20
+
+# The footer, the gutter and the ASCII glyphs.
+run_case 'footer'          'sleep 200'                                       "$WORK/items.txt" --footer=FOOT
+run_case 'gutter'          'sleep 200'                                       "$WORK/items.txt" --gutter=+
+run_case 'gutter-raw'      'sleep 200'                                       "$WORK/items.txt" --gutter-raw=:
+run_case 'padding-1'       'sleep 200'                                       "$WORK/items.txt" --padding=1
+run_case 'padding-3'       'sleep 200'                                       "$WORK/items.txt" --padding=3
+run_case 'tabstop'         'sleep 200'                                       "$WORK/items.txt" --tabstop=4
+run_case 'margin-1'        'sleep 200'                                       "$WORK/items.txt" --margin=1
+run_case 'margin-2'        'sleep 200'                                       "$WORK/items.txt" --margin=2
+run_case 'separator'       'sleep 200'                                       "$WORK/items.txt" --separator=--
+run_case 'separator-char'  'sleep 200'                                       "$WORK/items.txt" --separator=|
+
+run_case 'no-unicode-glyphs' 'sleep 350
+key tab
+sleep 200
+key enter
+sleep 200'                                        "$WORK/items.txt" --no-unicode --multi
+
+# Border shapes are compared as logical screens.
+run_border_case() {
+    name=$1; shape=$2; shift 2
+    printf 'sleep 300\n' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --color --cols 40 --rows 12 \
+        -- "--border=$shape" "$@" > "$WORK/ref.txt" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --color --cols 40 --rows 12 \
+        -- "--border=$shape" "$@" > "$WORK/impl.txt" 2>/dev/null
+    if compare "$WORK/ref.txt" "$WORK/impl.txt" "$name"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.txt" "$WORK/impl.txt" | head -12
+    fi
+}
+
+for shape in rounded sharp bold double block thinblock dashed horizontal vertical top bottom left right; do
+    run_border_case "border-$shape" "$shape"
+done
+for shape in rounded sharp top bottom horizontal; do
+    run_border_case "border-label-$shape" "$shape" --border-label=LABEL
+done
+
+# The execute action writes the current item to a file; compare the file
+# contents produced by the reference and the implementation.
+run_execute_case() {
+    name=$1; bind=$2
+    rm -f "$WORK/exec-ref.txt" "$WORK/exec-impl.txt"
+    printf 'sleep 350
+key ctrl-t
+sleep 300
+' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen \
+        -- --bind="ctrl-t:execute(echo {} > $WORK/exec-ref.txt)" > "$WORK/ref.txt" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen \
+        -- --bind="ctrl-t:execute(echo {} > $WORK/exec-impl.txt)" > "$WORK/impl.txt" 2>/dev/null
+    if cmp -s "$WORK/exec-ref.txt" "$WORK/exec-impl.txt"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        printf '  ref : %s\n' "$(cat "$WORK/exec-ref.txt" 2>/dev/null)"
+        printf '  impl: %s\n' "$(cat "$WORK/exec-impl.txt" 2>/dev/null)"
+    fi
+}
+
+run_execute_case 'bind-execute' 'ctrl-t'
+
+run_case 'bind-change-query' 'sleep 350
+key ctrl-t
+sleep 250'                                        "$WORK/items.txt" --bind='ctrl-t:change-query(cherry)'
+
+# Compare the SGR (color/attribute) codes the two programs emit, so that
+# --color handling is verified and not only the text layout.
+run_color_case() {
+    name=$1; shift
+    printf 'sleep 300\n' > "$WORK/script.txt"
+    python3 "$HERE/sgrdump.py" "$REF" "$WORK/script.txt" "$WORK/items.txt" "$@" \
+        > "$WORK/ref.sgr" 2>/dev/null
+    python3 "$HERE/sgrdump.py" "$IMPL" "$WORK/script.txt" "$WORK/items.txt" "$@" \
+        > "$WORK/impl.sgr" 2>/dev/null
+    if diff -q "$WORK/ref.sgr" "$WORK/impl.sgr" > /dev/null; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.sgr" "$WORK/impl.sgr" | head -20
+    fi
+}
+
+# Regression: the info line separator used to overflow a fixed stack buffer
+# on wide terminals (>= 178 columns) and to underflow on very narrow ones.
+run_size_case() {
+    name=$1; cols=$2; rows=$3
+    printf 'sleep 300\n' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --cols "$cols" --rows "$rows" \
+        > "$WORK/ref.txt" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --cols "$cols" --rows "$rows" \
+        > "$WORK/impl.txt" 2>/dev/null
+    if compare "$WORK/ref.txt" "$WORK/impl.txt" "$name"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.txt" "$WORK/impl.txt" | head -12
+    fi
+}
+
+run_size_case 'width-80'   80  24
+run_size_case 'width-200'  200 24
+run_size_case 'width-500'  500 24
+run_size_case 'width-20'   20  10
+run_size_case 'width-10'   10  6
+
+# The inline layout (--height) is compared at several terminal sizes.
+run_height_case() {
+    name=$1; height=$2; cols=$3; rows=$4
+    printf 'sleep 300\n' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --color --cols "$cols" --rows "$rows" \
+        "--height=$height" > "$WORK/ref.c" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --color --cols "$cols" --rows "$rows" \
+        "--height=$height" > "$WORK/impl.c" 2>/dev/null
+    if compare "$WORK/ref.c" "$WORK/impl.c" "$name"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.c" "$WORK/impl.c" | head -12
+    fi
+}
+
+run_height_case 'height-percent' 20%  40 12
+run_height_case 'height-3'        3     40 12
+run_height_case 'height-10'       10    40 12
+run_height_case 'height-full'     12    40 12
+run_height_case 'height-tall'     20%   40 20
+run_height_case 'height-tall-10'  10    40 20
+run_height_case 'height-min-5'    20%   40 12
+run_height_case 'height-min-8'    20%   40 12
+run_height_case 'height-min-3'    20%   40 12
+run_height_case 'height-plus'     50%   40 12
+
+run_color_case 'color-default'
+run_color_case 'color-pointer-info' --color=pointer:cyan,info:yellow
+
+printf '\n%d/%d interactive cases matched\n' "$pass" "$((pass + fail))"
+[ "$fail" -eq 0 ]

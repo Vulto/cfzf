@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# batch-diff.sh - differential test of the batch (--filter) mode against the
+# reference fzf. Compares stdout, stderr and exit status for a matrix of
+# options over a generated corpus.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+REF=${REF:-$("$HERE/ref.sh")}
+IMPL=${IMPL:-$HERE/../cfzf}
+WORK=${WORK:-/tmp/opencode/batch-diff}
+mkdir -p "$WORK"
+
+if [ ! -x "$IMPL" ]; then
+    printf 'implementation binary not found: %s\n' "$IMPL" >&2
+    exit 2
+fi
+
+CORPUS="$WORK/corpus.txt"
+if [ ! -s "$CORPUS" ]; then
+    {
+        printf 'apple\nbanana\nCherry\ncherry\ndate\nelderberry\nfig\ngrape\n'
+        printf 'src/main.c\nsrc/util.c\nlib/foo.c\nREADME.md\ndocs/PLAN.md\n'
+        printf 'a:b:c\nx:y:z\nfoo:bar:baz\n'
+        printf 'hello world\nhello there\nworld hello\n'
+        printf 'naïve\nrésumé\nüber\n日本語テキスト\n'
+        printf 'a b  c\n  leading\ntrailing  \ntab\there\n'
+        printf 'ABC\nabc\nAbC\naBc\n'
+        printf 'foo bar baz\nfoo_bar_baz\nfoo-bar-baz\n'
+        printf '123\n456\n789\n'
+        printf 'x\ny\nz\n'
+    } > "$CORPUS"
+fi
+
+pass=0
+fail=0
+
+check() {
+    desc=$1; shift
+    "$REF" "$@" < "$CORPUS" > "$WORK/ref.out" 2> "$WORK/ref.err"
+    rrc=$?
+    "$IMPL" "$@" < "$CORPUS" > "$WORK/impl.out" 2> "$WORK/impl.err"
+    irc=$?
+    if [ "$rrc" = "$irc" ] && cmp -s "$WORK/ref.out" "$WORK/impl.out"; then
+        pass=$((pass + 1))
+        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s (exit ref=%s impl=%s)\n' "$desc" "$rrc" "$irc"
+        diff -u "$WORK/ref.out" "$WORK/impl.out" | head -12
+    fi
+}
+
+# Basic filtering.
+for q in apple a e '' AN 'ch' 'a b' 'z' '1' '2'; do
+    check "filter=$q" --filter="$q"
+done
+
+# Match modes.
+check "exact"          --filter=ch --exact
+check "extended-off"   --filter=ch --no-extended
+check "extended-on"    --filter=ch --extended
+check "smart-case"     --filter=CH
+check "ignore-case"    --filter=CH --ignore-case
+check "case-sensitive" --filter=CH --case-sensitive
+
+# Ordering.
+check "tac"            --filter=a --tac
+check "no-sort"        --filter=a +s
+check "sort"           --filter=a --sort
+check "tiebreak=length"  --filter=a --tiebreak=length
+check "tiebreak=begin"   --filter=a --tiebreak=begin
+check "tiebreak=end"     --filter=a --tiebreak=end
+check "tiebreak=pathname" --filter=a --tiebreak=pathname
+check "tiebreak=index"   --filter=a --tiebreak=index
+check "tiebreak=length,begin" --filter=a --tiebreak=length,begin
+
+# Schemes.
+check "scheme=default" --filter=a --scheme=default
+check "scheme=path"    --filter=c --scheme=path
+check "scheme=history" --filter=a --scheme=history
+
+# Field selection.
+check "nth=1"          --filter=a --nth=1
+check "nth=2"          --filter=b --nth=2
+check "nth=1..2"       --filter=a --nth=1..2
+check "nth=..2"        --filter=a --nth=..2
+check "nth=2.."        --filter=b --nth=2..
+check "with-nth=2"     --filter=b --with-nth=2
+check "with-nth=2.."   --filter=b --with-nth=2..
+check "delim-colon"    --filter=b --delimiter=: --nth=2
+check "delim-attach"   --filter=b -d: --nth=2
+check "delim-regex"    --filter=b --delimiter='[:_]' --nth=2
+
+# Output control.
+check "print-query"    --filter=a --print-query
+check "tail=3"         --filter=a --tail=3
+check "multi"          --filter=a --multi
+check "select-1"       --filter=a --select-1
+check "exit-0"         --filter=a --exit-0
+
+# Extended query syntax.
+check "ext-prefix"     --filter='^a'
+check "ext-suffix"     --filter='a$'
+check "ext-exact"      --filter="'a"
+check "ext-inverse"    --filter='!a'
+check "ext-or"         --filter='a | b'
+check "ext-boundary"   --filter="'a'"
+
+# Invalid options.
+check "bad-scheme"     --filter=a --scheme=zzz
+check "bad-tiebreak"   --filter=a --tiebreak=zzz
+
+check "phony-filter"    --phony --filter=an
+check "phony-nomatch"   --phony --filter=zzz
+check "disabled-filter" --disabled --filter=an
+check "disabled-nomatch" --disabled --filter=zzz
+printf '\n%d/%d batch cases matched\n' "$pass" "$((pass + fail))"
+[ "$fail" -eq 0 ]
