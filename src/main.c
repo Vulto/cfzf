@@ -439,8 +439,6 @@ int main(int argc, char **argv) {
     else if (!strcmp(a, "--freeze-left")) { if (i+1<argc) i++; }
     else if (ARG_EQ("--freeze-right")) { /* accepted */ }
     else if (!strcmp(a, "--freeze-right")) { if (i+1<argc) i++; }
-    else if (ARG_EQ("--line-number")) { /* accepted */ }
-    else if (!strcmp(a, "--no-line-number")) { /* accepted */ }
     else if (ARG_EQ("--graph")) { /* accepted */ }
     else if (!strcmp(a, "--graph")) { if (i+1<argc) i++; }
     else if (ARG_EQ("--preview-wrap-sign")) { if (i+1<argc || strchr(a,'=')) {} }
