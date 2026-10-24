@@ -1,5 +1,7 @@
 # Mission: Build a Behaviorally Identical, High-Performance C23 Reimplementation of fzf
 
+Execution tracking: `TASKS.md` is the authoritative milestone checklist; `BASELINE_EVIDENCE.md` records commit-specific CI evidence. Do not treat this mission specification or historical reports as proof that a task is complete.
+
 ## 1. Role and objective
 
 Act as a senior systems programmer, reverse engineer, testing engineer, and performance engineer.
