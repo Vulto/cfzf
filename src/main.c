@@ -130,6 +130,8 @@ int main(int argc, char **argv) {
     const char *color_spec = NULL;
     int border_shape = MM_BORDER_NONE;
     int preview_border_shape = MM_BORDER_ROUNDED;
+    int list_border_shape = -1;
+    bool list_border_set = false;
     const char *border_label = NULL;
     int border_label_pos = 0;
     bool border_label_bottom = false;
@@ -424,7 +426,18 @@ int main(int argc, char **argv) {
             }
         }
         else if (!strcmp(a, "--preview-border")) { preview_border_shape = MM_BORDER_ROUNDED; }
-        else if (!strcmp(a, "--list-border")) {}
+        else if (ARG_EQ("--list-border")) {
+            list_border_shape = mm_border_parse(a + strlen("--list-border") + 1);
+            if (list_border_shape < 0) {
+                fprintf(stderr, "invalid --list-border style: %s\\n", a + strlen("--list-border") + 1);
+                return 2;
+            }
+            list_border_set = true;
+        }
+        else if (!strcmp(a, "--list-border")) {
+            list_border_shape = MM_BORDER_ROUNDED;
+            list_border_set = true;
+        }
         else if (!strcmp(a, "--input-border")) {}
         else if (ARG_EQ("--border-label-pos")) { /* will be handled below */ }
         else if (!strcmp(a, "--border-label-pos")) { /* will be handled below */ }
@@ -885,6 +898,8 @@ int main(int argc, char **argv) {
         ui.theme = theme;
         ui.border = border_shape;
         ui.preview_border = preview_border_shape;
+        ui.list_border = list_border_shape;
+        ui.list_border_set = list_border_set;
         ui.style_full = style_full;
         ui.border_label = border_label;
         ui.border_label_pos = border_label_pos;
