@@ -59,7 +59,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-030 | `\-\-gap` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-031 | `\-\-gap\-line` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-032 | `\-\-ghost` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
-| OPT-033 | `--graph` | - | - | unstarted |
+| OPT-033 | `--graph` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-034 | `--gutter` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-035 | `--gutter-raw` | src/main.c | tests/pty-diff.sh | verified |
 | OPT-036 | `--header` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
@@ -96,7 +96,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-067 | `--marker-multi-line` | src/main.c | - | implemented |
 | OPT-068 | `\-\-min\-height` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-069 | `--multi` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
-| OPT-070 | `--no` | - | - | unstarted |
+| OPT-070 | `--no` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-071 | `\-\-no\-bold` | src/ui.c, src/color.c | tests/pty-diff.sh | verified |
 | OPT-072 | `--no-clear` | src/ui.c, src/main.c | - | implemented |
 | OPT-073 | `\-\-no\-color` | src/ui.c, src/color.c | tests/pty-diff.sh | verified |
@@ -117,7 +117,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-088 | `--no-unicode` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-089 | `--nth` | src/tokenizer.c | tests/batch-diff.sh | verified |
 | OPT-090 | `--nushell` | - | - | unstarted |
-| OPT-091 | `--oneline` | - | - | unstarted |
+| OPT-091 | `--oneline` / `--no-oneline` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-093 | `\-\-pointer` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-094 | `--popup` | - | - | unstarted |
