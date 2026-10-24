@@ -134,6 +134,11 @@ int main(int argc, char **argv) {
     bool list_border_set = false;
     int header_border_shape = -1;
     bool header_border_set = false;
+    int input_border_shape = -1;
+    bool input_border_set = false;
+    const char *input_label = NULL;
+    int input_label_pos = 0;
+    bool input_label_bottom = false;
     const char *border_label = NULL;
     int border_label_pos = 0;
     bool border_label_bottom = false;
@@ -407,10 +412,26 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--list-label")) { if (i+1<argc) i++; }
         else if (ARG_EQ("--list-label-pos")) { if (i+1<argc) i++; }
         else if (!strcmp(a, "--list-label-pos")) { if (i+1<argc) i++; }
-        else if (ARG_EQ("--input-label")) { }
-        else if (!strcmp(a, "--input-label")) { if (i+1<argc) i++; }
-        else if (ARG_EQ("--input-label-pos")) { }
-        else if (!strcmp(a, "--input-label-pos")) { if (i+1<argc) i++; }
+        else if (ARG_EQ("--input-label")) input_label = a + strlen("--input-label") + 1;
+        else if (!strcmp(a, "--input-label")) {
+            if (i + 1 < argc) input_label = argv[++i];
+            else { fprintf(stderr, "--input-label requires a value\n"); return 2; }
+        }
+        else if (ARG_EQ("--input-label-pos")) {
+            if (!mm_parse_label_pos(a + strlen("--input-label-pos") + 1, &input_label_pos, &input_label_bottom)) {
+                fprintf(stderr, "invalid --input-label-pos: %s\n", a + strlen("--input-label-pos") + 1);
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--input-label-pos")) {
+            if (i + 1 < argc) {
+                const char *value = argv[++i];
+                if (!mm_parse_label_pos(value, &input_label_pos, &input_label_bottom)) {
+                    fprintf(stderr, "invalid --input-label-pos: %s\n", value);
+                    return 2;
+                }
+            } else { fprintf(stderr, "--input-label-pos requires a value\n"); return 2; }
+        }
         else if (ARG_EQ("--header-label")) header_label = a + strlen("--header-label") + 1;
         else if (!strcmp(a, "--header-label")) {
             if (i + 1 < argc) header_label = argv[++i];
@@ -490,7 +511,18 @@ int main(int argc, char **argv) {
             list_border_shape = MM_BORDER_ROUNDED;
             list_border_set = true;
         }
-        else if (!strcmp(a, "--input-border")) {}
+        else if (ARG_EQ("--input-border")) {
+            input_border_shape = mm_border_parse(a + strlen("--input-border") + 1);
+            if (input_border_shape < 0) {
+                fprintf(stderr, "invalid --input-border style: %s\n", a + strlen("--input-border") + 1);
+                return 2;
+            }
+            input_border_set = true;
+        }
+        else if (!strcmp(a, "--input-border")) {
+            input_border_shape = MM_BORDER_ROUNDED;
+            input_border_set = true;
+        }
         else if (ARG_EQ("--border-label-pos")) { /* will be handled below */ }
         else if (!strcmp(a, "--border-label-pos")) { /* will be handled below */ }
     else if (!strcmp(a, "--tmux")) { /* accepted for compatibility */ }
@@ -960,6 +992,11 @@ int main(int argc, char **argv) {
         ui.list_border = list_border_shape;
         ui.list_border_set = list_border_set;
         ui.header_border = header_border_shape;
+        ui.input_border = input_border_shape;
+        ui.input_border_set = input_border_set;
+        ui.input_label = input_label;
+        ui.input_label_pos = input_label_pos;
+        ui.input_label_bottom = input_label_bottom;
         ui.header_border_set = header_border_set;
         ui.style_full = style_full;
         ui.header_label = header_label;
