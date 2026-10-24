@@ -202,7 +202,7 @@ def run_pty(binary, args, script, cols=80, rows=24, env=None, timeout=10.0,
     # not captured in the middle of a frame.
     drain(0.6)
     try:
-        stdout, stderr = proc.communicate(timeout=2)
+        stdout, stderr = proc.communicate(timeout=0.5)
     except subprocess.TimeoutExpired:
         # The program may have spawned preview/execute children that inherited
         # stdout or stderr. Killing only the parent can leave communicate()
