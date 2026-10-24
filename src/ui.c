@@ -1548,8 +1548,9 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
     if (out && *out && ui->preview_win.wrap) {
         /* Soft wrap: the first line holds the text, the continuation lines
            are prefixed with the wrap sign, the way fzf does it. */
-        static const char *sign = "↳ ";
-        int sign_w = 2;
+        const char *sign = ui->preview_wrap_sign
+            ? ui->preview_wrap_sign : "↳ ";
+        int sign_w = ui_str_width(sign);
         int width = content_w;
         if (width < 1) width = 1;
         const char *p = out;
