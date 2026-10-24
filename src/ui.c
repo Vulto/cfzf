@@ -1350,13 +1350,14 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
     const mm_border_glyphs_t *g = mm_border_glyphs(MM_BORDER_ROUNDED);
     mm_color_t bcol = ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER);
     bool bordered = ui->preview_win.border && g;
+    bool full_border = bordered && !ui->preview_win.border_left_only;
 
     int content_x = x + (bordered ? 2 : 0);
-    int content_y = y + (bordered ? 1 : 0);
-    /* The text area excludes the border, the padding spaces and the
-       scrollbar column. */
-    int content_w = w - (bordered ? 4 : 0);
-    int content_h = h - (bordered ? 2 : 0);
+    int content_y = y + (full_border ? 1 : 0);
+    /* A left-only border reserves its glyph and padding but no top, bottom,
+       or right edge. */
+    int content_w = w - (full_border ? 4 : (bordered ? 2 : 0));
+    int content_h = h - (full_border ? 2 : 0);
 
     /* With a gap the reference pads the preview content with the border
        colour. */
@@ -1368,7 +1369,7 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
                          MM_COL_DEFAULT, 0, " ");
     }
 
-    if (bordered) {
+    if (full_border) {
         /* top and bottom lines */
         for (int which = 0; which < 2; which++) {
             int row = which == 0 ? y : (y + h - 1);
@@ -1397,6 +1398,14 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
             mm_window_move(win, y + i, x + w - 2);
             mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, " ");
             mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, g->right);
+        }
+    } else if (bordered) {
+        /* border-left: draw the divider without top/bottom corners or a
+           border on the far side of the preview. */
+        for (int i = 0; i < h; i++) {
+            mm_window_move(win, y + i, x);
+            mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, g->left);
+            mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, " ");
         }
     }
 
