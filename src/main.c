@@ -493,7 +493,7 @@ int main(int argc, char **argv) {
     else if (ARG_EQ("--preview-wrap-sign")) preview_wrap_sign = a + strlen("--preview-wrap-sign") + 1;
     else if (!strcmp(a, "--preview-wrap-sign")) {
         if (i + 1 < argc) preview_wrap_sign = argv[++i];
-        else { fprintf(stderr, "--preview-wrap-sign requires a value\\n"); return 2; }
+        else { fprintf(stderr, "--preview-wrap-sign requires a value\n"); return 2; }
     }
     else if (ARG_EQ("--border-label-pos")) { /* already handled */ }
     else if (!strcmp(a, "--border-label-pos")) { /* handled */ }
