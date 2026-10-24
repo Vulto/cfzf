@@ -140,7 +140,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-111 | `--select-1` | - | tests/batch-diff.sh | verified |
 | OPT-112 | `--separator` | src/ui.c, src/main.c | - | implemented |
 | OPT-113 | `--smart-case` | src/pattern.c | tests/batch-diff.sh | verified |
-| OPT-114 | `--style` | - | - | implemented but unverified |
+| OPT-114 | `--style` | src/main.c | tests/pty-diff.sh | implemented |
 | OPT-115 | `\-\-sync` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-116 | `--tabstop` | src/ui.c, src/main.c | - | implemented |
 | OPT-117 | `--tac` | src/result.c | tests/batch-diff.sh | verified |
