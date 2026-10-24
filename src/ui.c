@@ -1420,7 +1420,9 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
                             int x, int y, int w, int h) {
     (void)r;
     if (w <= 0 || h <= 0) return;
-    const mm_border_glyphs_t *g = mm_border_glyphs(MM_BORDER_ROUNDED);
+    const mm_border_glyphs_t *g = ui->no_unicode
+        ? mm_border_glyphs_ascii(ui->preview_border)
+        : mm_border_glyphs(ui->preview_border);
     mm_color_t bcol = ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER);
     bool bordered = ui->preview_win.border && g;
     bool full_border = bordered && !ui->preview_win.border_left_only;
