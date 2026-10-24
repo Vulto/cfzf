@@ -91,6 +91,7 @@ typedef struct {
     int          border;     /* --border shape id */
     int          preview_border; /* --preview-border shape id */
     int          list_border; /* --list-border shape id; -1 inherits style */
+    bool         list_border_set;
     bool         style_full; /* --style=full component layout */
     const char  *pointer;    /* --pointer: the current line marker */
     const char  *gutter;     /* --gutter: the marker of the other lines */
