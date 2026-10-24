@@ -53,6 +53,9 @@ jobs:
           MANDIR: ${{ runner.temp }}/cfzf-man
         run: ./build.sh
 
+      - name: Audit compatibility inventory and report honest status
+        run: python3 tests/status.py
+
       - name: Differential batch tests
         run: bash tests/batch-diff.sh
 
