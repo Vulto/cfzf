@@ -1,46 +1,72 @@
 #!/usr/bin/env bash
-# ref.sh - resolve the reference fzf binary used by the differential tests.
+# Resolve the exact fzf reference used by differential tests.
 #
-# Resolution order:
-#   1. $FZF_REF, if set
-#   2. /usr/bin/fzf, if present
-#   3. $FZF_SRC (default /tmp/opencode/fzf-src) built from the pinned commit
-#   4. $WORK/fzf-ref built from the pinned commit
+# Default: build the pinned upstream commit from FZF_SRC. Do not silently use
+# a system fzf or a stale REF_BUILD binary: either can produce false results.
 #
-# The reference is junegunn/fzf v0.74.3 (15f64c492a08f0840b81540c7d1de35737448086).
-set -u
+# FZF_REF is an explicit override for a reference binary the caller has already
+# verified to come from REF_COMMIT.
+set -euo pipefail
 
-FZF_REF=${FZF_REF:-}
-FZF_SRC=${FZF_SRC:-/tmp/opencode/fzf-src}
-REF_COMMIT=${REF_COMMIT:-15f64c492a08f0840b81540c7d1de35737448086}
-REF_BUILD=${REF_BUILD:-/tmp/opencode/fzf-ref}
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FZF_SRC="${FZF_SRC:-/tmp/opencode/fzf-src}"
+REF_COMMIT="${REF_COMMIT:-15f64c492a08f0840b81540c7d1de35737448086}"
+REF_BUILD="${REF_BUILD:-/tmp/opencode/fzf-ref}"
+REF_WORKTREE="${REF_WORKTREE:-${REF_BUILD}.wt}"
 
-build_ref() {
-    [ -d "$FZF_SRC/.git" ] || return 1
-    command -v go >/dev/null 2>&1 || return 1
-    ( cd "$FZF_SRC" &&
-      git cat-file -e "$REF_COMMIT^{commit}" >/dev/null 2>&1 || exit 1
-      git worktree add --detach -f "$REF_BUILD.wt" "$REF_COMMIT" >/dev/null 2>&1 || exit 1
-      cd "$REF_BUILD.wt" && go build -o "$REF_BUILD" . ) >/dev/null 2>&1 || return 1
-    rm -rf "$FZF_SRC/$REF_BUILD.wt"
-    [ -x "$REF_BUILD" ]
-}
-
-if [ -n "$FZF_REF" ] && [ -x "$FZF_REF" ]; then
+if [[ -n "${FZF_REF:-}" ]]; then
+    if [[ ! -x "$FZF_REF" ]]; then
+        printf 'FZF_REF is set but is not executable: %s\n' "$FZF_REF" >&2
+        exit 1
+    fi
     printf '%s\n' "$FZF_REF"
     exit 0
 fi
-if [ -x /usr/bin/fzf ]; then
-    printf '%s\n' /usr/bin/fzf
-    exit 0
+
+if [[ ! -d "$FZF_SRC/.git" ]]; then
+    printf 'pinned fzf source repository not found: %s\n' "$FZF_SRC" >&2
+    printf 'Provide that checkout at commit %s, or set FZF_REF to a verified binary.\n' "$REF_COMMIT" >&2
+    exit 1
 fi
-if [ -x "$REF_BUILD" ]; then
-    printf '%s\n' "$REF_BUILD"
-    exit 0
+
+if ! command -v go >/dev/null 2>&1; then
+    printf 'Go is required to build the pinned fzf reference.\n' >&2
+    exit 1
 fi
-if build_ref; then
-    printf '%s\n' "$REF_BUILD"
-    exit 0
+
+if ! git -C "$FZF_SRC" cat-file -e "${REF_COMMIT}^{commit}" 2>/dev/null; then
+    printf 'pinned commit %s is unavailable in %s\n' "$REF_COMMIT" "$FZF_SRC" >&2
+    exit 1
 fi
-printf 'no reference fzf binary found (set FZF_REF or provide %s)\n' "$FZF_SRC" >&2
-exit 1
+
+mkdir -p "$(dirname "$REF_BUILD")"
+
+# Never trust an existing binary at REF_BUILD: rebuild it from the pinned
+# commit for this invocation.
+if [[ -e "$REF_WORKTREE" ]]; then
+    git -C "$FZF_SRC" worktree remove --force "$REF_WORKTREE" >/dev/null 2>&1 || {
+        printf 'cannot remove stale reference worktree: %s\n' "$REF_WORKTREE" >&2
+        exit 1
+    }
+fi
+
+git -C "$FZF_SRC" worktree add --detach --force "$REF_WORKTREE" "$REF_COMMIT" >/dev/null
+
+actual_commit="$(git -C "$REF_WORKTREE" rev-parse HEAD)"
+if [[ "$actual_commit" != "$REF_COMMIT" ]]; then
+    printf 'reference worktree commit mismatch: expected %s, got %s\n' "$REF_COMMIT" "$actual_commit" >&2
+    exit 1
+fi
+
+if ! (cd "$REF_WORKTREE" && go build -o "$REF_BUILD" .); then
+    printf 'failed to build fzf reference at %s\n' "$REF_COMMIT" >&2
+    exit 1
+fi
+
+git -C "$FZF_SRC" worktree remove --force "$REF_WORKTREE" >/dev/null
+if [[ ! -x "$REF_BUILD" ]]; then
+    printf 'reference build did not produce an executable: %s\n' "$REF_BUILD" >&2
+    exit 1
+fi
+
+printf '%s\n' "$REF_BUILD"
