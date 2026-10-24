@@ -137,6 +137,8 @@ int main(int argc, char **argv) {
     bool border_label_bottom = false;
     const char *preview_cmd = NULL;
     const char *preview_label = NULL;
+    int preview_label_pos = 0;
+    bool preview_label_bottom = false;
     const char *pointer_spec = NULL;
     const char *marker_spec = NULL;
     const char *shell_spec = NULL;
@@ -416,8 +418,21 @@ int main(int argc, char **argv) {
             if (i + 1 < argc) preview_label = argv[++i];
             else { fprintf(stderr, "--preview-label requires a value\n"); return 2; }
         }
-        else if (ARG_EQ("--preview-label-pos")) { }
-        else if (!strcmp(a, "--preview-label-pos")) { if (i+1<argc) i++; }
+        else if (ARG_EQ("--preview-label-pos")) {
+            if (!mm_parse_label_pos(a + strlen("--preview-label-pos") + 1, &preview_label_pos, &preview_label_bottom)) {
+                fprintf(stderr, "invalid --preview-label-pos: %s\n", a + strlen("--preview-label-pos") + 1);
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--preview-label-pos")) {
+            if (i + 1 < argc) {
+                const char *value = argv[++i];
+                if (!mm_parse_label_pos(value, &preview_label_pos, &preview_label_bottom)) {
+                    fprintf(stderr, "invalid --preview-label-pos: %s\n", value);
+                    return 2;
+                }
+            } else { fprintf(stderr, "--preview-label-pos requires a value\n"); return 2; }
+        }
         else if (!strcmp(a, "--header-lines-border")) {}
         else if (!strcmp(a, "--no-header-lines-border")) {}
         else if (!strcmp(a, "--header-border")) {}
@@ -425,7 +440,7 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--preview-border")) {
             preview_border_shape = mm_border_parse(a + strlen("--preview-border") + 1);
             if (preview_border_shape < 0) {
-                fprintf(stderr, "invalid --preview-border style: %s\\n", a + strlen("--preview-border") + 1);
+                fprintf(stderr, "invalid --preview-border style: %s\n", a + strlen("--preview-border") + 1);
                 return 2;
             }
         }
@@ -903,6 +918,8 @@ int main(int argc, char **argv) {
         ui.border = border_shape;
         ui.preview_border = preview_border_shape;
         ui.preview_label = preview_label;
+        ui.preview_label_pos = preview_label_pos;
+        ui.preview_label_bottom = preview_label_bottom;
         ui.list_border = list_border_shape;
         ui.list_border_set = list_border_set;
         ui.style_full = style_full;
