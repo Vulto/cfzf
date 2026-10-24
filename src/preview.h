@@ -18,13 +18,15 @@ typedef struct {
     mm_preview_pos_t pos;
     int  size;        /* percent of the screen dimension */
     bool border;      /* draw a border around the preview */
+    bool border_left_only; /* --preview-window=border-left */
     bool info;        /* show the info line in the preview */
     bool wrap;        /* wrap the preview text instead of clipping it */
     bool cycle;       /* cycle preview scrolling */
 } mm_preview_win_t;
 
-/* Parse a --preview-window specification, e.g. "right:50%", "left:40%",
-   "top:30", "bottom", "up:50%", "down". Returns false on a parse error. */
+/* Parse fzf --preview-window syntax, e.g. "right,50%,border-left,wrap".
+   Colon-separated size syntax is also accepted for backward compatibility.
+   Returns false on a parse error. */
 bool mm_preview_window_parse(const char *spec, mm_preview_win_t *out);
 
 typedef struct mm_preview_t mm_preview_t;
