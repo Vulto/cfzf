@@ -94,6 +94,8 @@ typedef struct {
     int          preview_label_pos; /* 0 = center, otherwise 1-based/negative offset */
     bool         preview_label_bottom;
     int          list_border; /* --list-border shape id; -1 inherits style */
+    int          header_border; /* --header-border shape id */
+    bool         header_border_set;
     bool         list_border_set;
     bool         style_full; /* --style=full component layout */
     const char  *pointer;    /* --pointer: the current line marker */
