@@ -428,19 +428,14 @@ int main(int argc, char **argv) {
     else if (ARG_EQ("--bench")) { /* accepted for compatibility */ }
     else if (!strcmp(a, "--style")) { if (i+1<argc) style_spec = argv[++i]; else { fprintf(stderr, "style preset required\n"); return 2; } }
     else if (ARG_EQ("--style")) style_spec = a + 8;
-    else if (!strcmp(a, "--no")) { /* accepted for compatibility */ }
-    else if (!strcmp(a, "--nushell")) { /* accepted for compatibility */ }
-    else if (!strcmp(a, "--zsh")) { /* accepted for compatibility */ }
-    else if (!strcmp(a, "--oneline")) { /* accepted for compatibility */ }
-    else if (!strcmp(a, "--no-oneline")) { /* accepted for compatibility */ }
+    else if (!strcmp(a, "--nushell")) { /* shell integration option */ }
+    else if (!strcmp(a, "--zsh")) { /* shell integration option */ }
     else if (ARG_EQ("--id-nth")) { /* accepted for compatibility */ if (i+1<argc && a[strlen(a)]=='=' && !strchr(a+8,'=')) {} }
     else if (!strcmp(a, "--id-nth")) { if (i+1<argc) i++; }
     else if (ARG_EQ("--freeze-left")) { /* accepted */ }
     else if (!strcmp(a, "--freeze-left")) { if (i+1<argc) i++; }
     else if (ARG_EQ("--freeze-right")) { /* accepted */ }
     else if (!strcmp(a, "--freeze-right")) { if (i+1<argc) i++; }
-    else if (ARG_EQ("--graph")) { /* accepted */ }
-    else if (!strcmp(a, "--graph")) { if (i+1<argc) i++; }
     else if (ARG_EQ("--preview-wrap-sign")) { if (i+1<argc || strchr(a,'=')) {} }
     else if (!strcmp(a, "--preview-wrap-sign")) { if (i+1<argc) i++; }
     else if (ARG_EQ("--border-label-pos")) { /* already handled */ }
