@@ -28,6 +28,7 @@ bool mm_preview_window_parse(const char *spec, mm_preview_win_t *out) {
     out->pos = MM_PREVIEW_RIGHT;
     out->size = 50;
     out->border = true;
+    out->border_left_only = false;
     out->info = true;
     out->wrap = false;
     out->cycle = false;
@@ -35,8 +36,10 @@ bool mm_preview_window_parse(const char *spec, mm_preview_win_t *out) {
     if (!spec || !*spec) return true;
     const char *p = spec;
     while (*p) {
-        const char *colon = strchr(p, ':');
-        size_t len = colon ? (size_t)(colon - p) : strlen(p);
+        /* fzf uses comma-separated options (right,58%,border-left,wrap).
+           Accept the earlier colon-separated form as well. */
+        const char *sep = strpbrk(p, ",:");
+        size_t len = sep ? (size_t)(sep - p) : strlen(p);
         char tok[64];
         if (len >= sizeof(tok)) return false;
         memcpy(tok, p, len);
@@ -47,29 +50,37 @@ bool mm_preview_window_parse(const char *spec, mm_preview_win_t *out) {
             else if (!strcmp(tok, "top") || !strcmp(tok, "up")) out->pos = MM_PREVIEW_TOP;
             else if (!strcmp(tok, "bottom") || !strcmp(tok, "down")) out->pos = MM_PREVIEW_BOTTOM;
             else if (!strcmp(tok, "hidden")) { /* the preview is hidden */ }
-            else if (!strcmp(tok, "border")) out->border = true;
-            else if (!strcmp(tok, "noborder")) out->border = false;
-            else if (!strcmp(tok, "info")) out->info = true;
+            else if (!strcmp(tok, "border")) {
+                out->border = true;
+                out->border_left_only = false;
+            } else if (!strcmp(tok, "border-left")) {
+                out->border = true;
+                out->border_left_only = true;
+            } else if (!strcmp(tok, "noborder")) {
+                out->border = false;
+                out->border_left_only = false;
+            } else if (!strcmp(tok, "info")) out->info = true;
             else if (!strcmp(tok, "noinfo")) out->info = false;
             else if (!strcmp(tok, "wrap")) out->wrap = true;
             else if (!strcmp(tok, "nowrap")) out->wrap = false;
             else if (!strcmp(tok, "wrap-word")) out->wrap = true;
             else if (!strcmp(tok, "cycle")) out->cycle = true;
             else if (!strcmp(tok, "nocycle")) out->cycle = false;
-            else if (!strcmp(tok, "up") || !strcmp(tok, "down") ||
-                     !strcmp(tok, "nohidden") || !strcmp(tok, "default")) {
+            else if (!strcmp(tok, "nohidden") || !strcmp(tok, "default")) {
+                /* Explicit defaults; no additional state is needed here. */
             } else if (tok[0] >= '0' && tok[0] <= '9') {
-                /* A size: "50%" or a number of lines. */
+                /* A size: "58%" or a number of lines. */
                 char *end = NULL;
                 long v = strtol(tok, &end, 10);
-                if (end == tok || v <= 0 || v > 100) return false;
+                if (end == tok || v <= 0 || v > 100 ||
+                    (*end != '\0' && (strcmp(end, "%") != 0))) return false;
                 out->size = (int)v;
             } else {
                 return false;
             }
         }
-        if (!colon) break;
-        p = colon + 1;
+        if (!sep) break;
+        p = sep + 1;
     }
     return true;
 }
