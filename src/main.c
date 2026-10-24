@@ -885,6 +885,7 @@ int main(int argc, char **argv) {
         ui.literal = literal;
         ui.theme = theme;
         ui.border = border_shape;
+        ui.style_full = style_full;
         ui.border_label = border_label;
         ui.border_label_pos = border_label_pos;
         ui.border_label_bottom = border_label_bottom;
