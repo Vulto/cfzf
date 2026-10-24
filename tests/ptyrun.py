@@ -204,7 +204,14 @@ def run_pty(binary, args, script, cols=80, rows=24, env=None, timeout=10.0,
     try:
         stdout, stderr = proc.communicate(timeout=2)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        # The program may have spawned preview/execute children that inherited
+        # stdout or stderr. Killing only the parent can leave communicate()
+        # blocked forever on those pipes. The child starts a new session above,
+        # so terminate its process group to enforce the harness timeout.
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            proc.kill()
         stdout, stderr = proc.communicate()
     try:
         os.close(master)
