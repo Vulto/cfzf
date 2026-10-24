@@ -112,6 +112,8 @@ check "ext-boundary"   --filter="'a'"
 # Invalid options.
 check "bad-scheme"     --filter=a --scheme=zzz
 check "bad-tiebreak"   --filter=a --tiebreak=zzz
+check "bad-style"      --filter=a --style=unsupported
+check "style-full"     --filter=a --style=full
 
 check "phony-filter"    --phony --filter=an
 check "phony-nomatch"   --phony --filter=zzz
