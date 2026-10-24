@@ -121,6 +121,7 @@ int main(int argc, char **argv) {
     bool info = true;   /* fzf shows the info line by default */
     bool info_inline_right = false; /* --info=inline-right */
     const char *style_spec = NULL;
+    bool style_full = false;
     bool select_1 = false;
     bool exit_0 = false;
     bool expect = false;
@@ -826,6 +827,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "unsupported style preset: %s\n", style_spec);
                 return 2;
             }
+            style_full = true;
             border_shape = MM_BORDER_ROUNDED;
             if (colon && *colon) {
                 int b = mm_border_parse(colon);
@@ -985,6 +987,10 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "invalid preview window: %s\n",
                         preview_win_spec ? preview_win_spec : "");
                 goto interactive_error;
+            }
+            if (style_full) {
+                ui.preview_win.border = true;
+                ui.preview_win.border_left_only = false;
             }
         }
         if (with_nth_spec && !mm_parse_ranges(with_nth_spec, &ui.nth, &ui.nth_n)) {
