@@ -108,6 +108,7 @@ sleep 250'                                        "$WORK/paths.txt"
 run_case 'reverse'      'sleep 300'            "$WORK/items.txt" --reverse
 run_case 'no-info'      'sleep 300'            "$WORK/items.txt" --no-info
 run_case 'info-inline-right' 'sleep 300'       "$WORK/items.txt" --info=inline-right
+run_case 'info-hidden-style' 'sleep 300'       "$WORK/items.txt" --info=hidden
 run_case 'info-inline-right-reverse' 'sleep 300' "$WORK/items.txt" --info=inline-right --reverse
 run_case 'highlight-line' 'sleep 350
 send a
