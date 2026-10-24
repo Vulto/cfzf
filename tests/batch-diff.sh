@@ -113,6 +113,8 @@ check "ext-boundary"   --filter="'a'"
 check "bad-scheme"     --filter=a --scheme=zzz
 check "bad-tiebreak"   --filter=a --tiebreak=zzz
 check "bad-style"      --filter=a --style=unsupported
+check "unsupported-line-number" --filter=a --line-number
+check "unsupported-no-line-number" --filter=a --no-line-number
 check "style-full"     --filter=a --style=full
 
 check "phony-filter"    --phony --filter=an
