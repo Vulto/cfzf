@@ -41,6 +41,7 @@ typedef struct {
     const char      *header_lines; /* --header-lines: the first N input lines */
     const char      *footer;     /* --footer: the text at the top of the list */
     bool             info;
+    bool             info_inline_right; /* --info=inline-right */
     bool             print_query;
     bool             expect;
     bool             read0;
