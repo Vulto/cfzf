@@ -119,6 +119,7 @@ int main(int argc, char **argv) {
     bool cycle = false;
     bool reverse = false;
     bool info = true;   /* fzf shows the info line by default */
+    bool info_inline_right = false; /* --info=inline-right */
     bool select_1 = false;
     bool exit_0 = false;
     bool expect = false;
@@ -245,6 +246,16 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-reverse")) reverse = false;
         else if (!strcmp(a, "--info")) info = true;
         else if (!strcmp(a, "--no-info")) info = false;
+        else if (!strncmp(a, "--info=", 7)) {
+            const char *v = a + 7;
+            if (!strcmp(v, "default")) { info = true; info_inline_right = false; }
+            else if (!strcmp(v, "inline-right")) { info = true; info_inline_right = true; }
+            else if (!strcmp(v, "hidden")) { info = false; info_inline_right = false; }
+            else {
+                fprintf(stderr, "unsupported info style: %s\\n", v);
+                return 2;
+            }
+        }
         else if (!strcmp(a, "--select-1") || !strcmp(a, "-1")) select_1 = true;
         else if (!strcmp(a, "--exit-0")) exit_0 = true;
         else if (!strcmp(a, "--expect")) expect = true;
@@ -805,6 +816,7 @@ int main(int argc, char **argv) {
         ui.reverse = reverse;
         ui.cycle = cycle;
         ui.info = info;
+        ui.info_inline_right = info_inline_right;
         ui.prompt = prompt;
         ui.header = header;
         ui.header_lines = header_lines_text;
