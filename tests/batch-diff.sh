@@ -16,8 +16,8 @@ if [ ! -x "$IMPL" ]; then
 fi
 
 CORPUS="$WORK/corpus.txt"
-if [ ! -s "$CORPUS" ]; then
-    {
+# Always regenerate the fixture: stale files in WORK must never change a test run.
+{
         printf 'apple\nbanana\nCherry\ncherry\ndate\nelderberry\nfig\ngrape\n'
         printf 'src/main.c\nsrc/util.c\nlib/foo.c\nREADME.md\ndocs/PLAN.md\n'
         printf 'a:b:c\nx:y:z\nfoo:bar:baz\n'
@@ -28,8 +28,7 @@ if [ ! -s "$CORPUS" ]; then
         printf 'foo bar baz\nfoo_bar_baz\nfoo-bar-baz\n'
         printf '123\n456\n789\n'
         printf 'x\ny\nz\n'
-    } > "$CORPUS"
-fi
+} > "$CORPUS"
 
 pass=0
 fail=0
@@ -40,13 +39,17 @@ check() {
     rrc=$?
     "$IMPL" "$@" < "$CORPUS" > "$WORK/impl.out" 2> "$WORK/impl.err"
     irc=$?
-    if [ "$rrc" = "$irc" ] && cmp -s "$WORK/ref.out" "$WORK/impl.out"; then
+    if [ "$rrc" = "$irc" ] && cmp -s "$WORK/ref.out" "$WORK/impl.out" && cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
         pass=$((pass + 1))
         [ -n "${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
     else
         fail=$((fail + 1))
         printf 'FAIL %s (exit ref=%s impl=%s)\n' "$desc" "$rrc" "$irc"
-        diff -u "$WORK/ref.out" "$WORK/impl.out" | head -12
+        diff -u "$WORK/ref.out" "$WORK/impl.out" | head -12 || true
+        if ! cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
+            printf 'stderr differs:\n'
+            diff -u "$WORK/ref.err" "$WORK/impl.err" | head -12 || true
+        fi
     fi
 }
 
