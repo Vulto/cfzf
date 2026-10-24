@@ -838,6 +838,8 @@ int main(int argc, char **argv) {
             info = true;
             info_inline_right = true;
             highlight_line = true;
+            preview_win.border = true;
+            preview_win.border_left_only = false;
         }
     }
 
