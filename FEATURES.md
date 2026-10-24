@@ -76,7 +76,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-047 | `--hscroll-off` | src/ui.c, src/main.c | - | implemented |
 | OPT-048 | `--id-nth` | - | - | unstarted |
 | OPT-049 | `--ignore-case` | src/pattern.c | tests/batch-diff.sh | verified |
-| OPT-050 | `--info` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
+| OPT-050 | `--info[=default|inline-right|hidden]` | src/main.c, src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-051 | `--info-command` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-052 | `--input-border` | - | - | unstarted |
 | OPT-053 | `--input-label` | - | - | unstarted |
