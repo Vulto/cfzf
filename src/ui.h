@@ -91,6 +91,7 @@ typedef struct {
     int          border;     /* --border shape id */
     int          preview_border; /* --preview-border shape id */
     const char  *preview_label; /* --preview-label */
+    const char  *preview_wrap_sign; /* --preview-wrap-sign */
     int          preview_label_pos; /* 0 = center, otherwise 1-based/negative offset */
     bool         preview_label_bottom;
     int          list_border; /* --list-border shape id; -1 inherits style */
