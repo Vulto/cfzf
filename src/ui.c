@@ -1362,6 +1362,28 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         if (draw_header_box)
             ui_draw_border_box(listwin, hg, bcol, left, right,
                                header_row - 1, header_row + header_rows, total);
+        if (draw_header_box && ui->header_label && *ui->header_label) {
+            int label_width = ui_str_width(ui->header_label);
+            int label_row = ui->header_label_bottom
+                ? header_row + header_rows : header_row - 1;
+            if (label_width > 0 && label_width <= right - left - 1 &&
+                label_row >= 0 && label_row < total) {
+                int label_x;
+                if (ui->header_label_pos == 0)
+                    label_x = left + (right - left - label_width) / 2;
+                else if (ui->header_label_pos > 0)
+                    label_x = left + ui->header_label_pos;
+                else
+                    label_x = right - label_width + ui->header_label_pos;
+                if (label_x < left + 1) label_x = left + 1;
+                if (label_x + label_width > right)
+                    label_x = right - label_width;
+                mm_window_move(listwin, label_row, label_x);
+                mm_window_cprint(listwin,
+                    ui_theme_color(ui, ui->theme.border_label, 145),
+                    MM_COL_DEFAULT, 0, ui->header_label);
+            }
+        }
     }
 
     /* Preview window. */
