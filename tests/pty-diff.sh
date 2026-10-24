@@ -293,6 +293,8 @@ run_preview_case 'preview-border-sharp'   --preview 'echo {}' --preview-border=s
 run_preview_case 'preview-border-none'    --preview 'echo {}' --preview-border=none
 run_preview_case 'preview-label'          --preview 'echo {}' --preview-label='PACKAGE DETAILS'
 run_preview_case 'preview-label-sharp'    --preview 'echo {}' --preview-border=sharp --preview-label='DETAILS'
+run_preview_case 'preview-label-pos'      --preview 'echo {}' --preview-label='DETAILS' --preview-label-pos=4
+run_preview_case 'preview-label-bottom'   --preview 'echo {}' --preview-label='DETAILS' --preview-label-pos=4:bottom
 run_preview_case 'preview-header'    --preview 'echo {}' --border --header H
 run_preview_case 'layout-no-info'    --no-info
 run_preview_case 'layout-header'     --header H
