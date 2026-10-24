@@ -50,9 +50,15 @@ with open(f'{out}/ansi-color.tsv', 'w') as f:
         f.write(f"{i}\t{o}\t{offs}\t{st}\n")
 PY
 
-cc -std=c23 -Wall -Wextra -Wpedantic -Werror -O1 -I"$HERE/../src" \
+# GCC versions before 15 spell the finalized C23 mode -std=c2x. Prefer
+# -std=c23 when available, and fall back only when the compiler rejects it.
+C23_FLAG=-std=c23
+if ! printf 'int main(void) { return 0; }\n' | cc -std=c23 -x c -fsyntax-only - >/dev/null 2>&1; then
+    C23_FLAG=-std=c2x
+fi
+cc "$C23_FLAG" -Wall -Wextra -Wpedantic -Werror -O1 -I"$HERE/../src" \
    -o "$OUT/ansiprobe" "$HERE/ansiprobe.c" "$HERE/../src/ansi.c" "$HERE/../src/util.c"
-cc -std=c23 -Wall -Wextra -Wpedantic -Werror -O1 -I"$HERE/../src" \
+cc "$C23_FLAG" -Wall -Wextra -Wpedantic -Werror -O1 -I"$HERE/../src" \
    -o "$OUT/ansicolor" "$HERE/ansicolor.c" "$HERE/../src/ansi.c" "$HERE/../src/util.c"
 
 "$OUT/ansiprobe" < "$OUT/ansi-probe.tsv"
