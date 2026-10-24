@@ -1477,6 +1477,16 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
             mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, line);
             free(line);
         }
+        if (ui->preview_label && *ui->preview_label) {
+            int label_width = ui_str_width(ui->preview_label);
+            if (label_width > 0 && label_width <= w - 2) {
+                int label_x = x + (w - label_width) / 2;
+                mm_window_move(win, y, label_x);
+                mm_window_cprint(win,
+                    ui_theme_color(ui, ui->theme.border_label, 145),
+                    MM_COL_DEFAULT, 0, ui->preview_label);
+            }
+        }
         for (int i = 1; i < h - 1; i++) {
             mm_window_move(win, y + i, x);
             mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, g->left);
