@@ -187,27 +187,15 @@ commits).
 
 ## Repository state
 
-- Branch: `fzf-c23-rewrite`, clean working tree. Development is local only:
-  nothing is pushed and the branch has no upstream configured.
-- Latest commit: `1701885 fix: free the compiled delimiter and keymap on exit`.
-- Build: `sh ./build.sh` produces `fzf` and installs it to `$PREFIX/bin/fzf`.
-- Source size: ~5 700 lines of C23 in `src/`, ~1 700 lines of test harness
-  in `tests/`.
+- Active development branch: `main`.
+- Changes are committed directly to `main`; do not use a feature branch or
+  open a pull request for this work.
+- Build entry point: `./build.sh`; it produces the executable at
+  `FZF_BUILD_OUTPUT` (default `cfzf`) and installs it under `PREFIX`.
 - No legacy `mmenu` code remains.
 
-## Exact next action
+## Next work
 
-1. Implement the options the vendored bash shell integration needs
-   (`--height`, `--bind`, `--tmux`, `--preview`, `--pointer`, `--marker`,
-   `--jump-labels`) so the key bindings and completions work end to end.
-2. Extend the action system: `transform`, `reload`, `become`, `preview`,
-   the `execute` placeholder set (`{+}`, `{f}`, `{r}`, `{q}`) and the
-   `every()` / event bindings.
-3. Add the preview window, borders, colors and `--layout`/`--height` handling
-   to `src/terminal.c`/`src/ui.c`.
-4. Add allocation-failure injection and a fuzzer for the option, query and
-   delimiter parsers; run `-fanalyzer` over the tree.
-5. Optimize the batch driver (slab-allocate items, cache decoded runes) to
-   close the throughput gap.
-6. Add allocation-failure injection and fuzzers for the option, query and
-   delimiter parsers.
+Follow `TASKS.md` in milestone order, one task at a time. Do not begin a later
+milestone until the current milestone's exit gate is backed by fresh test
+evidence. Current evidence and its scope are recorded in `BASELINE_EVIDENCE.md`.
