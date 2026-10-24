@@ -25,6 +25,8 @@ into the project's main objective or indefinitely block feature development.
   and PTY behavior; regenerate fixtures rather than trusting stale artifacts.
 - [ ] Establish a strict C23 build and a reproducible baseline CI run.
 - [ ] Keep the feature/parity inventory and project documentation consistent.
+- [x] Add a CI inventory audit that reports declared statuses and missing IDs without presenting them as a completion percentage.
+- [ ] Add per-feature links to named differential cases and their observed results; only then calculate feature-level verified coverage.
 - [ ] Record baseline evidence in `BASELINE_EVIDENCE.md`, including tested
   commit, reference commit, toolchain, commands, results, and skipped checks.
 
