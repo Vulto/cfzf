@@ -90,6 +90,7 @@ typedef struct {
     mm_theme_t   theme;      /* --color theme */
     int          border;     /* --border shape id */
     int          preview_border; /* --preview-border shape id */
+    const char  *preview_label; /* --preview-label */
     int          list_border; /* --list-border shape id; -1 inherits style */
     bool         list_border_set;
     bool         style_full; /* --style=full component layout */
