@@ -99,6 +99,16 @@ def main() -> int:
             verification = cells[3]
             if entry["status"] == "verified" and verification in ("-", ""):
                 errors.append(f"line {entry['line']}: verified row has no test reference")
+            if verification not in ("-", ""):
+                for reference in verification.split(","):
+                    reference = reference.strip()
+                    if not reference:
+                        continue
+                    test_path = ROOT / reference
+                    if not test_path.is_file():
+                        errors.append(
+                            f"line {entry['line']}: referenced test does not exist: {reference}"
+                        )
 
     print("")
     print(f"Inventory rows present: {total_rows}")
