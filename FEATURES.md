@@ -11,24 +11,17 @@ No feature is marked `verified` on the strength of its name appearing in the cod
 
 ## Summary
 
-Counts below are computed from the rows currently present in this file; they
-are inventory states, not a claim that the full upstream interface has passed
-differential testing.
+Run `python3 tests/status.py` to audit the inventory. CI runs the same audit.
+It reports row counts by declared status, duplicate/unexpected/missing IDs, and
+whether each `verified` row names a test file. These are inventory diagnostics,
+not a feature-completion percentage.
 
-- CLI options: **77 / 131** marked `verified`, **20** marked `implemented`
-  without differential verification, **34** marked `unstarted`.
-- Actions: **125 rows are present**: **64** marked `implemented` without
-  differential verification and **61** marked `unstarted`. Seven action IDs
-  from the 001–132 range are absent from the table; the action inventory is
-  incomplete and must be reconciled against the pinned upstream source before
-  these counts can represent the canonical action list.
-- Events: **0 / 13** marked `verified`; all 13 rows are marked `unstarted`.
-- `--phony` (a hidden option of the reference, not listed in its help) is
-  implemented as well.
-
-The latest CI evidence is recorded in `BASELINE_EVIDENCE.md`. Its coverage is
-limited to the suites listed there; it does not independently validate every
-row currently marked `verified`.
+**No reliable feature-level completion percentage is available yet.** Existing
+rows reference broad test suites rather than named test cases and observed
+results, so a passing suite cannot establish that every linked feature was
+tested. Do not treat the legacy `verified` labels below as independently
+revalidated. The next measurement milestone is per-feature, per-case evidence
+with results tied to a specific implementation commit and pinned reference.
 
 ## CLI options
 
