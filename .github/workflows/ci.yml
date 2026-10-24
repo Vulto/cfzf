@@ -13,12 +13,15 @@ permissions:
 jobs:
   build-and-differential-test:
     runs-on: ubuntu-latest
+    env:
+      FZF_SRC: /tmp/opencode/fzf-src
+      IMPL: ${{ github.workspace }}/cfzf
     steps:
       - name: Check out cfzf
         uses: actions/checkout@v4
 
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y build-essential git
+        run: sudo apt-get update && sudo apt-get install -y build-essential git groff python3
 
       - name: Set up Go for the pinned reference
         uses: actions/setup-go@v5
@@ -30,9 +33,17 @@ jobs:
           REF_COMMIT: 15f64c492a08f0840b81540c7d1de35737448086
         run: |
           mkdir -p /tmp/opencode
-          git clone https://github.com/junegunn/fzf.git /tmp/opencode/fzf-src
-          git -C /tmp/opencode/fzf-src checkout --detach "$REF_COMMIT"
-          test "$(git -C /tmp/opencode/fzf-src rev-parse HEAD)" = "$REF_COMMIT"
+          git clone https://github.com/junegunn/fzf.git "$FZF_SRC"
+          git -C "$FZF_SRC" checkout --detach "$REF_COMMIT"
+          test "$(git -C "$FZF_SRC" rev-parse HEAD)" = "$REF_COMMIT"
+
+      - name: Record build environment
+        run: |
+          printf 'cfzf_commit=%s\n' "$(git rev-parse HEAD)"
+          printf 'reference_commit=%s\n' "$(git -C "$FZF_SRC" rev-parse HEAD)"
+          cc --version | head -1
+          go version
+          printf 'build_flags=-O2 -Wall -Wextra -Wpedantic -Werror -std=c23 (or compiler-supported -std=c2x)\n'
 
       - name: Build cfzf with strict warnings
         env:
@@ -42,11 +53,25 @@ jobs:
         run: ./build.sh
 
       - name: Differential batch tests
-        env:
-          FZF_SRC: /tmp/opencode/fzf-src
-        run: tests/batch-diff.sh
+        run: bash tests/batch-diff.sh
 
       - name: Differential algorithm tests
-        env:
-          FZF_SRC: /tmp/opencode/fzf-src
-        run: tests/algo-diff.sh
+        run: bash tests/algo-diff.sh
+
+      - name: Differential nth tests
+        run: bash tests/nth-diff.sh
+
+      - name: Differential interactive tests
+        run: bash tests/pty-diff.sh
+
+      - name: Differential file walker tests
+        run: bash tests/walker-diff.sh
+
+      - name: Regenerate and run ANSI differential tests
+        run: bash tests/gen-ansi-probe.sh
+
+      - name: Shell integration tests
+        run: bash tests/shell-integration.sh
+
+      - name: Man page tests
+        run: bash tests/manpage.sh
