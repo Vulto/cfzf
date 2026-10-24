@@ -803,11 +803,9 @@ int main(int argc, char **argv) {
        in the feature inventory; this renderer currently has one outer box. */
     if (style_spec) {
         if (!strcmp(style_spec, "default")) {
-            border_shape = MM_BORDER_NONE;
             info_inline_right = false;
             highlight_line = false;
         } else if (!strcmp(style_spec, "minimal")) {
-            border_shape = MM_BORDER_NONE;
             info_inline_right = false;
             highlight_line = false;
             no_scrollbar = true;
