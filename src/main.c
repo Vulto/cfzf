@@ -132,6 +132,8 @@ int main(int argc, char **argv) {
     int preview_border_shape = MM_BORDER_ROUNDED;
     int list_border_shape = -1;
     bool list_border_set = false;
+    int header_border_shape = -1;
+    bool header_border_set = false;
     const char *border_label = NULL;
     int border_label_pos = 0;
     bool border_label_bottom = false;
@@ -435,7 +437,18 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(a, "--header-lines-border")) {}
         else if (!strcmp(a, "--no-header-lines-border")) {}
-        else if (!strcmp(a, "--header-border")) {}
+        else if (ARG_EQ("--header-border")) {
+            header_border_shape = mm_border_parse(a + strlen("--header-border") + 1);
+            if (header_border_shape < 0) {
+                fprintf(stderr, "invalid --header-border style: %s\n", a + strlen("--header-border") + 1);
+                return 2;
+            }
+            header_border_set = true;
+        }
+        else if (!strcmp(a, "--header-border")) {
+            header_border_shape = MM_BORDER_ROUNDED;
+            header_border_set = true;
+        }
         else if (!strcmp(a, "--footer-border")) {}
         else if (ARG_EQ("--preview-border")) {
             preview_border_shape = mm_border_parse(a + strlen("--preview-border") + 1);
@@ -922,6 +935,8 @@ int main(int argc, char **argv) {
         ui.preview_label_bottom = preview_label_bottom;
         ui.list_border = list_border_shape;
         ui.list_border_set = list_border_set;
+        ui.header_border = header_border_shape;
+        ui.header_border_set = header_border_set;
         ui.style_full = style_full;
         ui.border_label = border_label;
         ui.border_label_pos = border_label_pos;
