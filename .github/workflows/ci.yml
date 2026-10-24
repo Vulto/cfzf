@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-differential-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out cfzf
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential git
+
+      - name: Set up Go for the pinned reference
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Fetch pinned fzf reference
+        env:
+          REF_COMMIT: 15f64c492a08f0840b81540c7d1de35737448086
+        run: |
+          mkdir -p /tmp/opencode
+          git clone https://github.com/junegunn/fzf.git /tmp/opencode/fzf-src
+          git -C /tmp/opencode/fzf-src checkout --detach "$REF_COMMIT"
+          test "$(git -C /tmp/opencode/fzf-src rev-parse HEAD)" = "$REF_COMMIT"
+
+      - name: Build cfzf with strict warnings
+        env:
+          FZF_BUILD_OUTPUT: ${{ github.workspace }}/cfzf
+          PREFIX: ${{ runner.temp }}/cfzf-install
+          MANDIR: ${{ runner.temp }}/cfzf-man
+        run: ./build.sh
+
+      - name: Differential batch tests
+        env:
+          FZF_SRC: /tmp/opencode/fzf-src
+        run: tests/batch-diff.sh
+
+      - name: Differential algorithm tests
+        env:
+          FZF_SRC: /tmp/opencode/fzf-src
+        run: tests/algo-diff.sh
