@@ -618,7 +618,7 @@ int main(int argc, char **argv) {
     if (tiebreak) {
         const char *err = NULL;
         if (!mm_parse_tiebreak(tiebreak, &crit, &err)) {
-            fprintf(stderr, "invalid --tiebreak: %s\n", err);
+            fprintf(stderr, "%s\n", err);
             goto fail;
         }
     }
