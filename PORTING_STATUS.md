@@ -10,11 +10,12 @@ See `PLAN.md` (authoritative) and `FEATURES.md` (per-feature inventory).
 - Commit: **15f64c492a08f0840b81540c7d1de35737448086**
 - Source of record: `/tmp/opencode/fzf-src` (checked out at that commit;
   `git describe` = `v0.74.3`)
-- Reference binary: resolved by `tests/ref.sh`, which uses `$FZF_REF`, then
-  `/usr/bin/fzf`, then a binary it builds from the pinned commit in
-  `$FZF_SRC` (default `/tmp/opencode/fzf-src`). A reference built from the
-  source reports `0.74 (devel)` because no version tag is injected at build
-  time; it is otherwise the same code as the tagged release.
+- Reference binary: `tests/ref.sh` builds a fresh executable from this
+  exact commit in an isolated Git worktree. It never falls back to a system
+  `fzf` or trusts a pre-existing binary. `FZF_REF` is an explicit override
+  and must be supplied only after independently verifying its provenance.
+  A source-built binary may report `0.74 (devel)`; the source commit is the
+  compatibility identity.
 
 ## Project layout
 
@@ -47,12 +48,13 @@ Pure C23 fzf rewrite. All legacy `mmenu` code was removed (old `main.c`,
 
 ## Current milestone
 
-M1 (matching core + batch parity) — **complete and verified**.
-M2 (interactive TUI) — core loop, layout and key handling **implemented and
-verified**; the remaining `--bind`/preview/border machinery is not started.
-M3+ (options, actions, integrations) — **not started**.
+The authoritative execution status is `TASKS.md`. Milestone 1
+(trustworthy baseline) remains **in progress** until the complete existing
+differential suite has passed from a clean CI build and the evidence and
+inventory documents have been reconciled. Individual implementation or
+historical test results do not complete a milestone.
 
-## Completed feature groups (verified)
+## Previously reported feature coverage (verification scope varies)
 
 | Area | Module | Evidence |
 |------|--------|----------|
@@ -74,7 +76,7 @@ M3+ (options, actions, integrations) — **not started**.
 | Preview window (`--preview`) | `src/preview.{c,h}`, `src/ui.c` | 13/13 pty-diff cases |
 | Default file listing (walker) | `src/walker.c` | 8/8 walker-diff cases |
 
-## Test results (latest run)
+## Historical test results (not all rerun by current CI)
 
 | Suite | Command | Result |
 |-------|---------|--------|
@@ -93,9 +95,10 @@ M3+ (options, actions, integrations) — **not started**.
 | Static analysis | `gcc -fanalyzer -fsyntax-only` over `src/*.c` | **0 findings** |
 | Strict build | `gcc` and `clang`, `-std=c23 -Wall -Wextra -Wpedantic -Werror` | **clean** |
 
-The pty harness compares *logical screen states* (a small ANSI screen
-emulator in `tests/screen.py`), not raw bytes, so that fzf's incremental
-repaint and the C23 full repaint are compared on equal terms.
+These counts were copied from prior reports and are not a substitute for the
+current baseline evidence. See `BASELINE_EVIDENCE.md` for the latest clean CI
+run and its exact commit IDs, commands, and scope. The pty harness compares
+logical screen states through `tests/screen.py`.
 
 ## Known mismatches / open gaps
 
