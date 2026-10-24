@@ -137,6 +137,9 @@ typedef struct {
     bool         wrap;       /* --wrap: wrap the long items */
     bool         wrap_word;  /* --wrap=word: break the lines at the spaces */
     const char  *wrap_sign;  /* --wrap-sign: the marker of a wrapped line */
+    const char  *list_label; /* --list-label */
+    int          list_label_pos;
+    bool         list_label_bottom;
     const char  *header_label; /* --header-label */
     int          header_label_pos;
     bool         header_label_bottom;
