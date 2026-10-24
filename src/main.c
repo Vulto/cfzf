@@ -414,7 +414,7 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--preview-label")) preview_label = a + strlen("--preview-label") + 1;
         else if (!strcmp(a, "--preview-label")) {
             if (i + 1 < argc) preview_label = argv[++i];
-            else { fprintf(stderr, "--preview-label requires a value\\n"); return 2; }
+            else { fprintf(stderr, "--preview-label requires a value\n"); return 2; }
         }
         else if (ARG_EQ("--preview-label-pos")) { }
         else if (!strcmp(a, "--preview-label-pos")) { if (i+1<argc) i++; }
