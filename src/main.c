@@ -136,6 +136,7 @@ int main(int argc, char **argv) {
     int border_label_pos = 0;
     bool border_label_bottom = false;
     const char *preview_cmd = NULL;
+    const char *preview_label = NULL;
     const char *pointer_spec = NULL;
     const char *marker_spec = NULL;
     const char *shell_spec = NULL;
@@ -410,8 +411,11 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--footer-label")) { if (i+1<argc) i++; }
         else if (ARG_EQ("--footer-label-pos")) { }
         else if (!strcmp(a, "--footer-label-pos")) { if (i+1<argc) i++; }
-        else if (ARG_EQ("--preview-label")) { }
-        else if (!strcmp(a, "--preview-label")) { if (i+1<argc) i++; }
+        else if (ARG_EQ("--preview-label")) preview_label = a + strlen("--preview-label") + 1;
+        else if (!strcmp(a, "--preview-label")) {
+            if (i + 1 < argc) preview_label = argv[++i];
+            else { fprintf(stderr, "--preview-label requires a value\\n"); return 2; }
+        }
         else if (ARG_EQ("--preview-label-pos")) { }
         else if (!strcmp(a, "--preview-label-pos")) { if (i+1<argc) i++; }
         else if (!strcmp(a, "--header-lines-border")) {}
@@ -898,6 +902,7 @@ int main(int argc, char **argv) {
         ui.theme = theme;
         ui.border = border_shape;
         ui.preview_border = preview_border_shape;
+        ui.preview_label = preview_label;
         ui.list_border = list_border_shape;
         ui.list_border_set = list_border_set;
         ui.style_full = style_full;
