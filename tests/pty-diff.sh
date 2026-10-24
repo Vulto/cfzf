@@ -111,6 +111,10 @@ run_case 'style-default-border' 'sleep 300'    "$WORK/items.txt" --style=default
 run_case 'list-border-default' 'sleep 300'   "$WORK/items.txt" --list-border
 run_case 'list-border-sharp' 'sleep 300'     "$WORK/items.txt" --list-border=sharp
 run_case 'list-border-reverse' 'sleep 300'   "$WORK/items.txt" --reverse --list-border=sharp
+run_case 'list-label' 'sleep 300' "$WORK/items.txt" --list-border=sharp --list-label='RESULTS'
+run_case 'list-label-pos' 'sleep 300' "$WORK/items.txt" --list-border=sharp --list-label='RESULTS' --list-label-pos=4
+run_case 'list-label-bottom' 'sleep 300' "$WORK/items.txt" --list-border=sharp --list-label='RESULTS' --list-label-pos=4:bottom
+run_case 'list-label-reverse' 'sleep 300' "$WORK/items.txt" --reverse --list-border=sharp --list-label='RESULTS'
 run_case 'header-border-default' 'sleep 300'  "$WORK/items.txt" --header=HEADER --header-border
 run_case 'header-border-sharp' 'sleep 300'    "$WORK/items.txt" --header=HEADER --header-border=sharp
 run_case 'header-border-reverse' 'sleep 300'  "$WORK/items.txt" --reverse --header=HEADER --header-border=sharp
