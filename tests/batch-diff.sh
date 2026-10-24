@@ -115,6 +115,10 @@ check "bad-tiebreak"   --filter=a --tiebreak=zzz
 check "bad-style"      --filter=a --style=unsupported
 check "unsupported-line-number" --filter=a --line-number
 check "unsupported-no-line-number" --filter=a --no-line-number
+check "unsupported-graph" --filter=a --graph
+check "unsupported-no" --filter=a --no
+check "unsupported-oneline" --filter=a --oneline
+check "unsupported-no-oneline" --filter=a --no-oneline
 check "style-full"     --filter=a --style=full
 
 check "phony-filter"    --phony --filter=an
