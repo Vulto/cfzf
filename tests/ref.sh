@@ -23,7 +23,7 @@ if [[ -n "${FZF_REF:-}" ]]; then
     exit 0
 fi
 
-if [[ ! -d "$FZF_SRC/.git" ]]; then
+if [[ ! -e "$FZF_SRC/.git" ]]; then
     printf 'pinned fzf source repository not found: %s\n' "$FZF_SRC" >&2
     printf 'Provide that checkout at commit %s, or set FZF_REF to a verified binary.\n' "$REF_COMMIT" >&2
     exit 1
@@ -50,6 +50,11 @@ if [[ -e "$REF_WORKTREE" ]]; then
     }
 fi
 
+cleanup() {
+    git -C "$FZF_SRC" worktree remove --force "$REF_WORKTREE" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT HUP INT TERM
+
 git -C "$FZF_SRC" worktree add --detach --force "$REF_WORKTREE" "$REF_COMMIT" >/dev/null
 
 actual_commit="$(git -C "$REF_WORKTREE" rev-parse HEAD)"
@@ -63,7 +68,8 @@ if ! (cd "$REF_WORKTREE" && go build -o "$REF_BUILD" .); then
     exit 1
 fi
 
-git -C "$FZF_SRC" worktree remove --force "$REF_WORKTREE" >/dev/null
+cleanup
+trap - EXIT HUP INT TERM
 if [[ ! -x "$REF_BUILD" ]]; then
     printf 'reference build did not produce an executable: %s\n' "$REF_BUILD" >&2
     exit 1
