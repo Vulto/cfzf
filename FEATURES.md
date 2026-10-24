@@ -122,7 +122,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-093 | `\-\-pointer` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-094 | `--popup` | - | - | unstarted |
 | OPT-095 | `\-\-preview` | src/preview.c, src/ui.c | tests/pty-diff.sh | verified |
-| OPT-096 | `--preview-border` | - | - | unstarted |
+| OPT-096 | `--preview-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-097 | `--preview-label` | - | - | unstarted |
 | OPT-098 | `--preview-label-pos` | - | - | unstarted |
 | OPT-099 | `\-\-preview\-window` | src/preview.c, src/ui.c | tests/pty-diff.sh | verified |
