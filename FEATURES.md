@@ -11,13 +11,24 @@ No feature is marked `verified` on the strength of its name appearing in the cod
 
 ## Summary
 
-- CLI options: **76 / 131** verified, **17** implemented (no differential test yet), **38** unstarted
-- Actions: **68 / 132** implemented and exercised through `--bind`
-- Events: **infrastructure implemented** (start, load, change, result triggers),
-  0 / 13 verified through differential tests
-- Events: **0 / 13** verified
+Counts below are computed from the rows currently present in this file; they
+are inventory states, not a claim that the full upstream interface has passed
+differential testing.
+
+- CLI options: **77 / 131** marked `verified`, **20** marked `implemented`
+  without differential verification, **34** marked `unstarted`.
+- Actions: **125 rows are present**: **64** marked `implemented` without
+  differential verification and **61** marked `unstarted`. Seven action IDs
+  from the 001–132 range are absent from the table; the action inventory is
+  incomplete and must be reconciled against the pinned upstream source before
+  these counts can represent the canonical action list.
+- Events: **0 / 13** marked `verified`; all 13 rows are marked `unstarted`.
 - `--phony` (a hidden option of the reference, not listed in its help) is
-  implemented as well
+  implemented as well.
+
+The latest CI evidence is recorded in `BASELINE_EVIDENCE.md`. Its coverage is
+limited to the suites listed there; it does not independently validate every
+row currently marked `verified`.
 
 ## CLI options
 
