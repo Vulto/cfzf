@@ -84,7 +84,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-055 | `--jump-labels` | src/main.c | - | implemented |
 | OPT-056 | `\-\-keep\-right` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-057 | `\-\-layout` | src/ui.c | tests/pty-diff.sh | verified |
-| OPT-058 | `--line-number` | - | - | unstarted |
+| OPT-058 | `--line-number` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-059 | `--list-border` | - | - | unstarted |
 | OPT-060 | `--listen` | src/main.c | - | implemented |
 | OPT-061 | `--listen-unsafe` | src/main.c | - | implemented |
