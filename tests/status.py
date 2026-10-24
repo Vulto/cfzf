@@ -16,8 +16,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 FEATURES = ROOT / "FEATURES.md"
 EXPECTED = {"CLI options": 131, "Actions": 132, "Events": 13}
 ID_PREFIX = {"CLI options": "OPT", "Actions": "ACT", "Events": "EVT"}
-VALID_STATUSES = {"verified", "implemented", "unstarted", "missing", "blocked", "n/a"}
-TABLE_ROW = re.compile(r"^\|\s*([A-Z]{3}-\d{3})\s*\|(.+?)\|\s*(verified|implemented|unstarted|missing|blocked|n/a)\s*\|\s*$")
+VALID_STATUSES = {"verified", "implemented", "implemented but unverified", "unstarted", "failing", "missing", "blocked", "n/a"}
+TABLE_ROW = re.compile(r"^\|\s*([A-Z]{3}-\d{3})\s*\|(.+?)\|\s*(verified|implemented but unverified|implemented|unstarted|failing|missing|blocked|n/a)\s*\|\s*$")
 
 
 def parse_inventory(text: str):
@@ -80,7 +80,7 @@ def main() -> int:
             incomplete = True
         print(f"{section}: {len(entries)}/{expected} inventory rows; " +
               ", ".join(f"{s}={counts[s]}" for s in
-                        ("verified", "implemented", "unstarted", "missing", "blocked", "n/a")))
+                        ("verified", "implemented", "implemented but unverified", "unstarted", "failing", "missing", "blocked", "n/a")))
         if missing_ids:
             print("  MISSING IDS: " + ", ".join(missing_ids))
         if unexpected_ids:
