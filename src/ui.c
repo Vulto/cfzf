@@ -568,7 +568,10 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     bool draw_header_box = has_header && !ui->header_first &&
                            (full_component_style ||
                             (ui->header_border_set && ui->header_border != MM_BORDER_NONE));
-    bool draw_component_boxes = full_component_style || draw_list_box || draw_header_box;
+    bool draw_input_box = full_component_style ||
+                          (ui->input_border_set && ui->input_border != MM_BORDER_NONE);
+    bool draw_component_boxes = full_component_style || draw_list_box ||
+                                draw_header_box || draw_input_box;
     if (ui->reverse) {
         /* prompt on top, info below it, list grows downwards. */
         prompt_row = content_top;
@@ -638,15 +641,24 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             }
             list_first++;
         }
-    } else if (draw_list_box || draw_header_box) {
+    } else if (draw_input_box || draw_list_box || draw_header_box) {
         if (ui->reverse) {
+            if (draw_input_box) {
+                prompt_row++;
+                if (info_row >= 0) info_row++;
+                list_first += 2;
+                list_last--;
+            }
             if (draw_header_box) {
                 header_row++;
                 list_first += 2;
             }
-            if (draw_list_box) list_first += 2;
-            if (draw_list_box) list_last--;
+            if (draw_list_box) {
+                list_first += 2;
+                list_last--;
+            }
         } else {
+            if (draw_input_box) list_last--;
             if (draw_header_box) list_last--;
             if (draw_list_box) {
                 list_first++;
@@ -1350,12 +1362,36 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         int header_shape = ui->header_border_set ? ui->header_border : ui->border;
         const mm_border_glyphs_t *hg = ui->no_unicode
             ? mm_border_glyphs_ascii(header_shape) : mm_border_glyphs(header_shape);
+        int input_shape = ui->input_border_set ? ui->input_border : ui->border;
+        const mm_border_glyphs_t *ig = ui->no_unicode
+            ? mm_border_glyphs_ascii(input_shape) : mm_border_glyphs(input_shape);
         mm_color_t bcol = ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER);
         int left = area_x + (b_left ? 1 : 0);
         int right = area_x + area_w - 1;
-        if (full_component_style)
-            ui_draw_border_box(listwin, g, bcol, left, right,
+        if (draw_input_box)
+            ui_draw_border_box(listwin, ig, bcol, left, right,
                                prompt_row - 1, prompt_row + 1, total);
+        if (draw_input_box && ui->input_label && *ui->input_label) {
+            int label_width = ui_str_width(ui->input_label);
+            int label_row = ui->input_label_bottom ? prompt_row + 1 : prompt_row - 1;
+            if (label_width > 0 && label_width <= right - left - 1 &&
+                label_row >= 0 && label_row < total) {
+                int label_x;
+                if (ui->input_label_pos == 0)
+                    label_x = left + (right - left - label_width) / 2;
+                else if (ui->input_label_pos > 0)
+                    label_x = left + ui->input_label_pos;
+                else
+                    label_x = right - label_width + ui->input_label_pos;
+                if (label_x < left + 1) label_x = left + 1;
+                if (label_x + label_width > right)
+                    label_x = right - label_width;
+                mm_window_move(listwin, label_row, label_x);
+                mm_window_cprint(listwin,
+                    ui_theme_color(ui, ui->theme.border_label, 145),
+                    MM_COL_DEFAULT, 0, ui->input_label);
+            }
+        }
         if (draw_list_box)
             ui_draw_border_box(listwin, lg, bcol, left, right,
                                list_first - 1, list_last + 1, total);
