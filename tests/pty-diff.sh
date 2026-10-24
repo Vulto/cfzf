@@ -106,6 +106,8 @@ send c
 sleep 250'                                        "$WORK/paths.txt"
 
 run_case 'reverse'      'sleep 300'            "$WORK/items.txt" --reverse
+run_case 'style-default' 'sleep 300'           "$WORK/items.txt" --style=default
+run_case 'style-full' 'sleep 300'              "$WORK/items.txt" --style=full
 run_case 'no-cycle' 'sleep 300\nkey down\nkey down\nkey down\nkey down\nkey down\nkey down\nsleep 200' "$WORK/items.txt" --no-cycle
 run_case 'cycle' 'sleep 300\nkey down\nkey down\nkey down\nkey down\nkey down\nkey down\nsleep 200' "$WORK/items.txt" --cycle
 run_case 'no-info'      'sleep 300'            "$WORK/items.txt" --no-info
