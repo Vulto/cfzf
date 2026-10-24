@@ -459,6 +459,10 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     int pv_x = 0, pv_y = 0, pv_w = 0, pv_h = 0;
     bool has_preview = ui->preview != NULL;
     /* A left border costs two columns (the border and the gap after it). */
+    bool full_component_style = ui->style_full && !ui->header_first;
+    bool draw_list_box = full_component_style ||
+                         (ui->list_border_set && ui->list_border != MM_BORDER_NONE);
+    int list_border_inset = draw_list_box && !full_component_style ? 2 : 0;
     int content_x = b_left ? 2 : 0;        /* pointer column */
     if (has_preview && ui->preview_win.pos == MM_PREVIEW_LEFT) content_x = 1;
     /* The padding shifts the whole list to the right, the margin shifts it
@@ -561,9 +565,6 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
        horizontal line.  With --reverse it sits at the bottom instead. */
     bool has_footer = ui->footer && *ui->footer;
     header_row = header_lines_row = -1;
-    bool full_component_style = ui->style_full && !ui->header_first;
-    bool draw_list_box = full_component_style ||
-                         (ui->list_border_set && ui->list_border != MM_BORDER_NONE);
     bool draw_header_box = full_component_style && has_header;
     bool draw_component_boxes = full_component_style || draw_list_box;
     if (ui->reverse) {
@@ -1040,7 +1041,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         int n_cont = (n_pieces > 0) ? n_pieces - 1 : 0;
         int screen_y = (dir < 0) ? y - n_cont : y;
         int block_last = screen_y + n_cont;
-        mm_window_move(listwin, screen_y, area_x + content_x);
+        mm_window_move(listwin, screen_y, area_x + content_x + list_border_inset);
 
         /* The attributes of the current line and of the gutter. */
         mm_attr_t line_attr = cur ? (ui->no_color ? (MM_BOLD | MM_REVERSE)
@@ -1105,7 +1106,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             for (int c = 0; c < n_pieces; c++) {
                 if (screen_y + c < list_first || screen_y + c > list_last) continue;
                 if (c > 0) {
-                    mm_window_move(listwin, screen_y + c, area_x + content_x);
+                    mm_window_move(listwin, screen_y + c, area_x + content_x + list_border_inset);
                     mm_window_cprint(listwin, pfg, bg, pointer_attr,
                                      (cur && ui->pointer) ? ui->pointer : "\u258c");
                     mm_window_cprint(listwin, mfg, bg, 0, mark);
@@ -1136,13 +1137,13 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                 int used = 2 + (c > 0 ? sign_width : 0) + ui_str_width(pieces[c]);
                 mm_color_t clear_bg = (cur && ui->highlight_line) ? bg : MM_COL_DEFAULT;
                 ui_clear_to_eol(listwin, area_x + area_w - 1,
-                                area_x + content_x + used, clear_bg);
+                                area_x + content_x + list_border_inset + used, clear_bg);
             }
         } else if (visible) {
             ui_print_item(listwin, ui, fitted, matched, fg, bg, attr, cur);
             mm_color_t clear_bg = (cur && ui->highlight_line) ? bg : MM_COL_DEFAULT;
             ui_clear_to_eol(listwin, area_x + area_w - 1,
-                            area_x + content_x + 2 + text_width, clear_bg);
+                            area_x + content_x + list_border_inset + 2 + text_width, clear_bg);
         }
         free(fitted);
         if (pieces) {
@@ -1176,12 +1177,12 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             for (int g = 0; g < ui->gap; g++) {
                 int gr = (dir < 0) ? (screen_y - 1 - g) : (block_last + 1 + g);
                 if (gr < list_first || gr > list_last) continue;
-                mm_window_move(listwin, gr, area_x + content_x);
+                mm_window_move(listwin, gr, area_x + content_x + list_border_inset);
                 mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.gutter, MM_THEME_DARK_BG),
                                  MM_COL_DEFAULT, ui->no_color ? MM_DIM : 0, "\u258c");
                 mm_window_cprint(listwin, MM_COL_DEFAULT, MM_COL_DEFAULT, 0, " ");
                 /* The gap line stops before the scrollbar column. */
-                int fill = area_w - 3;
+                int fill = area_w - 3 - list_border_inset;
                 if (g == ui->gap - 1 && ui->gap_line && *ui->gap_line && fill > 0) {
                     size_t gl = strlen(ui->gap_line);
                     char *rep = malloc(gl * (size_t)fill + 1);
@@ -1194,7 +1195,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                         free(rep);
                     }
                 } else {
-                    ui_clear_to_eol(listwin, area_x + area_w - 1, area_x + content_x + 2, MM_COL_DEFAULT);
+                    ui_clear_to_eol(listwin, area_x + area_w - 1, area_x + content_x + list_border_inset + 2, MM_COL_DEFAULT);
                 }
             }
         }
@@ -1206,7 +1207,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             block + 1 < nitems) {
             int sep_row = (dir < 0) ? (screen_y - 1) : (block_last + 1);
             if (sep_row >= list_first && sep_row <= list_last) {
-                mm_window_move(listwin, sep_row, area_x + content_x + 2);
+                mm_window_move(listwin, sep_row, area_x + content_x + list_border_inset + 2);
                 int fill = list_w - 2;
                 if (fill > 0) {
                     size_t sl = strlen(ui->separator);
@@ -1219,7 +1220,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                                          MM_COL_DEFAULT, 0, rep);
                         free(rep);
                     } else {
-                        ui_clear_to_eol(listwin, area_x + area_w - 1, area_x + content_x + 2, MM_COL_DEFAULT);
+                        ui_clear_to_eol(listwin, area_x + area_w - 1, area_x + content_x + list_border_inset + 2, MM_COL_DEFAULT);
                     }
                 }
             }
@@ -1233,9 +1234,9 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
 
     /* The rows that are left over are empty. */
     for (int gr = y; gr >= list_first && gr <= list_last; gr += dir) {
-        mm_window_move(listwin, gr, area_x + content_x);
+        mm_window_move(listwin, gr, area_x + content_x + list_border_inset);
         mm_window_cprint(listwin, MM_COL_DEFAULT, MM_COL_DEFAULT, 0, "");
-        ui_clear_to_eol(listwin, area_x + area_w - 1, area_x + content_x, MM_COL_DEFAULT);
+        ui_clear_to_eol(listwin, area_x + area_w - 1, area_x + content_x + list_border_inset, MM_COL_DEFAULT);
     }
 
     /* Border box around the whole UI. */
