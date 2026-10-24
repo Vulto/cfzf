@@ -96,6 +96,11 @@ typedef struct {
     bool         preview_label_bottom;
     int          list_border; /* --list-border shape id; -1 inherits style */
     int          header_border; /* --header-border shape id */
+    int          input_border; /* --input-border shape id */
+    bool         input_border_set;
+    const char  *input_label; /* --input-label */
+    int          input_label_pos;
+    bool         input_label_bottom;
     bool         header_border_set;
     bool         list_border_set;
     bool         style_full; /* --style=full component layout */
