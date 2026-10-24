@@ -126,7 +126,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-097 | `--preview-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-098 | `--preview-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-099 | `\-\-preview\-window` | src/preview.c, src/ui.c | tests/pty-diff.sh | verified |
-| OPT-100 | `--preview-wrap-sign` | - | - | unstarted |
+| OPT-100 | `--preview-wrap-sign` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-101 | `--print0` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-102 | `--print-query` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-103 | `--prompt` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
