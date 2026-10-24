@@ -144,6 +144,9 @@ int main(int argc, char **argv) {
     bool border_label_bottom = false;
     const char *preview_cmd = NULL;
     const char *preview_label = NULL;
+    const char *list_label = NULL;
+    int list_label_pos = 0;
+    bool list_label_bottom = false;
     const char *header_label = NULL;
     int header_label_pos = 0;
     bool header_label_bottom = false;
@@ -408,10 +411,26 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--fish")) { /* print fish integration */ return 0; }
         else if (!strcmp(a, "--header-first")) header_first = true;
         else if (!strcmp(a, "--no-header-first")) header_first = false;
-        else if (ARG_EQ("--list-label")) { if (i+1<argc && a[strlen(a)]=='=' && !strchr(a+11,'=')) {} }
-        else if (!strcmp(a, "--list-label")) { if (i+1<argc) i++; }
-        else if (ARG_EQ("--list-label-pos")) { if (i+1<argc) i++; }
-        else if (!strcmp(a, "--list-label-pos")) { if (i+1<argc) i++; }
+        else if (ARG_EQ("--list-label")) list_label = a + strlen("--list-label") + 1;
+        else if (!strcmp(a, "--list-label")) {
+            if (i + 1 < argc) list_label = argv[++i];
+            else { fprintf(stderr, "--list-label requires a value\n"); return 2; }
+        }
+        else if (ARG_EQ("--list-label-pos")) {
+            if (!mm_parse_label_pos(a + strlen("--list-label-pos") + 1, &list_label_pos, &list_label_bottom)) {
+                fprintf(stderr, "invalid --list-label-pos: %s\n", a + strlen("--list-label-pos") + 1);
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--list-label-pos")) {
+            if (i + 1 < argc) {
+                const char *value = argv[++i];
+                if (!mm_parse_label_pos(value, &list_label_pos, &list_label_bottom)) {
+                    fprintf(stderr, "invalid --list-label-pos: %s\n", value);
+                    return 2;
+                }
+            } else { fprintf(stderr, "--list-label-pos requires a value\n"); return 2; }
+        }
         else if (ARG_EQ("--input-label")) input_label = a + strlen("--input-label") + 1;
         else if (!strcmp(a, "--input-label")) {
             if (i + 1 < argc) input_label = argv[++i];
@@ -999,6 +1018,9 @@ int main(int argc, char **argv) {
         ui.input_label_bottom = input_label_bottom;
         ui.header_border_set = header_border_set;
         ui.style_full = style_full;
+        ui.list_label = list_label;
+        ui.list_label_pos = list_label_pos;
+        ui.list_label_bottom = list_label_bottom;
         ui.header_label = header_label;
         ui.header_label_pos = header_label_pos;
         ui.header_label_bottom = header_label_bottom;
