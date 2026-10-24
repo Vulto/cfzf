@@ -201,10 +201,11 @@ e0c107b docs: add man page with a consistency test for the documented options
 fb7363f feat: add the preview scrollbar and line indicator
 ```
 
-CI: `.github/workflows/ci.yml` builds with gcc, runs the differential suites
-and a `-fanalyzer` pass. It has not been executed in this environment (no
-network access and no `gh`); the results above were produced locally with
-the same commands the workflow runs.
+CI: `.github/workflows/ci.yml` builds with strict warnings and runs the
+pinned-reference differential suites. The current successful run, exact commit
+IDs, compiler, commands, and suite totals are recorded in
+`BASELINE_EVIDENCE.md`. Static analysis, sanitizers, allocation-failure
+injection, and fuzzing are not included in the current CI workflow.
 
 ## 11. Verified facts vs estimates
 
