@@ -1354,8 +1354,6 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     }
 
     if (draw_component_boxes) {
-        const mm_border_glyphs_t *g = ui->no_unicode
-            ? mm_border_glyphs_ascii(ui->border) : mm_border_glyphs(ui->border);
         int list_shape = ui->list_border_set ? ui->list_border : ui->border;
         const mm_border_glyphs_t *lg = ui->no_unicode
             ? mm_border_glyphs_ascii(list_shape) : mm_border_glyphs(list_shape);
