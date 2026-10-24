@@ -85,7 +85,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-056 | `\-\-keep\-right` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-057 | `\-\-layout` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-058 | `--line-number` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
-| OPT-059 | `--list-border` | - | - | unstarted |
+| OPT-059 | `--list-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-060 | `--listen` | src/main.c | - | implemented |
 | OPT-061 | `--listen-unsafe` | src/main.c | - | implemented |
 | OPT-062 | `--list-label` | - | - | unstarted |
