@@ -120,6 +120,7 @@ int main(int argc, char **argv) {
     bool reverse = false;
     bool info = true;   /* fzf shows the info line by default */
     bool info_inline_right = false; /* --info=inline-right */
+    const char *style_spec = NULL;
     bool select_1 = false;
     bool exit_0 = false;
     bool expect = false;
@@ -424,8 +425,8 @@ int main(int argc, char **argv) {
     else if (ARG_EQ("--popup")) { /* accepted for compatibility */ }
     else if (!strcmp(a, "--bench")) { /* accepted for compatibility */ }
     else if (ARG_EQ("--bench")) { /* accepted for compatibility */ }
-    else if (!strcmp(a, "--style")) { if (i+1<argc) i++; }
-    else if (ARG_EQ("--style")) { /* accepted for compatibility */ }
+    else if (!strcmp(a, "--style")) { if (i+1<argc) style_spec = argv[++i]; else { fprintf(stderr, "style preset required\\n"); return 2; } }
+    else if (ARG_EQ("--style")) style_spec = a + 8;
     else if (!strcmp(a, "--no")) { /* accepted for compatibility */ }
     else if (!strcmp(a, "--nushell")) { /* accepted for compatibility */ }
     else if (!strcmp(a, "--zsh")) { /* accepted for compatibility */ }
@@ -798,6 +799,50 @@ int main(int argc, char **argv) {
 
     if (!filter) {
         /* Interactive mode. */
+        /* Apply style presets after option parsing, matching upstream fzf's
+           preset precedence. Component-specific borders are tracked separately
+           in the feature inventory; this renderer currently has one outer box. */
+        if (style_spec) {
+            if (!strcmp(style_spec, "default")) {
+                border_shape = MM_BORDER_NONE;
+                info_inline_right = false;
+                highlight_line = false;
+            } else if (!strcmp(style_spec, "minimal")) {
+                border_shape = MM_BORDER_NONE;
+                info_inline_right = false;
+                highlight_line = false;
+                no_scrollbar = true;
+                gutter_spec = " ";
+                separator_spec = "";
+            } else {
+                char preset[128];
+                size_t n = strlen(style_spec);
+                if (n >= sizeof(preset)) {
+                    fprintf(stderr, "unsupported style preset: %s\\n", style_spec);
+                    return 2;
+                }
+                memcpy(preset, style_spec, n + 1);
+                char *colon = strchr(preset, ':');
+                if (colon) *colon++ = '\\0';
+                if (strcmp(preset, "full") != 0) {
+                    fprintf(stderr, "unsupported style preset: %s\\n", style_spec);
+                    return 2;
+                }
+                border_shape = MM_BORDER_ROUNDED;
+                if (colon && *colon) {
+                    int b = mm_border_parse(colon);
+                    if (b < 0) {
+                        fprintf(stderr, "unsupported style border: %s\\n", colon);
+                        return 2;
+                    }
+                    border_shape = b;
+                }
+                info = true;
+                info_inline_right = true;
+                highlight_line = true;
+            }
+        }
+
         mm_ui_t ui;
         memset(&ui, 0, sizeof(ui));
         ui.crit = crit;
