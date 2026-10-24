@@ -543,7 +543,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             else                   header_lines_row = content_top;
             prompt_row = content_top + first_rows;
         }
-        block_row = prompt_row + 1;       /* the info line or the separator */
+        block_row = prompt_row + (ui->info && ui->info_inline_right ? 0 : 1);
         info_row  = ui->info ? block_row : -1;
         int row = block_row + 1;
         if (!ui->header_first && has_header) {
@@ -565,7 +565,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             else                   header_lines_row = content_bottom;
             prompt_row = content_bottom - first_rows;
         }
-        block_row = prompt_row - 1;
+        block_row = prompt_row - (ui->info && ui->info_inline_right ? 0 : 1);
         info_row  = ui->info ? block_row : -1;
         int row = block_row - 1;
         if (!ui->header_first && has_header) {
@@ -782,7 +782,13 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                 n += snprintf(info + n, sizeof(info) - (size_t)n, " (%d)", ui->nselected);
             }
         }
-        mm_window_move(infowin, info_row, area_x + info_x);
+        int info_start_x = area_x + info_x;
+        if (ui->info_inline_right) {
+            info_start_x = area_x + area_w - n - 2;
+            if (info_start_x < area_x + content_x)
+                info_start_x = area_x + content_x;
+        }
+        mm_window_move(infowin, info_row, info_start_x);
         /* The indent is drawn with the default colour, the counts with the
            info colour and the separator with the border colour. */
         /* The spinner is shown while the input is still being read. */
@@ -810,7 +816,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         mm_window_cprint(infowin, ui_theme_color(ui, ui->theme.info, MM_THEME_INFO),
                          MM_COL_DEFAULT, 0, info_text);
         int used = n + 2;
-        if (used < info_w) {
+        if (!ui->info_inline_right && used < info_w) {
             /* The separator is U+2500 repeated; each glyph is three bytes.
                Size the buffer from the glyph count, not the other way round. */
             /* One column goes to the space that separates the counts from
