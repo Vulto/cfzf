@@ -244,8 +244,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--cycle") || !strcmp(a, "--no-cycle")) cycle = true;
         else if (!strcmp(a, "--reverse")) reverse = true;
         else if (!strcmp(a, "--no-reverse")) reverse = false;
-        else if (!strcmp(a, "--info")) info = true;
-        else if (!strcmp(a, "--no-info")) info = false;
+        else if (!strcmp(a, "--info")) { info = true; info_inline_right = false; }
+        else if (!strcmp(a, "--no-info")) { info = false; info_inline_right = false; }
         else if (!strncmp(a, "--info=", 7)) {
             const char *v = a + 7;
             if (!strcmp(v, "default")) { info = true; info_inline_right = false; }
