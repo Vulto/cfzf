@@ -1480,8 +1480,18 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
         if (ui->preview_label && *ui->preview_label) {
             int label_width = ui_str_width(ui->preview_label);
             if (label_width > 0 && label_width <= w - 2) {
-                int label_x = x + (w - label_width) / 2;
-                mm_window_move(win, y, label_x);
+                int label_row = ui->preview_label_bottom ? y + h - 1 : y;
+                int label_x;
+                if (ui->preview_label_pos == 0)
+                    label_x = x + (w - label_width) / 2;
+                else if (ui->preview_label_pos > 0)
+                    label_x = x + ui->preview_label_pos - 1;
+                else
+                    label_x = x + w - label_width + ui->preview_label_pos + 1;
+                if (label_x < x + 1) label_x = x + 1;
+                if (label_x + label_width > x + w - 1)
+                    label_x = x + w - label_width - 1;
+                mm_window_move(win, label_row, label_x);
                 mm_window_cprint(win,
                     ui_theme_color(ui, ui->theme.border_label, 145),
                     MM_COL_DEFAULT, 0, ui->preview_label);
