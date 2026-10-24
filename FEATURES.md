@@ -63,7 +63,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-034 | `--gutter` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-035 | `--gutter-raw` | src/main.c | tests/pty-diff.sh | verified |
 | OPT-036 | `--header` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
-| OPT-037 | `--header-border` | - | - | unstarted |
+| OPT-037 | `--header-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-038 | `--header-first` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-039 | `--header-label` | - | - | unstarted |
 | OPT-040 | `--header-label-pos` | - | - | unstarted |
