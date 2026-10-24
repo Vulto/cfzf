@@ -65,8 +65,8 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-036 | `--header` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-037 | `--header-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-038 | `--header-first` | src/ui.c | tests/pty-diff.sh | verified |
-| OPT-039 | `--header-label` | - | - | unstarted |
-| OPT-040 | `--header-label-pos` | - | - | unstarted |
+| OPT-039 | `--header-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
+| OPT-040 | `--header-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-041 | `--header-lines` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-042 | `--header-lines-border` | - | - | unstarted |
 | OPT-043 | `--height` | src/ui.c, src/terminal.c | tests/pty-diff.sh | verified |
