@@ -254,7 +254,7 @@ int main(int argc, char **argv) {
             else if (!strcmp(v, "inline-right")) { info = true; info_inline_right = true; }
             else if (!strcmp(v, "hidden")) { info = false; info_inline_right = false; }
             else {
-                fprintf(stderr, "unsupported info style: %s\\n", v);
+                fprintf(stderr, "unsupported info style: %s\n", v);
                 return 2;
             }
         }
@@ -425,7 +425,7 @@ int main(int argc, char **argv) {
     else if (ARG_EQ("--popup")) { /* accepted for compatibility */ }
     else if (!strcmp(a, "--bench")) { /* accepted for compatibility */ }
     else if (ARG_EQ("--bench")) { /* accepted for compatibility */ }
-    else if (!strcmp(a, "--style")) { if (i+1<argc) style_spec = argv[++i]; else { fprintf(stderr, "style preset required\\n"); return 2; } }
+    else if (!strcmp(a, "--style")) { if (i+1<argc) style_spec = argv[++i]; else { fprintf(stderr, "style preset required\n"); return 2; } }
     else if (ARG_EQ("--style")) style_spec = a + 8;
     else if (!strcmp(a, "--no")) { /* accepted for compatibility */ }
     else if (!strcmp(a, "--nushell")) { /* accepted for compatibility */ }
@@ -818,21 +818,21 @@ int main(int argc, char **argv) {
                 char preset[128];
                 size_t n = strlen(style_spec);
                 if (n >= sizeof(preset)) {
-                    fprintf(stderr, "unsupported style preset: %s\\n", style_spec);
+                    fprintf(stderr, "unsupported style preset: %s\n", style_spec);
                     return 2;
                 }
                 memcpy(preset, style_spec, n + 1);
                 char *colon = strchr(preset, ':');
-                if (colon) *colon++ = '\\0';
+                if (colon) *colon++ = '\0';
                 if (strcmp(preset, "full") != 0) {
-                    fprintf(stderr, "unsupported style preset: %s\\n", style_spec);
+                    fprintf(stderr, "unsupported style preset: %s\n", style_spec);
                     return 2;
                 }
                 border_shape = MM_BORDER_ROUNDED;
                 if (colon && *colon) {
                     int b = mm_border_parse(colon);
                     if (b < 0) {
-                        fprintf(stderr, "unsupported style border: %s\\n", colon);
+                        fprintf(stderr, "unsupported style border: %s\n", colon);
                         return 2;
                     }
                     border_shape = b;
