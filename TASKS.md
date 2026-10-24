@@ -1,86 +1,143 @@
-# cfzf Rewrite Task List
+# cfzf C23 Rewrite Task List
+
+## Primary objective
+
+Deliver a **complete, drop-in-compatible rewrite of fzf in C23**. The pinned
+upstream Go implementation is the behavioral specification. Testing,
+inventories, documentation, and benchmarks exist to drive and verify the rewrite;
+they are not the deliverable by themselves.
 
 Reference contract: `junegunn/fzf` v0.74.3, commit
 `15f64c492a08f0840b81540c7d1de35737448086`.
 
-A task is **complete** only when its acceptance criteria are backed by a fresh,
-reproducible test run. Source presence, old report text, and a test count without
-a recorded revision do not establish parity.
+A feature is complete only when implemented in C23 and backed by reproducible
+tests against the pinned reference. Source presence, historical reports, and
+unverified feature labels do not establish parity. Keep working directly on
+`main`, in small, testable commits. Fix failures before moving to unrelated work.
 
-## Milestone 1 — Trustworthy baseline (current)
+## Phase 0 — Make progress measurable (supporting work)
 
-- [ ] **M1.1 — Pin the reference executable.** Differential tests must use the
-  designated upstream commit. Never silently prefer an arbitrary system
-  `fzf` binary or a stale build.
-- [ ] **M1.2 — Make test failures fail closed.** Compare stdout, stderr, and exit
-  status where relevant; fail if the reference is missing, a command fails to
-  execute, or a case is skipped unexpectedly.
-- [ ] **M1.3 — Make test inputs reproducible.** Rebuild generated corpora from
-  the current script/version, rather than trusting stale files in `/tmp`.
-- [ ] **M1.4 — Record evidence.** Record cfzf commit, reference commit, compiler,
-  build flags, commands, pass/fail totals, and skipped tests for every baseline.
-- [ ] **M1.5 — Reconcile documentation.** Make `PLAN.md`, `PORTING_STATUS.md`,
-  `FEATURES.md`, and `FINAL_REPORT.md` agree on status and totals. Keep
-  measured facts distinct from claims that have not been rerun.
-- [ ] **M1 exit gate.** Fresh strict build and all existing differential suites
-  pass against the pinned reference. Any test failure or unexplained difference
-  blocks later milestones.
+These tasks enable implementation; they must not turn test-infrastructure work
+into the project's main objective or indefinitely block feature development.
 
-## Milestone 2 — Complete CLI and batch behavior
+- [ ] Pin the reference executable and fail closed if it cannot be built or run.
+- [ ] Ensure differential tests compare relevant stdout, stderr, exit status,
+  and PTY behavior; regenerate fixtures rather than trusting stale artifacts.
+- [ ] Establish a strict C23 build and a reproducible baseline CI run.
+- [ ] Keep the feature/parity inventory and project documentation consistent.
+- [ ] Record baseline evidence in `BASELINE_EVIDENCE.md`, including tested
+  commit, reference commit, toolchain, commands, results, and skipped checks.
 
-- [ ] Derive the canonical option and alias list from the pinned upstream source.
-- [ ] Differentially test each option's parsing, defaults, validation, errors,
-  output streams, exit status, and interactions.
-- [ ] Verify query grammar, scoring, ranking, tie-breaking, delimiters, fields,
-  ANSI handling, Unicode, empty input, record boundaries, and malformed input.
-- [ ] Add regression fixtures for every discovered mismatch.
+**Gate:** the differential harness is trustworthy enough to validate each fix.
+Finish or repair individual infrastructure gaps as needed; do not postpone
+implementing known missing functionality merely to polish unrelated tooling.
 
-## Milestone 3 — Complete interactive behavior
+## Phase 1 — Map the implementation and prioritize real gaps
 
-- [ ] Inventory all upstream actions, events, key bindings, and placeholders.
-- [ ] Differentially test state transitions and action sequences through a PTY.
-- [ ] Verify streaming input, reload/cancellation, preview, terminal resize,
-  selection, shell integration, subprocess lifecycle, and terminal restoration.
-- [ ] Compare logical screen state and relevant output/control sequences; only
-  normalize differences demonstrated to be irrelevant or nondeterministic.
+- [ ] Inspect the C23 codebase and map executable entry points, modules,
+  dependencies, build commands, and tests.
+- [ ] Derive the canonical option/alias, action, event, binding, and integration
+  inventories from the pinned upstream source.
+- [ ] For each subsystem, record C implementation status, upstream behavior,
+  a reproducer/test, and dependencies on other subsystems.
+- [ ] Identify the largest functional gaps and build/test blockers; order work by
+  compatibility impact and prerequisite dependencies.
+- [ ] Convert every discovered mismatch or missing feature into a concrete
+  implementation task with a regression test.
 
-## Milestone 4 — Safety and compatibility certification
+## Phase 2 — Complete core non-interactive fzf behavior in C23
 
-- [ ] Run all differential suites from clean builds.
-- [ ] Run allocation-failure injection, fuzzing, ASan/UBSan/LSan, and static
-  analysis where available.
-- [ ] Confirm test harnesses fail when given an intentionally wrong reference
-  or implementation binary.
-- [ ] Resolve every reproducible difference; document genuine upstream
-  nondeterminism with evidence rather than masking it.
+- [ ] Implement and verify CLI parsing, aliases, defaults, validation, help,
+  version, errors, output streams, and exit statuses.
+- [ ] Match input ingestion, streaming, records, delimiters, field processing,
+  ANSI handling, Unicode/encoding behavior, and malformed/empty input.
+- [ ] Match query grammar, all supported matching modes, scoring, match
+  positions, ranking, tie-breaking, sorting, and filtering semantics.
+- [ ] Match output formatting, selection/output modes, no-match behavior,
+  pipelines, broken pipes, and non-TTY operation.
+- [ ] Test option interactions and edge cases against the reference, not only
+  isolated happy paths.
+- [ ] Fix every reproduced mismatch and retain it as a regression test.
 
-## Milestone 5 — Profile and optimize
+**Gate:** covered batch/CLI behavior matches the pinned reference, with all
+remaining gaps explicitly listed rather than implied to be complete.
 
-- [ ] Benchmark input ingestion, matching, sorting, and end-to-end latency
-  separately over multiple corpus sizes and line-length distributions.
-- [ ] Record repeated-run medians, peak RSS, allocation counts, compiler flags,
-  and machine/reference revisions.
-- [ ] Profile the reported large-input slowdown before changing data layout or
-  threading.
-- [ ] Re-run the full compatibility and safety suites after each optimization.
+## Phase 3 — Complete interactive fzf behavior in C23
 
-## Current evidence and known inventory gaps
+- [ ] Reproduce application state transitions, query editing, cursor movement,
+  candidate navigation, scrolling, selection, and multi-selection.
+- [ ] Implement and verify all upstream actions, action chains, key bindings,
+  events, placeholders, and relevant configuration behavior.
+- [ ] Match terminal rendering, styles, layout, resize behavior, cursor state,
+  terminal modes, and restoration on normal exit, errors, and signals.
+- [ ] Match streaming updates, reload/cancellation, preview windows/commands,
+  subprocess lifecycle, asynchronous work, and cleanup.
+- [ ] Verify shell integration and scripting/programmatic interfaces.
+- [ ] Compare PTY screen state and relevant control sequences; normalize only
+  differences proven irrelevant or nondeterministic.
+- [ ] Add regression coverage for every discovered interactive discrepancy.
 
-- `tests/ref.sh` now builds from the pinned source commit in a fresh Git
-  worktree and does not silently select a system executable.
+**Gate:** all implemented interactive paths have repeatable differential tests,
+and every known gap is recorded with a next action.
+
+## Phase 4 — Close the complete compatibility gap
+
+- [ ] Reconcile the feature inventory against the complete upstream surface;
+  investigate absent IDs, unimplemented features, and untested interactions.
+- [ ] Run the full differential suite from clean builds and resolve every
+  reproducible, unexplained mismatch.
+- [ ] Verify the harness detects an intentionally wrong reference or
+  implementation binary.
+- [ ] Run fuzzing, allocation-failure injection, ASan/UBSan/LSan, static
+  analysis, and stress tests where supported; fix identified defects.
+- [ ] Test supported platforms/toolchains where available and document any
+  concrete environmental blocker or justified platform-specific difference.
+- [ ] Keep verified, implemented-but-unverified, missing, failing, blocked, and
+  not-applicable statuses distinct.
+
+**Gate:** no unexplained differences remain in the covered scope; uncovered or
+unverified behaviors are explicitly reported, not mislabeled as parity.
+
+## Phase 5 — Measure and optimize without regressing parity
+
+- [ ] Benchmark both implementations on identical small, medium, large, and
+  stress workloads.
+- [ ] Measure ingestion, matching, sorting, interactive update latency, startup,
+  peak RSS, and allocations separately where practical.
+- [ ] Record repeated-run statistics, corpus characteristics, toolchain flags,
+  and exact revisions.
+- [ ] Profile actual bottlenecks before changing algorithms, data layout, or
+  concurrency.
+- [ ] After each optimization, rerun focused tests and the full compatibility
+  suite; never trade away semantics to improve a benchmark.
+
+## Current known state (must be refreshed as work proceeds)
+
+- `tests/ref.sh` builds the pinned upstream commit in a fresh Git worktree and
+  does not silently choose an arbitrary system `fzf`.
 - `tests/batch-diff.sh`, `tests/algo-diff.sh`, and `tests/nth-diff.sh`
-  regenerate their input corpus and compare output streams and exit status.
-- `FEATURES.md` currently has 131 option rows (77 marked verified, 20
-  implemented but unverified, 34 unstarted), 125 action rows (64 implemented
-  but unverified, 61 unstarted), and 13 event rows (all unstarted). Seven
-  action IDs from the 001–132 range are absent; the canonical action inventory
-  must be reconciled against the pinned upstream source.
-- Historical test totals and benchmark numbers are not evidence of a current
-  baseline. `BASELINE_EVIDENCE.md` records the latest clean CI run and its
-  exact coverage. Benchmark claims remain historical until rerun in milestone 5.
+  regenerate test corpora and compare output streams and exit status.
+- The last recorded inventory had 131 option rows (77 verified, 20 implemented
+  but unverified, 34 unstarted), 125 action rows (64 implemented but
+  unverified, 61 unstarted), and 13 event rows (all unstarted). Seven action
+  IDs in the 001–132 range were absent. These counts are a warning that the
+  inventory needs reconciliation, not proof of implementation completeness.
+- Historical test totals and benchmark numbers are not current evidence.
+  `BASELINE_EVIDENCE.md` must identify the exact tested commit and run.
+- Refresh these facts from the repository and latest CI before relying on them.
 
-## Reporting rule
+## Reporting and completion rules
 
-Update this file only when the corresponding work is actually complete. Never
-mark a milestone complete solely because its issues or implementation tasks
-were created.
+- Update this checklist when work is actually complete, and commit code, tests,
+  and status changes together when practical.
+- Work on one concrete implementation or validation task at a time; build and
+  test it, inspect failures, fix root causes, and rerun before proceeding.
+- Do not claim a feature or phase complete based only on a green build, source
+  inspection, or test counts that do not cover that behavior.
+- The project is done only when the C23 application covers fzf's targeted
+  behavior, the available compatibility and safety suites pass, remaining
+  limitations are explicit, and performance claims are backed by reproducible
+  measurements.
+
+The deliverable is the C23 fzf rewrite—not the task list, test harness, or
+documentation.
