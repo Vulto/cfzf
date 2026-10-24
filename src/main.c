@@ -139,6 +139,9 @@ int main(int argc, char **argv) {
     bool border_label_bottom = false;
     const char *preview_cmd = NULL;
     const char *preview_label = NULL;
+    const char *header_label = NULL;
+    int header_label_pos = 0;
+    bool header_label_bottom = false;
     const char *preview_wrap_sign = NULL;
     int preview_label_pos = 0;
     bool preview_label_bottom = false;
@@ -408,10 +411,26 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--input-label")) { if (i+1<argc) i++; }
         else if (ARG_EQ("--input-label-pos")) { }
         else if (!strcmp(a, "--input-label-pos")) { if (i+1<argc) i++; }
-        else if (ARG_EQ("--header-label")) { }
-        else if (!strcmp(a, "--header-label")) { if (i+1<argc) i++; }
-        else if (ARG_EQ("--header-label-pos")) { }
-        else if (!strcmp(a, "--header-label-pos")) { if (i+1<argc) i++; }
+        else if (ARG_EQ("--header-label")) header_label = a + strlen("--header-label") + 1;
+        else if (!strcmp(a, "--header-label")) {
+            if (i + 1 < argc) header_label = argv[++i];
+            else { fprintf(stderr, "--header-label requires a value\n"); return 2; }
+        }
+        else if (ARG_EQ("--header-label-pos")) {
+            if (!mm_parse_label_pos(a + strlen("--header-label-pos") + 1, &header_label_pos, &header_label_bottom)) {
+                fprintf(stderr, "invalid --header-label-pos: %s\n", a + strlen("--header-label-pos") + 1);
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--header-label-pos")) {
+            if (i + 1 < argc) {
+                const char *value = argv[++i];
+                if (!mm_parse_label_pos(value, &header_label_pos, &header_label_bottom)) {
+                    fprintf(stderr, "invalid --header-label-pos: %s\n", value);
+                    return 2;
+                }
+            } else { fprintf(stderr, "--header-label-pos requires a value\n"); return 2; }
+        }
         else if (ARG_EQ("--footer-label")) { }
         else if (!strcmp(a, "--footer-label")) { if (i+1<argc) i++; }
         else if (ARG_EQ("--footer-label-pos")) { }
@@ -943,6 +962,9 @@ int main(int argc, char **argv) {
         ui.header_border = header_border_shape;
         ui.header_border_set = header_border_set;
         ui.style_full = style_full;
+        ui.header_label = header_label;
+        ui.header_label_pos = header_label_pos;
+        ui.header_label_bottom = header_label_bottom;
         ui.border_label = border_label;
         ui.border_label_pos = border_label_pos;
         ui.border_label_bottom = border_label_bottom;
