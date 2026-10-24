@@ -129,6 +129,7 @@ int main(int argc, char **argv) {
     const char *bind_spec = NULL;
     const char *color_spec = NULL;
     int border_shape = MM_BORDER_NONE;
+    int preview_border_shape = MM_BORDER_ROUNDED;
     const char *border_label = NULL;
     int border_label_pos = 0;
     bool border_label_bottom = false;
@@ -415,7 +416,14 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-header-lines-border")) {}
         else if (!strcmp(a, "--header-border")) {}
         else if (!strcmp(a, "--footer-border")) {}
-        else if (!strcmp(a, "--preview-border")) {}
+        else if (ARG_EQ("--preview-border")) {
+            preview_border_shape = mm_border_parse(a + strlen("--preview-border") + 1);
+            if (preview_border_shape < 0) {
+                fprintf(stderr, "invalid --preview-border style: %s\\n", a + strlen("--preview-border") + 1);
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--preview-border")) { preview_border_shape = MM_BORDER_ROUNDED; }
         else if (!strcmp(a, "--list-border")) {}
         else if (!strcmp(a, "--input-border")) {}
         else if (ARG_EQ("--border-label-pos")) { /* will be handled below */ }
@@ -876,6 +884,7 @@ int main(int argc, char **argv) {
         ui.literal = literal;
         ui.theme = theme;
         ui.border = border_shape;
+        ui.preview_border = preview_border_shape;
         ui.style_full = style_full;
         ui.border_label = border_label;
         ui.border_label_pos = border_label_pos;
