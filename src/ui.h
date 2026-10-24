@@ -89,6 +89,7 @@ typedef struct {
     mm_preview_win_t preview_win;
     mm_theme_t   theme;      /* --color theme */
     int          border;     /* --border shape id */
+    bool         style_full; /* --style=full component layout */
     const char  *pointer;    /* --pointer: the current line marker */
     const char  *gutter;     /* --gutter: the marker of the other lines */
     const char  *marker;     /* --marker: the multi-select marker */
