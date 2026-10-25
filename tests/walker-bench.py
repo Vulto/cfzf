@@ -42,6 +42,7 @@ def make_tree(root, count):
 def measure(binary, root, count):
     pid, master = pty.fork()
     if pid == 0:
+        os.chdir(root)
         env = os.environ.copy()
         env["TERM"] = "xterm-256color"
         os.execvpe(binary, [binary, "--walker-root=.", "--no-color"], env)
