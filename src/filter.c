@@ -246,9 +246,15 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
             }
             free(out); free(mp);
         }
-        free(all);
+        if (all) {
+            for (int i = 0; i < n; i++) free(all[i].pos);
+            free(all);
+        }
         for (int k = 0; k < nthreads; k++) {
-            free(w[k].ranked_results);
+            if (w[k].ranked_results) {
+                for (int i = 0; i < w[k].count; i++) free(w[k].ranked_results[i].pos);
+                free(w[k].ranked_results);
+            }
             if (w[k].ranked_items) {
                 for (int i = 0; i < w[k].input.count; i++) mm_item_free(&w[k].ranked_items[i]);
                 free(w[k].ranked_items);
