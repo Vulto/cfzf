@@ -51,11 +51,20 @@ def measure(binary, root, count):
     start = time.perf_counter_ns()
     first = None
     complete = None
+    max_rss_kb = 0
     captured = bytearray()
     expected = f"{count}/{count}".encode()
     deadline = time.monotonic() + TIMEOUT
     try:
         while time.monotonic() < deadline and complete is None:
+            try:
+                with open(f"/proc/{pid}/status", encoding="ascii") as status_file:
+                    for line in status_file:
+                        if line.startswith("VmHWM:"):
+                            max_rss_kb = max(max_rss_kb, int(line.split()[1]))
+                            break
+            except (FileNotFoundError, ProcessLookupError):
+                pass
             ready, _, _ = select.select([master], [], [], 0.05)
             if not ready:
                 continue
@@ -83,7 +92,15 @@ def measure(binary, root, count):
                 f"{binary} did not reach markers for {count} files "
                 f"(first={first}, complete={complete}, captured={len(captured)} bytes)"
             )
-        return first, complete
+        try:
+            with open(f"/proc/{pid}/status", encoding="ascii") as status_file:
+                for line in status_file:
+                    if line.startswith("VmHWM:"):
+                        max_rss_kb = max(max_rss_kb, int(line.split()[1]))
+                        break
+        except (FileNotFoundError, ProcessLookupError):
+            pass
+        return first, complete, max_rss_kb
     finally:
         try:
             os.write(master, b"\x03")
@@ -113,27 +130,33 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
         root = os.path.join(work, f"tree-{count}")
         os.mkdir(root)
         make_tree(root, count)
-        samples = {"ref_first": [], "ref_full": [], "cfzf_first": [], "cfzf_full": []}
+        samples = {"ref_first": [], "ref_full": [], "ref_rss_kb": [],
+                   "cfzf_first": [], "cfzf_full": [], "cfzf_rss_kb": []}
         # One warmup per binary; alternate order for the measured repetitions.
         for binary in (REF, IMPL):
             measure(binary, root, count)
         for i in range(REPEATS):
             order = ((REF, "ref"), (IMPL, "cfzf")) if i % 2 == 0 else ((IMPL, "cfzf"), (REF, "ref"))
             for binary, prefix in order:
-                first, full = measure(binary, root, count)
+                first, full, rss_kb = measure(binary, root, count)
                 samples[f"{prefix}_first"].append(first)
                 samples[f"{prefix}_full"].append(full)
+                samples[f"{prefix}_rss_kb"].append(rss_kb)
         rf, rfmad = summarize(samples["ref_first"])
         cf, cfmad = summarize(samples["cfzf_first"])
         rt, rt_mad = summarize(samples["ref_full"])
         ct, ct_mad = summarize(samples["cfzf_full"])
+        rrss, rrss_mad = summarize(samples["ref_rss_kb"])
+        crss, crss_mad = summarize(samples["cfzf_rss_kb"])
         print(f"files={count} shape=flat "
               f"first_ref_median_ms={rf:.3f} first_ref_MAD_ms={rfmad:.3f} "
               f"first_cfzf_median_ms={cf:.3f} first_cfzf_MAD_ms={cfmad:.3f} "
               f"first_speedup={rf/cf:.3f} "
               f"full_ref_median_ms={rt:.3f} full_ref_MAD_ms={rt_mad:.3f} "
               f"full_cfzf_median_ms={ct:.3f} full_cfzf_MAD_ms={ct_mad:.3f} "
-              f"full_speedup={rt/ct:.3f}")
+              f"full_speedup={rt/ct:.3f} "
+              f"peak_rss_ref_median_kb={rrss:.0f} peak_rss_ref_MAD_kb={rrss_mad:.0f} "
+              f"peak_rss_cfzf_median_kb={crss:.0f} peak_rss_cfzf_MAD_kb={crss_mad:.0f}")
         for key, values in samples.items():
             print(f"raw files={count} metric={key}_ms samples=" +
                   ",".join(f"{v:.3f}" for v in values))
