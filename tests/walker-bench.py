@@ -8,11 +8,13 @@ binaries reach both markers. This is a coarse CLI-level measure, not a claim
 to isolate individual filesystem syscalls.
 """
 import errno
+import signal
 import os
 import pty
 import select
 import statistics
 import struct
+from collections import deque
 import subprocess
 import sys
 import tempfile
@@ -162,6 +164,7 @@ def measure(binary, root, count, trace_path=None, process_trace=False):
 
 def early_exit(binary, root):
     """Ensure quitting while a large walk is streaming does not hang."""
+    trace_path = os.path.join(tempfile.gettempdir(), f"cfzf-early-exit-{os.getpid()}.trace")
     pid, master = pty.fork()
     if pid == 0:
         os.chdir(root)
@@ -169,7 +172,9 @@ def early_exit(binary, root):
         env["TERM"] = "xterm-256color"
         env.pop("FZF_DEFAULT_COMMAND", None)
         env.pop("FZF_DEFAULT_OPTS", None)
-        os.execvpe(binary, [binary, "--walker-root=.", "--no-color"], env)
+        command = ["strace", "-f", "-tt", "-o", trace_path,
+                   binary, "--walker-root=.", "--no-color"]
+        os.execvpe(command[0], command, env)
     fcntl = __import__("fcntl")
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 100, 30, 0, 0))
     captured = bytearray()
@@ -213,6 +218,14 @@ def early_exit(binary, root):
                 break
             time.sleep(0.02)
         if status is None:
+            try:
+                with open(trace_path, encoding="utf-8", errors="replace") as trace_file:
+                    tail = deque(trace_file, maxlen=80)
+                print("EARLY_EXIT_TRACE_BEGIN")
+                print("".join(tail), end="")
+                print("EARLY_EXIT_TRACE_END")
+            except OSError:
+                pass
             raise RuntimeError(f"{binary} hung after Ctrl-C during walker streaming")
         elapsed = (time.perf_counter_ns() - started) / 1_000_000
         print(f"early_exit binary={os.path.realpath(binary)} "
@@ -224,13 +237,17 @@ def early_exit(binary, root):
             pass
         if not reaped:
             try:
-                os.kill(pid, 9)
+                os.killpg(pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
             try:
                 os.waitpid(pid, 0)
             except ChildProcessError:
                 pass
+        try:
+            os.unlink(trace_path)
+        except OSError:
+            pass
 
 
 def summarize(samples):
