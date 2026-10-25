@@ -24,19 +24,36 @@ REPEATS = int(os.environ.get("WALK_BENCH_REPEATS", "5"))
 if REPEATS < 3:
     raise SystemExit("WALK_BENCH_REPEATS must be at least 3")
 TIMEOUT = float(os.environ.get("WALK_BENCH_TIMEOUT", "45"))
-SIZES = (1_000, 5_000, 20_000)
+SIZES = (1_000, 5_000, 20_000, 100_000)
 MARKER = b"a-first-marker.txt"
 TERM_REPLY = b"\x1b[1;1R\x1b[?2004;2$y\x1b[1;1R"
 
-def make_tree(root, count):
-    # Flat directories intentionally expose the cost of reading, classifying,
-    # allocating and sorting a large single-directory entry set.
-    with open(os.path.join(root, "a-first-marker.txt"), "w") as f:
+def make_tree(root, count, shape):
+    # Flat stresses one large readdir/sort; nested stresses recursive fan-out;
+    # deep stresses path construction and recursion through 50 directory levels.
+    if shape == "flat":
+        dirs = [root]
+    elif shape == "nested":
+        dir_count = min(500, max(10, count // 200))
+        dirs = [os.path.join(root, f"d{i:04d}") for i in range(dir_count)]
+        for directory in dirs:
+            os.mkdir(directory)
+    elif shape == "deep":
+        directory = root
+        for i in range(50):
+            directory = os.path.join(directory, f"d{i:03d}")
+            os.mkdir(directory)
+        dirs = [directory]
+    else:
+        raise ValueError(f"unknown tree shape: {shape}")
+
+    with open(os.path.join(dirs[0], "a-first-marker.txt"), "w") as f:
         f.write("marker\n")
     for i in range(count - 2):
-        with open(os.path.join(root, f"file-{i:08d}.txt"), "w") as f:
+        parent = dirs[i % len(dirs)] if shape == "nested" else dirs[0]
+        with open(os.path.join(parent, f"file-{i:08d}.txt"), "w") as f:
             f.write("payload\n")
-    with open(os.path.join(root, "z-last-marker.txt"), "w") as f:
+    with open(os.path.join(dirs[-1], "z-last-marker.txt"), "w") as f:
         f.write("marker\n")
 
 def measure(binary, root, count, trace_path=None, process_trace=False):
@@ -144,12 +161,14 @@ def summarize(samples):
 
 print("benchmark=cfzf-vs-pinned-fzf-walker-v1")
 print(f"reference={os.path.realpath(REF)} implementation={os.path.realpath(IMPL)}")
-print(f"repeats={REPEATS} timeout_seconds={TIMEOUT} sizes={','.join(map(str,SIZES))}")
+print(f"repeats={REPEATS} timeout_seconds={TIMEOUT} sizes={','.join(map(str,SIZES))} shapes=flat,nested,deep")
+workloads = [(count, shape) for shape in ("flat", "nested") for count in SIZES]
+workloads.append((1_000, "deep"))
 with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
-    for count in SIZES:
-        root = os.path.join(work, f"tree-{count}")
+    for count, shape in workloads:
+        root = os.path.join(work, f"tree-{shape}-{count}")
         os.mkdir(root)
-        make_tree(root, count)
+        make_tree(root, count, shape)
         samples = {"ref_first": [], "ref_full": [], "ref_rss_kb": [],
                    "cfzf_first": [], "cfzf_full": [], "cfzf_rss_kb": []}
         # One warmup per binary; alternate order for the measured repetitions.
@@ -168,7 +187,7 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
         ct, ct_mad = summarize(samples["cfzf_full"])
         rrss, rrss_mad = summarize(samples["ref_rss_kb"])
         crss, crss_mad = summarize(samples["cfzf_rss_kb"])
-        print(f"files={count} shape=flat "
+        print(f"files={count} shape={shape} "
               f"first_ref_median_ms={rf:.3f} first_ref_MAD_ms={rfmad:.3f} "
               f"first_cfzf_median_ms={cf:.3f} first_cfzf_MAD_ms={cfmad:.3f} "
               f"first_speedup={rf/cf:.3f} "
@@ -181,7 +200,7 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
         for key, values in samples.items():
             print(f"raw files={count} metric={key} samples=" +
                   ",".join(f"{v:.3f}" for v in values))
-        if count == 1_000:
+        if count == 1_000 and shape == "flat":
             # One syscall-count profile per binary. This is not timed evidence:
             # strace perturbs runtime, so only syscall counts are compared.
             wanted = {"getdents64", "newfstatat", "statx", "openat",
