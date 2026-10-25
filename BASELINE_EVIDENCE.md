@@ -77,5 +77,45 @@ Raw batch samples (milliseconds):
 
 - The current evidence does **not** support a general claim that cfzf is slower than fzf: all measured batch filters and startup favor cfzf.
 - The measured gap is specific to large flat-directory traversal. Source inspection points to candidate causes—one serial traversal thread, per-entry `lstat`, per-entry name/path allocations, and two pipe writes per path—but these are hypotheses until syscall profiling and controlled changes establish causality.
-- Next: collect `strace -c` syscall counts for both walkers on the same 1,000-file tree, then optimize one confirmed cause at a time and rerun this baseline.
+- The first confirmed optimization and post-change syscall profile are recorded below. Next, buffer walker output to reduce per-path pipe syscalls, then compare before/after on the same runner and expand the workload matrix to nested trees.
 - The current benchmark covers flat regular-file directories only. Nested directories, deep trees, symlinks, permission failures, and stress trees remain to be measured.
+
+
+## Post-change results: avoid redundant lstat
+
+The C source change is commit `66225533cb69522046bd20ec17d0a3534a041e3b`; the measurement and process/syscall tracing ran in [performance workflow](https://github.com/Vulto/cfzf/actions/runs/40192876310) at harness commit `25d00af04da3fd3e84032f06e3b4f97079648cc4`. This was a separate hosted-runner run, not a paired same-run A/B; use the syscall counts as direct causal evidence and the timings as indicative until a paired comparison is added.
+
+| Files | fzf full (ms, median ± MAD) | cfzf after d_type (ms, median ± MAD) | Speedup | fzf paths/s | cfzf paths/s |
+|---:|---:|---:|---:|---:|---:|
+| 1,000 | 19.834 ± 0.076 | 3.560 ± 0.061 | 5.572× | 50,417 | 280,924 |
+| 5,000 | 19.659 ± 0.083 | 8.391 ± 0.019 | 2.343× | 254,340 | 595,906 |
+| 20,000 | 19.870 ± 0.101 | 30.245 ± 0.302 | 0.657× | 1,006,534 | 661,266 |
+
+The 20,000-file median dropped from the earlier 66.976 ms baseline to 30.245 ms, a 2.214× improvement across separate runs. It still takes 1.522× as long as fzf in the post-change run.
+
+Post-change raw samples (milliseconds):
+
+| Files | Metric | fzf samples | cfzf samples |
+|---:|---|---|---|
+| 1,000 | first path | 20.034, 19.738, 19.658, 19.857, 19.679 | 3.560, 3.499, 3.578, 3.488, 4.820 |
+| 1,000 | full | 20.135, 19.834, 19.758, 20.565, 19.778 | 3.560, 3.499, 3.578, 3.488, 6.075 |
+| 5,000 | first path | 19.304, 19.568, 19.419, 19.650, 19.571 | 4.795, 4.917, 4.782, 4.802, 5.078 |
+| 5,000 | full | 19.396, 19.659, 19.507, 19.742, 19.672 | 8.391, 8.428, 8.290, 8.389, 8.410 |
+| 20,000 | first path | 19.790, 19.361, 19.101, 19.768, 19.810 | 11.263, 11.313, 10.038, 11.551, 11.377 |
+| 20,000 | full | 19.893, 19.465, 19.194, 19.870, 19.971 | 29.943, 30.182, 30.245, 31.442, 30.578 |
+
+### Syscall and process evidence
+
+On the same 1,000-file flat tree:
+
+| Metric | fzf | cfzf after d_type |
+|---|---:|---:|
+| `newfstatat` | 4 | 0 |
+| `getdents64` | 6 | 3 |
+| `write` | 5 | 2,033 |
+| `read` | 34 | 1,764 |
+| `openat` | 10 | 33 |
+| default-path `execve` calls | 1 | 1 |
+| child executable launches | 0 | 0 |
+
+This confirms the metadata-syscall cause was removed and that default path discovery did not launch a shell or other external executable. The dominant remaining measured difference is the very high number of small pipe writes/reads. Issue #11 tracks bounded output buffering.
