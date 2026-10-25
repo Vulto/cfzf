@@ -13,6 +13,35 @@ int *mm_batch_search(mm_input_t *input, mm_pattern_t *pat, const mm_sort_criteri
         return malloc(sizeof(int));
     }
 
+    /* An empty query matches every item without scoring. Preserve input order
+       (or reverse it for --tac) directly: decoding, allocating one result per
+       item, computing sort keys, and sorting cannot change the result. This
+       path is especially important while a live input stream is still adding
+       items, because the UI refreshes the result list as the stream grows. */
+    if (mm_pattern_is_empty(pat)) {
+        int *out = malloc((size_t)total * sizeof(*out));
+        if (!out) {
+            *out_n = 0;
+            if (out_pos) *out_pos = NULL;
+            return NULL;
+        }
+        if (tac) {
+            for (int i = 0; i < total; i++) out[i] = total - 1 - i + input->base;
+        } else {
+            for (int i = 0; i < total; i++) out[i] = i + input->base;
+        }
+        if (out_pos) {
+            *out_pos = calloc((size_t)total, sizeof(**out_pos));
+            if (!*out_pos) {
+                free(out);
+                *out_n = 0;
+                return NULL;
+            }
+        }
+        *out_n = total;
+        return out;
+    }
+
     /* Try to use threading if beneficial */
     int nthreads = 4;
     const char *te = getenv("FZF_NUM_THREADS");
