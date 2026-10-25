@@ -28,6 +28,17 @@ typedef struct {
     bool   failed;
 } mm_pathlist_t;
 
+#define MM_WALK_STREAM_BUFFER_SIZE (64u * 1024u)
+#define MM_WALK_STREAM_FLUSH_THRESHOLD (4u * 1024u)
+
+typedef struct {
+    int fd;
+    char *buffer;
+    size_t len;
+    size_t cap;
+    bool failed;
+} mm_walk_stream_t;
+
 void mm_walker_default(mm_walker_opts_t *opts) {
     opts->file = true;
     opts->dir = false;
@@ -70,26 +81,66 @@ static bool plist_push(mm_pathlist_t *pl, char *path) {
     return true;
 }
 
-static void write_all(int fd, const char *buf, size_t len) {
+static bool write_all(int fd, const char *buf, size_t len) {
     size_t off = 0;
     while (off < len) {
         ssize_t w = write(fd, buf + off, len - off);
         if (w < 0) {
             if (errno == EINTR) continue;
-            break;
+            return false;
         }
-        if (w == 0) break;
+        if (w == 0) return false;
         off += (size_t)w;
     }
+    return true;
+}
+
+static bool stream_flush(mm_walk_stream_t *stream) {
+    if (!stream || stream->failed) return false;
+    if (stream->len == 0) return true;
+    if (!write_all(stream->fd, stream->buffer, stream->len)) {
+        stream->failed = true;
+        stream->len = 0;
+        return false;
+    }
+    stream->len = 0;
+    return true;
+}
+
+/* Append a complete path record; flush in batches instead of issuing two
+   syscalls per path. Flush at directory boundaries once 4 KiB is buffered so
+   recursive walks continue streaming without waiting for the entire tree. */
+static bool stream_write_line(mm_walk_stream_t *stream, const char *path,
+                              size_t len, bool slash) {
+    if (!stream || stream->failed) return false;
+    size_t extra = (slash ? 1u : 0u) + 1u;
+    size_t total = len + extra;
+    if (total > stream->cap) {
+        if (!stream_flush(stream) ||
+            !write_all(stream->fd, path, len) ||
+            (slash && !write_all(stream->fd, "/", 1)) ||
+            !write_all(stream->fd, "\n", 1)) {
+            stream->failed = true;
+            return false;
+        }
+        return true;
+    }
+    if (stream->len + total > stream->cap && !stream_flush(stream))
+        return false;
+    memcpy(stream->buffer + stream->len, path, len);
+    stream->len += len;
+    if (slash) stream->buffer[stream->len++] = '/';
+    stream->buffer[stream->len++] = '\n';
+    return true;
 }
 
 /* Emit a path, either into the collected list or as a line on the stream. */
-static bool emit_path(mm_pathlist_t *pl, int out_fd, const char *path) {
+static bool emit_path(mm_pathlist_t *pl, int out_fd,
+                      mm_walk_stream_t *stream, const char *path) {
     if (out_fd >= 0) {
         size_t len = strlen(path);
-        write_all(out_fd, path, len);
-        write_all(out_fd, "\n", 1);
-        return true;
+        if (stream) return stream_write_line(stream, path, len, false);
+        return write_all(out_fd, path, len) && write_all(out_fd, "\n", 1);
     }
     char *copy = strdup(path);
     if (!copy) { if (pl) pl->failed = true; return false; }
@@ -97,18 +148,21 @@ static bool emit_path(mm_pathlist_t *pl, int out_fd, const char *path) {
     return true;
 }
 
-static bool emit_dir(mm_pathlist_t *pl, int out_fd, const char *path) {
+static bool emit_dir(mm_pathlist_t *pl, int out_fd,
+                     mm_walk_stream_t *stream, const char *path) {
     size_t len = strlen(path);
+    if (out_fd >= 0 && stream)
+        return stream_write_line(stream, path, len, true);
     char *withslash = malloc(len + 2);
     if (!withslash) { if (pl) pl->failed = true; return false; }
     memcpy(withslash, path, len);
     withslash[len] = '/';
     withslash[len + 1] = 0;
     if (out_fd >= 0) {
-        write_all(out_fd, withslash, len + 1);
-        write_all(out_fd, "\n", 1);
+        bool ok = write_all(out_fd, withslash, len + 1) &&
+                  write_all(out_fd, "\n", 1);
         free(withslash);
-        return true;
+        return ok;
     }
     if (!plist_push(pl, withslash)) { free(withslash); return false; }
     return true;
@@ -169,9 +223,9 @@ static bool follow_symlink_dir(const char *child, const char *root_abs) {
 }
 
 static void walk_dir(const char *path, const mm_walker_opts_t *opts,
-                     mm_pathlist_t *pl, int out_fd, const char *root_abs,
-                     int depth) {
-    if (depth > MM_WALK_MAX_DEPTH) return;
+                     mm_pathlist_t *pl, int out_fd, mm_walk_stream_t *stream,
+                     const char *root_abs, int depth) {
+    if (depth > MM_WALK_MAX_DEPTH || (stream && stream->failed)) return;
     DIR *d = opendir(path);
     if (!d) return;
 
@@ -242,6 +296,7 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
     qsort(ents, (size_t)n, sizeof(*ents), walk_entry_cmp);
 
     for (int i = 0; i < n; i++) {
+        if (stream && stream->failed) break;
         const char *name = ents[i].name;
         char *child = ents[i].path;
         /* fzf's "hidden" walker option only controls whether hidden
@@ -255,10 +310,10 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
         if (ents[i].link_to_dir && !ents[i].is_dir) skip = true;
         if (!skip) {
             if (ents[i].is_dir) {
-                if (opts->dir) emit_dir(pl, out_fd, child);
-                walk_dir(child, opts, pl, out_fd, root_abs, depth + 1);
+                if (opts->dir) emit_dir(pl, out_fd, stream, child);
+                walk_dir(child, opts, pl, out_fd, stream, root_abs, depth + 1);
             } else if (opts->file) {
-                emit_path(pl, out_fd, child);
+                emit_path(pl, out_fd, stream, child);
             }
         }
         free(ents[i].name);
@@ -273,6 +328,9 @@ done:
         free(ents[i].path);
     }
     free(ents);
+    if (stream && !stream->failed &&
+        stream->len >= MM_WALK_STREAM_FLUSH_THRESHOLD)
+        (void)stream_flush(stream);
 }
 
 static void root_absolute(const char *root, char *out, size_t cap) {
@@ -287,11 +345,11 @@ static void root_absolute(const char *root, char *out, size_t cap) {
 
 bool mm_walk(const char *root, const mm_walker_opts_t *opts,
              char ***out_paths, int *out_n) {
-    mm_pathlist_t pl = { NULL, 0, 0, false };
+    mm_pathlist_t pl = {0};
     char root_abs[4096];
     root_absolute(root, root_abs, sizeof(root_abs));
     /* The root itself is not emitted; only its contents. */
-    walk_dir(root, opts, &pl, -1, root_abs, 0);
+    walk_dir(root, opts, &pl, -1, NULL, root_abs, 0);
     if (pl.failed) {
         mm_walk_free(pl.items, pl.n);
         return false;
@@ -303,8 +361,17 @@ bool mm_walk(const char *root, const mm_walker_opts_t *opts,
 
 void mm_walk_stream(int fd, const char *root, const mm_walker_opts_t *opts) {
     char root_abs[4096];
+    char buffer[MM_WALK_STREAM_BUFFER_SIZE];
+    mm_walk_stream_t stream = {
+        .fd = fd,
+        .buffer = buffer,
+        .len = 0,
+        .cap = sizeof(buffer),
+        .failed = false
+    };
     root_absolute(root, root_abs, sizeof(root_abs));
-    walk_dir(root, opts, NULL, fd, root_abs, 0);
+    walk_dir(root, opts, NULL, fd, &stream, root_abs, 0);
+    if (!stream.failed) (void)stream_flush(&stream);
     close(fd);
 }
 

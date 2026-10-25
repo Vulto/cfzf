@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <pthread.h>
+#include <signal.h>
 
 static void usage(FILE *out) {
     fprintf(out, "usage: fzf [OPTIONS]\n");
@@ -74,6 +75,10 @@ typedef struct {
 
 static void *walk_thread_fn(void *arg) {
     mm_walk_thread_arg_t *a = arg;
+    sigset_t blocked_signals;
+    (void)sigemptyset(&blocked_signals);
+    (void)sigaddset(&blocked_signals, SIGPIPE);
+    (void)pthread_sigmask(SIG_BLOCK, &blocked_signals, NULL);
     mm_walk_stream(a->fd, a->root, &a->opts);
     free(a->root);
     free(a);
@@ -1156,7 +1161,15 @@ int main(int argc, char **argv) {
             ui.input_sep = read0 ? '\0' : '\n';
         }
         int rc = mm_ui_run(&ui);
-        if (have_walk_thread) pthread_join(walk_thread, NULL);
+        if (have_walk_thread) {
+            /* Closing the read end lets a buffered walker notice early UI exit
+               instead of blocking forever while the main thread joins it. */
+            if (stream_fd >= 0 && stream_fd != STDIN_FILENO) {
+                close(stream_fd);
+                stream_fd = -1;
+            }
+            pthread_join(walk_thread, NULL);
+        }
         if (stream_fp) pclose(stream_fp);
         else if (stream_input && stream_fd >= 0 && stream_fd != STDIN_FILENO) close(stream_fd);
         mm_ui_free(&ui);
