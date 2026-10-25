@@ -15,6 +15,7 @@ jobs:
     env:
       FZF_SRC: /tmp/opencode/fzf-src
       IMPL: ${{ github.workspace }}/cfzf
+      BASELINE_COMMIT: 66225533cb69522046bd20ec17d0a3534a041e3b
     steps:
       - name: Check out cfzf
         uses: actions/checkout@v4
@@ -39,6 +40,7 @@ jobs:
       - name: Record benchmark environment
         run: |
           printf 'cfzf_commit=%s\n' "$(git rev-parse HEAD)"
+          printf 'walker_baseline_commit=%s\n' "$BASELINE_COMMIT"
           printf 'reference_commit=%s\n' "$(git -C "$FZF_SRC" rev-parse HEAD)"
           printf 'kernel=%s\n' "$(uname -sr)"
           printf 'machine=%s\n' "$(uname -m)"
@@ -53,10 +55,22 @@ jobs:
           MANDIR: ${{ runner.temp }}/cfzf-man
         run: ./build.sh
 
+      - name: Build pre-buffer walker baseline
+        run: |
+          git worktree add --detach /tmp/cfzf-baseline "$BASELINE_COMMIT"
+          cd /tmp/cfzf-baseline
+          FZF_BUILD_OUTPUT=/tmp/cfzf-baseline/cfzf PREFIX=/tmp/cfzf-baseline-install MANDIR=/tmp/cfzf-baseline-man ./build.sh
+
       - name: Verify walker parity on fixtures
         run: bash tests/walker-diff.sh
 
-      - name: Measure walker latency, throughput and peak RSS
+      - name: Measure pre-buffer walker baseline
+        env:
+          WALK_BENCH_REPEATS: 5
+          WALK_BENCH_TIMEOUT: 45
+        run: python3 tests/walker-bench.py /tmp/opencode/fzf-ref /tmp/cfzf-baseline/cfzf
+
+      - name: Measure current walker
         env:
           WALK_BENCH_REPEATS: 5
           WALK_BENCH_TIMEOUT: 45
