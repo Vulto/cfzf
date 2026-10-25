@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Paired end-to-end comparison of pinned fzf, pre-buffer cfzf, and current cfzf.
+"""Paired end-to-end comparison of pinned fzf, prior cfzf baseline, and current cfzf.
 
 All binaries walk the same generated tree. Repetition order rotates across
 binaries, and paired speedup ratios are reported alongside medians/MAD.
@@ -19,7 +19,7 @@ import termios
 import time
 
 if len(sys.argv) != 4:
-    raise SystemExit("usage: walker-bench.py REF PREBUFFER_BASELINE CURRENT_IMPL")
+    raise SystemExit("usage: walker-bench.py REF BASELINE CURRENT_IMPL")
 REF, BASELINE, IMPL = sys.argv[1:4]
 REPEATS = int(os.environ.get("WALK_BENCH_REPEATS", "5"))
 if REPEATS < 3:
@@ -293,7 +293,7 @@ def summarize(samples):
     return med, mad
 
 print("benchmark=paired-cfzf-vs-pinned-fzf-walker-v2")
-binaries = (("ref", REF), ("prebuffer", BASELINE), ("cfzf", IMPL))
+binaries = (("ref", REF), ("baseline", BASELINE), ("cfzf", IMPL))
 print(" ".join(f"{name}={os.path.realpath(path)}" for name, path in binaries))
 print(f"repeats={REPEATS} timeout_seconds={TIMEOUT} sizes={','.join(map(str,SIZES))} shapes=flat,nested,deep")
 workloads = [(count, shape) for shape in ("flat", "nested") for count in SIZES]
@@ -326,12 +326,12 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
             for metric in ("first", "full", "rss_kb"):
                 medians[f"{prefix}_{metric}"] = summarize(samples[f"{prefix}_{metric}"])
         ref_full = samples["ref_full"]
-        base_full = samples["prebuffer_full"]
+        baseline_full = samples["baseline_full"]
         cfzf_full = samples["cfzf_full"]
         paired_ref_speedups = [ref / cfzf for ref, cfzf in zip(ref_full, cfzf_full)]
-        paired_buffer_speedups = [base / cfzf for base, cfzf in zip(base_full, cfzf_full)]
+        paired_baseline_speedups = [base / cfzf for base, cfzf in zip(baseline_full, cfzf_full)]
         paired_ref_med, paired_ref_mad = summarize(paired_ref_speedups)
-        paired_buffer_med, paired_buffer_mad = summarize(paired_buffer_speedups)
+        paired_buffer_med, paired_buffer_mad = summarize(paired_baseline_speedups)
 
         row = [f"files={count}", f"shape={shape}"]
         for prefix, _ in binaries:
@@ -348,13 +348,13 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
                 f"{prefix}_peak_rss_MAD_kb={rss_mad:.0f}"
             ])
         row.extend([
-            f"prebuffer_speedup_vs_ref={medians['ref_full'][0]/medians['prebuffer_full'][0]:.3f}",
+            f"baseline_speedup_vs_ref={medians['ref_full'][0]/medians['baseline_full'][0]:.3f}",
             f"cfzf_speedup_vs_ref={medians['ref_full'][0]/medians['cfzf_full'][0]:.3f}",
-            f"cfzf_speedup_vs_prebuffer={medians['prebuffer_full'][0]/medians['cfzf_full'][0]:.3f}",
+            f"cfzf_speedup_vs_baseline={medians['baseline_full'][0]/medians['cfzf_full'][0]:.3f}",
             f"paired_cfzf_vs_ref_speedup={paired_ref_med:.3f}",
             f"paired_cfzf_vs_ref_MAD={paired_ref_mad:.3f}",
-            f"paired_cfzf_vs_prebuffer_speedup={paired_buffer_med:.3f}",
-            f"paired_cfzf_vs_prebuffer_MAD={paired_buffer_mad:.3f}"
+            f"paired_cfzf_vs_baseline_speedup={paired_buffer_med:.3f}",
+            f"paired_cfzf_vs_baseline_MAD={paired_buffer_mad:.3f}"
         ])
         print(" ".join(row))
         for key, values in samples.items():

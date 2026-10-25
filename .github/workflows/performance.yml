@@ -57,7 +57,7 @@ jobs:
           MANDIR: ${{ runner.temp }}/cfzf-man
         run: ./build.sh
 
-      - name: Build pre-buffer walker baseline
+      - name: Build prior-code walker baseline
         run: |
           git worktree add --detach /tmp/cfzf-baseline "$BASELINE_COMMIT"
           cd /tmp/cfzf-baseline
