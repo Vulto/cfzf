@@ -26,9 +26,13 @@ int *mm_batch_search(mm_input_t *input, mm_pattern_t *pat, const mm_sort_criteri
             return NULL;
         }
         if (tac) {
-            for (int i = 0; i < total; i++) out[i] = total - 1 - i + input->base;
+            for (int i = 0; i < total; i++) {
+                int j = total - 1 - i;
+                out[i] = input->items ? input->items[j].index : j + input->base;
+            }
         } else {
-            for (int i = 0; i < total; i++) out[i] = i + input->base;
+            for (int i = 0; i < total; i++)
+                out[i] = input->items ? input->items[i].index : i + input->base;
         }
         if (out_pos) {
             *out_pos = calloc((size_t)total, sizeof(**out_pos));
