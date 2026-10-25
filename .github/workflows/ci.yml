@@ -13,7 +13,7 @@ permissions:
 jobs:
   build-and-differential-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       FZF_SRC: /tmp/opencode/fzf-src
       IMPL: ${{ github.workspace }}/cfzf
@@ -70,6 +70,12 @@ jobs:
 
       - name: Differential file walker tests
         run: bash tests/walker-diff.sh
+
+      - name: Reproducible performance comparison
+        env:
+          REF: /tmp/opencode/fzf-ref
+          BENCH_REPEATS: 5
+        run: bash tests/bench.sh
 
       - name: Regenerate and run ANSI differential tests
         run: bash tests/gen-ansi-probe.sh
