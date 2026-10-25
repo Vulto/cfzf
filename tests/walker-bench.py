@@ -14,7 +14,6 @@ import pty
 import select
 import statistics
 import struct
-from collections import deque
 import subprocess
 import sys
 import tempfile
@@ -164,7 +163,6 @@ def measure(binary, root, count, trace_path=None, process_trace=False):
 
 def early_exit(binary, root):
     """Ensure quitting while a large walk is streaming does not hang."""
-    trace_path = os.path.join(tempfile.gettempdir(), f"cfzf-early-exit-{os.getpid()}.trace")
     pid, master = pty.fork()
     if pid == 0:
         os.chdir(root)
@@ -172,9 +170,7 @@ def early_exit(binary, root):
         env["TERM"] = "xterm-256color"
         env.pop("FZF_DEFAULT_COMMAND", None)
         env.pop("FZF_DEFAULT_OPTS", None)
-        command = ["strace", "-f", "-tt", "-o", trace_path,
-                   binary, "--walker-root=.", "--no-color"]
-        os.execvpe(command[0], command, env)
+        os.execvpe(binary, [binary, "--walker-root=.", "--no-color"], env)
     fcntl = __import__("fcntl")
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 100, 30, 0, 0))
     captured = bytearray()
@@ -221,11 +217,21 @@ def early_exit(binary, root):
             time.sleep(0.02)
         if status is None:
             try:
-                with open(trace_path, encoding="utf-8", errors="replace") as trace_file:
-                    tail = deque(trace_file, maxlen=80)
-                print("EARLY_EXIT_TRACE_BEGIN")
-                print("".join(tail), end="")
-                print("EARLY_EXIT_TRACE_END")
+                task_dir = f"/proc/{pid}/task"
+                for tid in os.listdir(task_dir):
+                    try:
+                        with open(f"{task_dir}/{tid}/wchan", encoding="utf-8") as wchan:
+                            where = wchan.read().strip()
+                        print(f"early_exit_debug tid={tid} wchan={where}")
+                    except OSError:
+                        pass
+                try:
+                    with open(f"/proc/{pid}/status", encoding="utf-8") as status_file:
+                        for line in status_file:
+                            if line.startswith(("State:", "Threads:", "VmRSS:", "VmHWM:")):
+                                print("early_exit_debug " + line.strip())
+                except OSError:
+                    pass
             except OSError:
                 pass
             raise RuntimeError(f"{binary} hung after Escape during walker streaming")
@@ -246,10 +252,6 @@ def early_exit(binary, root):
                 os.waitpid(pid, 0)
             except ChildProcessError:
                 pass
-        try:
-            os.unlink(trace_path)
-        except OSError:
-            pass
 
 
 def summarize(samples):
