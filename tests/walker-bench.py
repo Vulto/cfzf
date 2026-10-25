@@ -198,8 +198,29 @@ def early_exit(binary, root):
                     pass
         if MARKER not in captured:
             raise RuntimeError(f"{binary} never displayed a generated file for early-exit test")
-        # Escape is a terminal byte rather than an ISIG-generated signal, so
-        # the strace wrapper cannot intercept it instead of the child.
+        # Let initial terminal setup finish while continuing to answer terminal
+        # queries; sending a key during the first redraw can be consumed as a
+        # terminal-query response instead of a user action.
+        settle_deadline = time.monotonic() + 0.05
+        while time.monotonic() < settle_deadline:
+            ready, _, _ = select.select([master], [], [], 0.005)
+            if not ready:
+                continue
+            try:
+                chunk = os.read(master, 65536)
+            except OSError as exc:
+                if exc.errno == errno.EIO:
+                    break
+                raise
+            if not chunk:
+                break
+            captured.extend(chunk)
+            if b"\\x1b[6n" in chunk:
+                try:
+                    os.write(master, TERM_REPLY)
+                except OSError:
+                    pass
+        # Escape is a terminal byte rather than an ISIG-generated signal.
         os.write(master, b"\\x1b")
         deadline = time.monotonic() + 2.0
         status = None
