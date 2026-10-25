@@ -223,9 +223,9 @@ def early_exit(binary, root):
                     os.write(master, TERM_REPLY)
                 except OSError:
                     pass
-        # Escape is a terminal byte rather than an ISIG-generated signal.
+        # Enter is an unambiguous exit action, unlike the Escape sequence prefix.
         key_sent_ns = time.perf_counter_ns()
-        os.write(master, b"\x1b")
+        os.write(master, b"\r")
         deadline = time.monotonic() + 2.0
         status = None
         while time.monotonic() < deadline:
