@@ -259,7 +259,7 @@ def early_exit(binary, root):
                     pass
             except OSError:
                 pass
-            raise RuntimeError(f"{binary} hung after Escape during walker streaming")
+            raise RuntimeError(f"{binary} hung after Enter during walker streaming")
         finished_ns = time.perf_counter_ns()
         first_ms = ((first_seen_ns or finished_ns) - started) / 1_000_000
         exit_latency_ms = (finished_ns - key_sent_ns) / 1_000_000
