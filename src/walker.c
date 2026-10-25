@@ -14,7 +14,7 @@
 #define MM_WALK_MAX_DEPTH 256
 
 typedef struct {
-    char *path;
+    char *name;
     bool  is_dir;
     bool  is_reg;
     bool  link_to_dir;
@@ -168,8 +168,7 @@ static bool emit_dir(mm_pathlist_t *pl, int out_fd,
 }
 
 static const char *walk_entry_name(const mm_walk_entry_t *entry) {
-    const char *slash = strrchr(entry->path, '/');
-    return slash ? slash + 1 : entry->path;
+    return entry->name;
 }
 
 static int walk_entry_cmp(const void *a, const void *b) {
@@ -262,14 +261,11 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
             ents = ne;
             cap = ncap;
         }
-        char *child = join_path(path, de->d_name);
-        if (!child) { if (pl) pl->failed = true; closedir(d); goto done; }
         bool is_link = false, is_dir = false, link_to_dir = false;
         bool type_known = false;
 #if defined(DT_UNKNOWN) && defined(DT_DIR) && defined(DT_LNK) && defined(DT_REG)
-        /* On filesystems that populate d_type, avoid one lstat syscall per
-           ordinary entry. DT_UNKNOWN and non-supporting platforms retain the
-           portable lstat fallback below. */
+        /* Most Linux filesystems expose d_type, so ordinary entries can be
+           classified without allocating a full path or calling lstat. */
         switch (de->d_type) {
             case DT_UNKNOWN:
                 break;
@@ -282,11 +278,15 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
                 type_known = true;
                 break;
             default:
-                /* Known non-directory, non-symlink entries need no stat. */
                 type_known = true;
                 break;
         }
 #endif
+        char *child = NULL;
+        if (!type_known || is_link) {
+            child = join_path(path, entry_name);
+            if (!child) { if (pl) pl->failed = true; closedir(d); goto done; }
+        }
         if (!type_known) {
             struct stat lst;
             if (lstat(child, &lst) == 0) {
@@ -297,14 +297,17 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
         }
         if (is_link) {
             struct stat st;
+            if (!child) child = join_path(path, entry_name);
+            if (!child) { if (pl) pl->failed = true; closedir(d); goto done; }
             if (stat(child, &st) == 0 && S_ISDIR(st.st_mode)) {
                 link_to_dir = true;
                 is_dir = opts->follow && follow_symlink_dir(child, root_abs);
             }
         }
-        /* The basename is already stored at the end of child. Reuse it for
-           sorting/filtering instead of allocating a second copy per entry. */
-        ents[n].path = child;
+        free(child);
+        char *name_copy = strdup(entry_name);
+        if (!name_copy) { if (pl) pl->failed = true; closedir(d); goto done; }
+        ents[n].name = name_copy;
         ents[n].is_dir = is_dir;
         ents[n].is_reg = !is_dir;
         ents[n].link_to_dir = link_to_dir;
@@ -317,7 +320,6 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
     for (int i = 0; i < n; i++) {
         if (stream && stream->failed) break;
         const char *name = walk_entry_name(&ents[i]);
-        char *child = ents[i].path;
         /* fzf's "hidden" walker option only controls whether hidden
            directories are traversed; hidden files are always listed. */
         bool skip = !opts->hidden && ents[i].is_dir && name[0] == '.';
@@ -328,20 +330,28 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
            and a loop back to the walker root is discarded. */
         if (ents[i].link_to_dir && !ents[i].is_dir) skip = true;
         if (!skip) {
+            char *child = join_path(path, name);
+            if (!child) {
+                if (pl) pl->failed = true;
+                free(ents[i].name);
+                ents[i].name = NULL;
+                continue;
+            }
             if (ents[i].is_dir) {
                 if (opts->dir) emit_dir(pl, out_fd, stream, child);
                 walk_dir(child, opts, pl, out_fd, stream, root_abs, depth + 1);
             } else if (opts->file) {
                 emit_path(pl, out_fd, stream, child);
             }
+            free(child);
         }
-        free(ents[i].path);
-        ents[i].path = NULL;
+        free(ents[i].name);
+        ents[i].name = NULL;
     }
 
 done:
     for (int i = 0; i < n; i++) {
-        free(ents[i].path);
+        free(ents[i].name);
     }
     free(ents);
     if (stream && !stream->failed &&
