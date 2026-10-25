@@ -72,10 +72,11 @@ jobs:
           WALK_BENCH_TIMEOUT: 45
         run: python3 tests/walker-bench.py /tmp/opencode/fzf-ref /tmp/cfzf-baseline/cfzf
 
-      - name: Measure current walker
+      - name: Measure current walker and verify early exit
         env:
           WALK_BENCH_REPEATS: 5
           WALK_BENCH_TIMEOUT: 45
+          WALK_BENCH_EARLY_EXIT: 1
         run: python3 tests/walker-bench.py /tmp/opencode/fzf-ref "$IMPL"
 
       - name: Measure correctness-gated batch matching and startup

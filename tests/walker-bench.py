@@ -154,6 +154,79 @@ def measure(binary, root, count, trace_path=None, process_trace=False):
         except ProcessLookupError:
             status = 0
 
+def early_exit(binary, root):
+    """Ensure quitting while a large walk is streaming does not hang."""
+    pid, master = pty.fork()
+    if pid == 0:
+        os.chdir(root)
+        env = os.environ.copy()
+        env["TERM"] = "xterm-256color"
+        env.pop("FZF_DEFAULT_COMMAND", None)
+        env.pop("FZF_DEFAULT_OPTS", None)
+        os.execvpe(binary, [binary, "--walker-root=.", "--no-color"], env)
+    fcntl = __import__("fcntl")
+    fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 100, 30, 0, 0))
+    captured = bytearray()
+    started = time.perf_counter_ns()
+    reaped = False
+    try:
+        deadline = time.monotonic() + TIMEOUT
+        while time.monotonic() < deadline and MARKER not in captured:
+            ready, _, _ = select.select([master], [], [], 0.01)
+            if not ready:
+                continue
+            try:
+                chunk = os.read(master, 65536)
+            except OSError as exc:
+                if exc.errno == errno.EIO:
+                    break
+                raise
+            if not chunk:
+                break
+            captured.extend(chunk)
+            if b"\\x1b[6n" in chunk:
+                try:
+                    os.write(master, TERM_REPLY)
+                except OSError:
+                    pass
+        if MARKER not in captured:
+            raise RuntimeError(f"{binary} never displayed the marker for early-exit test")
+        os.write(master, b"\\x03")
+        deadline = time.monotonic() + 2.0
+        status = None
+        while time.monotonic() < deadline:
+            try:
+                waited, child_status = os.waitpid(pid, os.WNOHANG)
+            except ChildProcessError:
+                status = 0
+                reaped = True
+                break
+            if waited == pid:
+                status = child_status
+                reaped = True
+                break
+            time.sleep(0.02)
+        if status is None:
+            raise RuntimeError(f"{binary} hung after Ctrl-C during walker streaming")
+        elapsed = (time.perf_counter_ns() - started) / 1_000_000
+        print(f"early_exit binary={os.path.realpath(binary)} "
+              f"after_first_path_ms={elapsed:.3f} exited=true")
+    finally:
+        try:
+            os.close(master)
+        except OSError:
+            pass
+        if not reaped:
+            try:
+                os.kill(pid, 9)
+            except ProcessLookupError:
+                pass
+            try:
+                os.waitpid(pid, 0)
+            except ChildProcessError:
+                pass
+
+
 def summarize(samples):
     med = statistics.median(samples)
     mad = statistics.median(abs(x - med) for x in samples)
@@ -198,8 +271,11 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
               f"peak_rss_ref_median_kb={rrss:.0f} peak_rss_ref_MAD_kb={rrss_mad:.0f} "
               f"peak_rss_cfzf_median_kb={crss:.0f} peak_rss_cfzf_MAD_kb={crss_mad:.0f}")
         for key, values in samples.items():
-            print(f"raw files={count} metric={key} samples=" +
+            print(f"raw files={count} shape={shape} metric={key} samples=" +
                   ",".join(f"{v:.3f}" for v in values))
+        if (shape == "flat" and count == 100_000 and
+                os.environ.get("WALK_BENCH_EARLY_EXIT") == "1"):
+            early_exit(IMPL, root)
         if count == 1_000 and shape == "flat":
             # One syscall-count profile per binary. This is not timed evidence:
             # strace perturbs runtime, so only syscall counts are compared.
