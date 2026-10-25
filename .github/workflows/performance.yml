@@ -73,6 +73,12 @@ jobs:
           WALK_BENCH_EARLY_EXIT: 1
         run: python3 tests/walker-bench.py /tmp/opencode/fzf-ref /tmp/cfzf-baseline/cfzf "$IMPL"
 
+      - name: Measure serial and parallel ranked matching
+        env:
+          REF: /tmp/opencode/fzf-ref
+          THREAD_BENCH_REPEATS: 5
+        run: python3 tests/thread-bench.py
+
       - name: Measure correctness-gated batch matching and startup
         env:
           REF: /tmp/opencode/fzf-ref
