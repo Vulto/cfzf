@@ -128,7 +128,7 @@ int mchars_decode(mchars_t *c) {
 wchar_t mchars_at(mchars_t *c, int i) {
     if (i < 0 || i >= c->length) return 0;
     if (c->decoded) return c->runes[i];
-    if (mm_is_ascii(c->bytes)) return (wchar_t)(unsigned char)c->bytes[i];
+    if (c->ascii) return (wchar_t)(unsigned char)c->bytes[i];
     if (!mchars_decode(c)) return 0;
     return c->runes[i];
 }
