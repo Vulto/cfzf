@@ -112,9 +112,15 @@ def measure(binary, root, count, trace_path=None, process_trace=False):
                 first = (now - start) / 1_000_000
             if expected in captured:
                 complete = (now - start) / 1_000_000
+        # Fast walkers may finish before the terminal refresh exposes a
+        # candidate string (especially when many nested directories are fed
+        # concurrently). In that case the first observable candidate is the
+        # completed result set, so conservatively use the completion timestamp.
+        if first is None and complete is not None:
+            first = complete
         if first is None or complete is None:
             raise RuntimeError(
-                f"{binary} did not reach first-file/full-count markers for {count} files "
+                f"{binary} did not reach full-count marker for {count} files "
                 f"(first={first}, complete={complete}, captured={len(captured)} bytes)"
             )
         try:
