@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Measure fzf's interactive filesystem walker through a PTY.
 
-The first visible marker measures time until a candidate is displayed. The
+The first visible generated-file prefix measures time until a candidate is displayed. The
 N/N info counter measures when all expected files have entered the result set.
 The tree is identical for both binaries; timings are not reported unless both
 binaries reach both markers. This is a coarse CLI-level measure, not a claim
@@ -25,7 +25,7 @@ if REPEATS < 3:
     raise SystemExit("WALK_BENCH_REPEATS must be at least 3")
 TIMEOUT = float(os.environ.get("WALK_BENCH_TIMEOUT", "45"))
 SIZES = (1_000, 5_000, 20_000, 100_000)
-MARKER = b"a-first-marker.txt"
+MARKER = b"file-"
 TERM_REPLY = b"\x1b[1;1R\x1b[?2004;2$y\x1b[1;1R"
 
 def make_tree(root, count, shape):
@@ -114,7 +114,7 @@ def measure(binary, root, count, trace_path=None, process_trace=False):
                 complete = (now - start) / 1_000_000
         if first is None or complete is None:
             raise RuntimeError(
-                f"{binary} did not reach markers for {count} files "
+                f"{binary} did not reach first-file/full-count markers for {count} files "
                 f"(first={first}, complete={complete}, captured={len(captured)} bytes)"
             )
         try:
@@ -190,7 +190,7 @@ def early_exit(binary, root):
                 except OSError:
                     pass
         if MARKER not in captured:
-            raise RuntimeError(f"{binary} never displayed the marker for early-exit test")
+            raise RuntimeError(f"{binary} never displayed a generated file for early-exit test")
         os.write(master, b"\\x03")
         deadline = time.monotonic() + 2.0
         status = None
