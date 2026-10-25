@@ -39,7 +39,7 @@ def make_tree(root, count):
     with open(os.path.join(root, "z-last-marker.txt"), "w") as f:
         f.write("marker\n")
 
-def measure(binary, root, count, trace_path=None):
+def measure(binary, root, count, trace_path=None, process_trace=False):
     start = time.perf_counter_ns()
     pid, master = pty.fork()
     if pid == 0:
@@ -50,7 +50,10 @@ def measure(binary, root, count, trace_path=None):
         env.pop("FZF_DEFAULT_OPTS", None)
         command = [binary, "--walker-root=.", "--no-color"]
         if trace_path:
-            command = ["strace", "-f", "-c", "-o", trace_path, *command]
+            if process_trace:
+                command = ["strace", "-f", "-e", "trace=process", "-o", trace_path, *command]
+            else:
+                command = ["strace", "-f", "-c", "-o", trace_path, *command]
         os.execvpe(command[0], command, env)
     fcntl = __import__("fcntl")
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 100, 30, 0, 0))
@@ -181,7 +184,7 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
         if count == 1_000:
             # One syscall-count profile per binary. This is not timed evidence:
             # strace perturbs runtime, so only syscall counts are compared.
-            wanted = {"execve", "getdents64", "newfstatat", "statx", "openat",
+            wanted = {"getdents64", "newfstatat", "statx", "openat",
                       "read", "write", "writev", "close"}
             for binary, prefix in ((REF, "ref"), (IMPL, "cfzf")):
                 trace_path = os.path.join(work, f"strace-{prefix}.txt")
@@ -198,10 +201,19 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
                             calls[parts[-1]] = int(parts[3])
                         except ValueError:
                             continue
-                if calls.get("execve", 0) != 1:
+                exec_trace = os.path.join(work, f"exec-{prefix}.txt")
+                measure(binary, root, count, exec_trace, process_trace=True)
+                with open(exec_trace, encoding="utf-8") as process_file:
+                    execve_count = sum(
+                        "execve(" in line or "execveat(" in line
+                        for line in process_file
+                    )
+                if execve_count != 1:
                     raise RuntimeError(
-                        f"{prefix} default walker spawned unexpected processes: "
-                        f"execve_count={calls.get('execve', 0)}")
+                        f"{prefix} default walker spawned unexpected executable "
+                        f"processes: execve_count={execve_count}")
+                print(f"processes files=1000 binary={prefix} "
+                      f"execve_count={execve_count} child_exec_count={execve_count - 1}")
                 print(f"syscalls files=1000 binary={prefix} "
                       f"selected_total={sum(calls.values())} " +
                       " ".join(f"{name}={calls.get(name, 0)}"
