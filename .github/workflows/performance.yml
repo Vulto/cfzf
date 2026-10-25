@@ -15,7 +15,7 @@ jobs:
     env:
       FZF_SRC: /tmp/opencode/fzf-src
       IMPL: ${{ github.workspace }}/cfzf
-      BASELINE_COMMIT: d0eb1d12ac40a287ea2605271441dc1110ea6018
+      BASELINE_COMMIT: 585dd18a306d5fa14fbc225e44baf6cccc1337df
     steps:
       - name: Check out cfzf
         uses: actions/checkout@v4

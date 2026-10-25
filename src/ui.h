@@ -173,7 +173,7 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap);
 
 /* Read the items that are available on the input and append them to the
    list.  Returns true when new items were added. */
-bool mm_ui_read_items(mm_ui_t *ui);
+bool mm_ui_read_items(mm_ui_t *ui, int ttyin);
 
 /* Run the interactive loop. Returns the process exit code. */
 int mm_ui_run(mm_ui_t *ui);

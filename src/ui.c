@@ -14,6 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
@@ -2483,7 +2484,7 @@ int mm_ui_run(mm_ui_t *ui) {
 
     /* The items that are already available are shown right away; the rest
        arrives while the program is running (a live stream). */
-    if (mm_ui_read_items(ui)) ui_search(ui);
+    if (mm_ui_read_items(ui, ttyin)) ui_search(ui);
     ui_search(ui);
     ui_render(ui, &r, &listwin, &promptwin, &infowin);
 
@@ -2503,7 +2504,7 @@ int mm_ui_run(mm_ui_t *ui) {
         if (ev.type == MM_EV_INVALID) {
             /* Timed out: read the items that arrived in the meantime and
                give the preview a chance to produce output. */
-            bool more = mm_ui_read_items(ui);
+            bool more = mm_ui_read_items(ui, ttyin);
             if (more) { ui_search(ui); }
             if ((more || (ui->preview && mm_preview_poll(ui->preview))) && running) {
                 ui_render(ui, &r, &listwin, &promptwin, &infowin);
@@ -2708,12 +2709,10 @@ static void ui_add_line(mm_ui_t *ui, char *line) {
 /* Read the items that are available on the input and append them to the
    list.  The reference reads the input in the background, so that a live
    stream shows up while the program is running. */
-bool mm_ui_read_items(mm_ui_t *ui) {
+bool mm_ui_read_items(mm_ui_t *ui, int ttyin) {
     if (ui->input_fd < 0 || ui->input_done) return false;
     bool added = false;
     bool finished = false;
-    size_t bytes_read = 0;
-    const size_t read_budget = 1024u * 1024u;
     char buf[131072];
     for (;;) {
         ssize_t n = read(ui->input_fd, buf, sizeof(buf));
@@ -2725,7 +2724,6 @@ bool mm_ui_read_items(mm_ui_t *ui) {
             break;
         }
         if (n == 0) { ui->input_done = true; finished = true; break; }
-        bytes_read += (size_t)n;
         if (ui->pending_len + (size_t)n + 1 > ui->pending_cap) {
             size_t ncap = ui->pending_cap ? ui->pending_cap : 65536;
             while (ncap < ui->pending_len + (size_t)n + 1) ncap *= 2;
@@ -2756,9 +2754,17 @@ bool mm_ui_read_items(mm_ui_t *ui) {
             ui->pending_len -= start;
         }
         /* A continuously-writing producer can keep the pipe readable forever.
-           Return to the event loop after a bounded batch so keyboard input is
-           not starved while a large stream is ingested. */
-        if (bytes_read >= read_budget) break;
+           Stop draining when a key is pending so the event loop can handle it
+           before consuming the entire stream. With no key pending, continue
+           draining normally and avoid repeated search/render passes. */
+        if (ttyin >= 0) {
+            struct pollfd pfd = { .fd = ttyin, .events = POLLIN };
+            int ready;
+            do {
+                ready = poll(&pfd, 1, 0);
+            } while (ready < 0 && errno == EINTR);
+            if (ready > 0 && (pfd.revents & POLLIN)) break;
+        }
     }
     /* The last line of the stream is not terminated. */
     if (ui->input_done && ui->pending_len > 0) {
