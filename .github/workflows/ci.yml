@@ -65,9 +65,6 @@ jobs:
       - name: Differential nth tests
         run: bash tests/nth-diff.sh
 
-      - name: Differential interactive tests
-        run: bash tests/pty-diff.sh
-
       - name: Differential file walker tests
         run: bash tests/walker-diff.sh
 
@@ -82,6 +79,9 @@ jobs:
           REF: /tmp/opencode/fzf-ref
           BENCH_REPEATS: 5
         run: bash tests/bench.sh
+
+      - name: Differential interactive tests
+        run: bash tests/pty-diff.sh
 
       - name: Regenerate and run ANSI differential tests
         run: bash tests/gen-ansi-probe.sh
