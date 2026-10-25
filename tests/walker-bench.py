@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Measure fzf's interactive filesystem walker through a PTY.
+"""Paired end-to-end comparison of pinned fzf, pre-buffer cfzf, and current cfzf.
 
-The first visible generated-file prefix measures time until a candidate is displayed. The
-N/N info counter measures when all expected files have entered the result set.
-The tree is identical for both binaries; timings are not reported unless both
-binaries reach both markers. This is a coarse CLI-level measure, not a claim
-to isolate individual filesystem syscalls.
+All binaries walk the same generated tree. Repetition order rotates across
+binaries, and paired speedup ratios are reported alongside medians/MAD.
+This measures interactive CLI behavior, not isolated syscall latency.
 """
 import errno
 import signal
@@ -20,7 +18,9 @@ import tempfile
 import termios
 import time
 
-REF, IMPL = sys.argv[1:3]
+if len(sys.argv) != 4:
+    raise SystemExit("usage: walker-bench.py REF PREBUFFER_BASELINE CURRENT_IMPL")
+REF, BASELINE, IMPL = sys.argv[1:4]
 REPEATS = int(os.environ.get("WALK_BENCH_REPEATS", "5"))
 if REPEATS < 3:
     raise SystemExit("WALK_BENCH_REPEATS must be at least 3")
@@ -280,8 +280,9 @@ def summarize(samples):
     mad = statistics.median(abs(x - med) for x in samples)
     return med, mad
 
-print("benchmark=cfzf-vs-pinned-fzf-walker-v1")
-print(f"reference={os.path.realpath(REF)} implementation={os.path.realpath(IMPL)}")
+print("benchmark=paired-cfzf-vs-pinned-fzf-walker-v2")
+binaries = (("ref", REF), ("prebuffer", BASELINE), ("cfzf", IMPL))
+print(" ".join(f"{name}={os.path.realpath(path)}" for name, path in binaries))
 print(f"repeats={REPEATS} timeout_seconds={TIMEOUT} sizes={','.join(map(str,SIZES))} shapes=flat,nested,deep")
 workloads = [(count, shape) for shape in ("flat", "nested") for count in SIZES]
 workloads.append((1_000, "deep"))
@@ -290,46 +291,74 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
         root = os.path.join(work, f"tree-{shape}-{count}")
         os.mkdir(root)
         make_tree(root, count, shape)
-        samples = {"ref_first": [], "ref_full": [], "ref_rss_kb": [],
-                   "cfzf_first": [], "cfzf_full": [], "cfzf_rss_kb": []}
-        # One warmup per binary; alternate order for the measured repetitions.
-        for binary in (REF, IMPL):
+        samples = {
+            f"{prefix}_{metric}": []
+            for prefix, _ in binaries
+            for metric in ("first", "full", "rss_kb")
+        }
+        # Warm all binaries on the same generated tree.
+        for _, binary in binaries:
             measure(binary, root, count)
+        # Rotate order so each implementation runs first/middle/last.
         for i in range(REPEATS):
-            order = ((REF, "ref"), (IMPL, "cfzf")) if i % 2 == 0 else ((IMPL, "cfzf"), (REF, "ref"))
-            for binary, prefix in order:
+            offset = i % len(binaries)
+            order = binaries[offset:] + binaries[:offset]
+            for prefix, binary in order:
                 first, full, rss_kb = measure(binary, root, count)
                 samples[f"{prefix}_first"].append(first)
                 samples[f"{prefix}_full"].append(full)
                 samples[f"{prefix}_rss_kb"].append(rss_kb)
-        rf, rfmad = summarize(samples["ref_first"])
-        cf, cfmad = summarize(samples["cfzf_first"])
-        rt, rt_mad = summarize(samples["ref_full"])
-        ct, ct_mad = summarize(samples["cfzf_full"])
-        rrss, rrss_mad = summarize(samples["ref_rss_kb"])
-        crss, crss_mad = summarize(samples["cfzf_rss_kb"])
-        print(f"files={count} shape={shape} "
-              f"first_ref_median_ms={rf:.3f} first_ref_MAD_ms={rfmad:.3f} "
-              f"first_cfzf_median_ms={cf:.3f} first_cfzf_MAD_ms={cfmad:.3f} "
-              f"first_speedup={rf/cf:.3f} "
-              f"full_ref_median_ms={rt:.3f} full_ref_MAD_ms={rt_mad:.3f} "
-              f"full_cfzf_median_ms={ct:.3f} full_cfzf_MAD_ms={ct_mad:.3f} "
-              f"full_speedup={rt/ct:.3f} "
-              f"ref_paths_per_s={count*1000/rt:.0f} cfzf_paths_per_s={count*1000/ct:.0f} "
-              f"peak_rss_ref_median_kb={rrss:.0f} peak_rss_ref_MAD_kb={rrss_mad:.0f} "
-              f"peak_rss_cfzf_median_kb={crss:.0f} peak_rss_cfzf_MAD_kb={crss_mad:.0f}")
+
+        medians = {}
+        for prefix, _ in binaries:
+            for metric in ("first", "full", "rss_kb"):
+                medians[f"{prefix}_{metric}"] = summarize(samples[f"{prefix}_{metric}"])
+        ref_full = samples["ref_full"]
+        base_full = samples["prebuffer_full"]
+        cfzf_full = samples["cfzf_full"]
+        paired_ref_speedups = [ref / cfzf for ref, cfzf in zip(ref_full, cfzf_full)]
+        paired_buffer_speedups = [base / cfzf for base, cfzf in zip(base_full, cfzf_full)]
+        paired_ref_med, paired_ref_mad = summarize(paired_ref_speedups)
+        paired_buffer_med, paired_buffer_mad = summarize(paired_buffer_speedups)
+
+        row = [f"files={count}", f"shape={shape}"]
+        for prefix, _ in binaries:
+            first, first_mad = medians[f"{prefix}_first"]
+            full, full_mad = medians[f"{prefix}_full"]
+            rss, rss_mad = medians[f"{prefix}_rss_kb"]
+            row.extend([
+                f"{prefix}_first_ms={first:.3f}",
+                f"{prefix}_first_MAD_ms={first_mad:.3f}",
+                f"{prefix}_full_ms={full:.3f}",
+                f"{prefix}_full_MAD_ms={full_mad:.3f}",
+                f"{prefix}_paths_per_s={count*1000/full:.0f}",
+                f"{prefix}_peak_rss_kb={rss:.0f}",
+                f"{prefix}_peak_rss_MAD_kb={rss_mad:.0f}"
+            ])
+        row.extend([
+            f"prebuffer_speedup_vs_ref={medians['ref_full'][0]/medians['prebuffer_full'][0]:.3f}",
+            f"cfzf_speedup_vs_ref={medians['ref_full'][0]/medians['cfzf_full'][0]:.3f}",
+            f"cfzf_speedup_vs_prebuffer={medians['prebuffer_full'][0]/medians['cfzf_full'][0]:.3f}",
+            f"paired_cfzf_vs_ref_speedup={paired_ref_med:.3f}",
+            f"paired_cfzf_vs_ref_MAD={paired_ref_mad:.3f}",
+            f"paired_cfzf_vs_prebuffer_speedup={paired_buffer_med:.3f}",
+            f"paired_cfzf_vs_prebuffer_MAD={paired_buffer_mad:.3f}"
+        ])
+        print(" ".join(row))
         for key, values in samples.items():
             print(f"raw files={count} shape={shape} metric={key} samples=" +
                   ",".join(f"{v:.3f}" for v in values))
+
         if (shape == "nested" and count == 100_000 and
                 os.environ.get("WALK_BENCH_EARLY_EXIT") == "1"):
             early_exit(IMPL, root)
+
         if count == 1_000 and shape == "flat":
             # One syscall-count profile per binary. This is not timed evidence:
             # strace perturbs runtime, so only syscall counts are compared.
             wanted = {"getdents64", "newfstatat", "statx", "openat",
                       "read", "write", "writev", "close"}
-            for binary, prefix in ((REF, "ref"), (IMPL, "cfzf")):
+            for prefix, binary in binaries:
                 trace_path = os.path.join(work, f"strace-{prefix}.txt")
                 measure(binary, root, count, trace_path)
                 calls = {}
