@@ -175,6 +175,7 @@ def early_exit(binary, root):
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 100, 30, 0, 0))
     captured = bytearray()
     started = time.perf_counter_ns()
+    first_seen_ns = None
     reaped = False
     try:
         deadline = time.monotonic() + TIMEOUT
@@ -191,6 +192,8 @@ def early_exit(binary, root):
             if not chunk:
                 break
             captured.extend(chunk)
+            if first_seen_ns is None and MARKER in captured:
+                first_seen_ns = time.perf_counter_ns()
             if b"\x1b[6n" in chunk:
                 try:
                     os.write(master, TERM_REPLY)
@@ -221,6 +224,7 @@ def early_exit(binary, root):
                 except OSError:
                     pass
         # Escape is a terminal byte rather than an ISIG-generated signal.
+        key_sent_ns = time.perf_counter_ns()
         os.write(master, b"\x1b")
         deadline = time.monotonic() + 2.0
         status = None
@@ -256,9 +260,14 @@ def early_exit(binary, root):
             except OSError:
                 pass
             raise RuntimeError(f"{binary} hung after Escape during walker streaming")
-        elapsed = (time.perf_counter_ns() - started) / 1_000_000
+        finished_ns = time.perf_counter_ns()
+        first_ms = ((first_seen_ns or finished_ns) - started) / 1_000_000
+        exit_latency_ms = (finished_ns - key_sent_ns) / 1_000_000
+        total_ms = (finished_ns - started) / 1_000_000
         print(f"early_exit binary={os.path.realpath(binary)} "
-              f"after_first_path_ms={elapsed:.3f} exited=true")
+              f"time_to_first_path_ms={first_ms:.3f} "
+              f"exit_latency_ms={exit_latency_ms:.3f} total_to_exit_ms={total_ms:.3f} "
+              f"exited=true")
     finally:
         try:
             os.close(master)
