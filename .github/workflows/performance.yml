@@ -1,0 +1,69 @@
+name: Performance
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FZF_SRC: /tmp/opencode/fzf-src
+      IMPL: ${{ github.workspace }}/cfzf
+    steps:
+      - name: Check out cfzf
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: sudo apt-get install -y --no-install-recommends build-essential git groff python3
+
+      - name: Set up Go for the pinned reference
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+
+      - name: Fetch pinned fzf reference
+        env:
+          REF_COMMIT: 15f64c492a08f0840b81540c7d1de35737448086
+        run: |
+          mkdir -p /tmp/opencode
+          git clone https://github.com/junegunn/fzf.git "$FZF_SRC"
+          git -C "$FZF_SRC" checkout --detach "$REF_COMMIT"
+          test "$(git -C "$FZF_SRC" rev-parse HEAD)" = "$REF_COMMIT"
+
+      - name: Record benchmark environment
+        run: |
+          printf 'cfzf_commit=%s\n' "$(git rev-parse HEAD)"
+          printf 'reference_commit=%s\n' "$(git -C "$FZF_SRC" rev-parse HEAD)"
+          printf 'kernel=%s\n' "$(uname -sr)"
+          printf 'machine=%s\n' "$(uname -m)"
+          cc --version | head -1
+          go version
+          printf 'build_flags=-O2 -Wall -Wextra -Wpedantic -Werror -std=c23 (or compiler-supported -std=c2x)\n'
+
+      - name: Build cfzf with strict warnings
+        env:
+          FZF_BUILD_OUTPUT: ${{ github.workspace }}/cfzf
+          PREFIX: ${{ runner.temp }}/cfzf-install
+          MANDIR: ${{ runner.temp }}/cfzf-man
+        run: ./build.sh
+
+      - name: Verify walker parity on fixtures
+        run: bash tests/walker-diff.sh
+
+      - name: Measure walker latency, throughput and peak RSS
+        env:
+          WALK_BENCH_REPEATS: 5
+          WALK_BENCH_TIMEOUT: 45
+        run: python3 tests/walker-bench.py /tmp/opencode/fzf-ref "$IMPL"
+
+      - name: Measure correctness-gated batch matching and startup
+        env:
+          REF: /tmp/opencode/fzf-ref
+          BENCH_REPEATS: 5
+        run: bash tests/bench.sh
