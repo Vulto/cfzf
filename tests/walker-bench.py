@@ -172,10 +172,11 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
               f"full_ref_median_ms={rt:.3f} full_ref_MAD_ms={rt_mad:.3f} "
               f"full_cfzf_median_ms={ct:.3f} full_cfzf_MAD_ms={ct_mad:.3f} "
               f"full_speedup={rt/ct:.3f} "
+              f"ref_paths_per_s={count*1000/rt:.0f} cfzf_paths_per_s={count*1000/ct:.0f} "
               f"peak_rss_ref_median_kb={rrss:.0f} peak_rss_ref_MAD_kb={rrss_mad:.0f} "
               f"peak_rss_cfzf_median_kb={crss:.0f} peak_rss_cfzf_MAD_kb={crss_mad:.0f}")
         for key, values in samples.items():
-            print(f"raw files={count} metric={key}_ms samples=" +
+            print(f"raw files={count} metric={key} samples=" +
                   ",".join(f"{v:.3f}" for v in values))
         if count == 1_000:
             # One syscall-count profile per binary. This is not timed evidence:
@@ -202,6 +203,6 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
                         f"{prefix} default walker spawned unexpected processes: "
                         f"execve_count={calls.get('execve', 0)}")
                 print(f"syscalls files=1000 binary={prefix} "
-                      f"total={sum(calls.values())} " +
+                      f"selected_total={sum(calls.values())} " +
                       " ".join(f"{name}={calls.get(name, 0)}"
                                for name in sorted(wanted)))
