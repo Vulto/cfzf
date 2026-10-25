@@ -325,11 +325,10 @@ static int ascii_fuzzy_index(const wchar_t *text, int n, const wchar_t *pattern,
    item, so allocating the matrices per item dominates the runtime on large
    inputs; fzf avoids the same cost with its slab allocator.  A single
    process-wide buffer is safe here: the matcher is not re-entrant. */
-static _Thread_local int16_t *g_H0, *g_C0, *g_B;
-static int16_t *g_H, *g_C;
-static int     *g_F;
-static wchar_t *g_T;
-static size_t   g_cap_n, g_cap_m, g_cap_hc;
+static _Thread_local int16_t *g_H0, *g_C0, *g_B, *g_H, *g_C;
+static _Thread_local int     *g_F;
+static _Thread_local wchar_t *g_T;
+static _Thread_local size_t   g_cap_n, g_cap_m, g_cap_hc;
 
 static bool match_ws_reserve(int n, int m) {
     if (n > 0 && (size_t)n > g_cap_n) {

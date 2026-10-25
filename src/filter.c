@@ -4,6 +4,24 @@
 #include <string.h>
 #include <pthread.h>
 
+typedef struct {
+    mm_input_t input;
+    mm_pattern_t *pat;
+    const mm_sort_criteria_t *crit;
+    int *indices;
+    int count;
+    mm_match_pos_t *positions;
+    bool want_positions;
+} mm_filter_worker_t;
+
+static void *mm_filter_worker_run(void *arg) {
+    mm_filter_worker_t *w = arg;
+    w->indices = mm_batch_search(&w->input, w->pat, w->crit, false,
+                                 &w->count,
+                                 w->want_positions ? &w->positions : NULL);
+    return NULL;
+}
+
 int *mm_batch_search(mm_input_t *input, mm_pattern_t *pat, const mm_sort_criteria_t *crit,
                      bool tac, int *out_n, mm_match_pos_t **out_pos) {
     int total = input->count;
@@ -44,6 +62,98 @@ int *mm_batch_search(mm_input_t *input, mm_pattern_t *pat, const mm_sort_criteri
         }
         *out_n = total;
         return out;
+    }
+
+    /* Extended queries are not score-sorted. Process disjoint input chunks
+       concurrently, then concatenate them in original order. Each child stays
+       below the threshold and uses the ordinary single-threaded implementation. */
+    if (!pat->sortable && total >= 10000) {
+        int nthreads = 4;
+        const char *te = getenv("FZF_NUM_THREADS");
+        if (te && *te) nthreads = atoi(te);
+        if (nthreads < 1) nthreads = 1;
+        if (nthreads > 16) nthreads = 16;
+        if (nthreads > total / 2) nthreads = total / 2;
+        if (nthreads > 1) {
+            mm_filter_worker_t *workers = calloc((size_t)nthreads, sizeof(*workers));
+            pthread_t *threads = calloc((size_t)nthreads, sizeof(*threads));
+            bool *started = calloc((size_t)nthreads, sizeof(*started));
+            if (!workers || !threads || !started) {
+                free(workers); free(threads); free(started);
+                *out_n = 0;
+                if (out_pos) *out_pos = NULL;
+                return NULL;
+            }
+            int offset = 0;
+            for (int k = 0; k < nthreads; k++) {
+                int count = total / nthreads + (k < total % nthreads);
+                workers[k].input = *input;
+                workers[k].input.lines = input->lines ? input->lines + offset : NULL;
+                workers[k].input.items = input->items ? input->items + offset : NULL;
+                workers[k].input.count = count;
+                workers[k].input.base = input->base + offset;
+                workers[k].pat = pat;
+                workers[k].crit = crit;
+                workers[k].want_positions = out_pos != NULL;
+                if (pthread_create(&threads[k], NULL, mm_filter_worker_run, &workers[k]) == 0)
+                    started[k] = true;
+                else
+                    mm_filter_worker_run(&workers[k]);
+                offset += count;
+            }
+            bool failed = false;
+            for (int k = 0; k < nthreads; k++) {
+                if (started[k]) pthread_join(threads[k], NULL);
+                if (!workers[k].indices ||
+                    (out_pos && !workers[k].positions && workers[k].count > 0))
+                    failed = true;
+            }
+            if (!failed) {
+                int n = 0;
+                for (int k = 0; k < nthreads; k++) n += workers[k].count;
+                int *out = malloc((size_t)(n ? n : 1) * sizeof(*out));
+                mm_match_pos_t *mp = out_pos
+                    ? calloc((size_t)(n ? n : 1), sizeof(*mp)) : NULL;
+                if (out && (!out_pos || mp)) {
+                    int at = 0;
+                    for (int k = 0; k < nthreads; k++) {
+                        for (int j = 0; j < workers[k].count; j++, at++) {
+                            out[at] = workers[k].indices[j];
+                            if (mp) {
+                                mp[at] = workers[k].positions[j];
+                                workers[k].positions[j].pos = NULL;
+                            }
+                        }
+                    }
+                    if (tac) {
+                        for (int i = 0, j = n - 1; i < j; i++, j--) {
+                            int tmp = out[i]; out[i] = out[j]; out[j] = tmp;
+                            if (mp) {
+                                mm_match_pos_t ptmp = mp[i]; mp[i] = mp[j]; mp[j] = ptmp;
+                            }
+                        }
+                    }
+                    for (int k = 0; k < nthreads; k++) {
+                        free(workers[k].indices);
+                        mm_match_pos_free(workers[k].positions, workers[k].count);
+                    }
+                    free(workers); free(threads); free(started);
+                    *out_n = n;
+                    if (out_pos) *out_pos = mp;
+                    return out;
+                }
+                free(out);
+                free(mp);
+            }
+            for (int k = 0; k < nthreads; k++) {
+                free(workers[k].indices);
+                mm_match_pos_free(workers[k].positions, workers[k].count);
+            }
+            free(workers); free(threads); free(started);
+            *out_n = 0;
+            if (out_pos) *out_pos = NULL;
+            return NULL;
+        }
     }
 
     /* Try to use threading if beneficial */
