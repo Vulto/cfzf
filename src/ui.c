@@ -2713,7 +2713,7 @@ bool mm_ui_read_items(mm_ui_t *ui) {
     bool added = false;
     bool finished = false;
     size_t bytes_read = 0;
-    const size_t read_budget = 256u * 1024u;
+    const size_t read_budget = 1024u * 1024u;
     char buf[131072];
     for (;;) {
         ssize_t n = read(ui->input_fd, buf, sizeof(buf));
