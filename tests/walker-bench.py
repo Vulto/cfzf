@@ -191,7 +191,7 @@ def early_exit(binary, root):
             if not chunk:
                 break
             captured.extend(chunk)
-            if b"\\x1b[6n" in chunk:
+            if b"\x1b[6n" in chunk:
                 try:
                     os.write(master, TERM_REPLY)
                 except OSError:
@@ -215,13 +215,13 @@ def early_exit(binary, root):
             if not chunk:
                 break
             captured.extend(chunk)
-            if b"\\x1b[6n" in chunk:
+            if b"\x1b[6n" in chunk:
                 try:
                     os.write(master, TERM_REPLY)
                 except OSError:
                     pass
         # Escape is a terminal byte rather than an ISIG-generated signal.
-        os.write(master, b"\\x1b")
+        os.write(master, b"\x1b")
         deadline = time.monotonic() + 2.0
         status = None
         while time.monotonic() < deadline:
