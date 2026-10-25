@@ -115,8 +115,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
         bool inv = false;
         bool case_sensitive = (case_mode == CASE_RESPECT) ||
             (case_mode == CASE_SMART && !runes_equal(text, lower, tlen));
-        bool norm = normalize && runes_equal(lower, normalize_runes(lower, tlen) ? lower : lower, tlen);
-        /* recompute norm properly */
+        bool norm = false;
         if (normalize) {
             wchar_t *nn = malloc((size_t)(tlen + 1) * sizeof(wchar_t));
             if (!nn) { free(lower); free(sets); free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
