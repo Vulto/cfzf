@@ -39,7 +39,7 @@ def make_tree(root, count):
     with open(os.path.join(root, "z-last-marker.txt"), "w") as f:
         f.write("marker\n")
 
-def measure(binary, root, count):
+def measure(binary, root, count, trace_path=None):
     start = time.perf_counter_ns()
     pid, master = pty.fork()
     if pid == 0:
@@ -48,7 +48,10 @@ def measure(binary, root, count):
         env["TERM"] = "xterm-256color"
         env.pop("FZF_DEFAULT_COMMAND", None)
         env.pop("FZF_DEFAULT_OPTS", None)
-        os.execvpe(binary, [binary, "--walker-root=.", "--no-color"], env)
+        command = [binary, "--walker-root=.", "--no-color"]
+        if trace_path:
+            command = ["strace", "-f", "-c", "-o", trace_path, *command]
+        os.execvpe(command[0], command, env)
     fcntl = __import__("fcntl")
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 100, 30, 0, 0))
     first = None
@@ -174,3 +177,31 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
         for key, values in samples.items():
             print(f"raw files={count} metric={key}_ms samples=" +
                   ",".join(f"{v:.3f}" for v in values))
+        if count == 1_000:
+            # One syscall-count profile per binary. This is not timed evidence:
+            # strace perturbs runtime, so only syscall counts are compared.
+            wanted = {"execve", "getdents64", "newfstatat", "statx", "openat",
+                      "read", "write", "writev", "close"}
+            for binary, prefix in ((REF, "ref"), (IMPL, "cfzf")):
+                trace_path = os.path.join(work, f"strace-{prefix}.txt")
+                measure(binary, root, count, trace_path)
+                calls = {}
+                with open(trace_path, encoding="utf-8") as trace_file:
+                    for line in trace_file:
+                        parts = line.split()
+                        if len(parts) < 5 or parts[-1] not in wanted:
+                            continue
+                        try:
+                            float(parts[0]); float(parts[1])
+                            int(parts[2])
+                            calls[parts[-1]] = int(parts[3])
+                        except ValueError:
+                            continue
+                if calls.get("execve", 0) != 1:
+                    raise RuntimeError(
+                        f"{prefix} default walker spawned unexpected processes: "
+                        f"execve_count={calls.get('execve', 0)}")
+                print(f"syscalls files=1000 binary={prefix} "
+                      f"total={sum(calls.values())} " +
+                      " ".join(f"{name}={calls.get(name, 0)}"
+                               for name in sorted(wanted)))
