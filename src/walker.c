@@ -193,16 +193,41 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
         char *child = join_path(path, de->d_name);
         if (!child) { if (pl) pl->failed = true; closedir(d); goto done; }
         bool is_link = false, is_dir = false, link_to_dir = false;
-        struct stat lst;
-        if (lstat(child, &lst) == 0) {
-            is_link = S_ISLNK(lst.st_mode);
-            is_dir = S_ISDIR(lst.st_mode);
-            if (is_link) {
-                struct stat st;
-                if (stat(child, &st) == 0 && S_ISDIR(st.st_mode)) {
-                    link_to_dir = true;
-                    is_dir = opts->follow && follow_symlink_dir(child, root_abs);
-                }
+        bool type_known = false;
+#if defined(DT_UNKNOWN) && defined(DT_DIR) && defined(DT_LNK) && defined(DT_REG)
+        /* On filesystems that populate d_type, avoid one lstat syscall per
+           ordinary entry. DT_UNKNOWN and non-supporting platforms retain the
+           portable lstat fallback below. */
+        switch (de->d_type) {
+            case DT_UNKNOWN:
+                break;
+            case DT_DIR:
+                is_dir = true;
+                type_known = true;
+                break;
+            case DT_LNK:
+                is_link = true;
+                type_known = true;
+                break;
+            default:
+                /* Known non-directory, non-symlink entries need no stat. */
+                type_known = true;
+                break;
+        }
+#endif
+        if (!type_known) {
+            struct stat lst;
+            if (lstat(child, &lst) == 0) {
+                is_link = S_ISLNK(lst.st_mode);
+                is_dir = S_ISDIR(lst.st_mode);
+                type_known = true;
+            }
+        }
+        if (is_link) {
+            struct stat st;
+            if (stat(child, &st) == 0 && S_ISDIR(st.st_mode)) {
+                link_to_dir = true;
+                is_dir = opts->follow && follow_symlink_dir(child, root_abs);
             }
         }
         ents[n].name = strdup(de->d_name);
