@@ -65,19 +65,24 @@ int *mm_batch_search(mm_input_t *input, mm_pattern_t *pat, const mm_sort_criteri
             *out_n = 0;
             return NULL;
         }
+        bool own_items = input->items == NULL;
+        /* UI items are already decoded; avoid scanning every line to size an
+           unused decode buffer on every search refresh. */
         size_t max_runes = 0;
-        for (int i = 0; i < total; i++) {
-            size_t n2 = (size_t)strlen(input->lines[i]) + 1;
-            if (n2 > max_runes) max_runes = n2;
+        if (own_items) {
+            for (int i = 0; i < total; i++) {
+                size_t n2 = (size_t)strlen(input->lines[i]) + 1;
+                if (n2 > max_runes) max_runes = n2;
+            }
         }
-        wchar_t *scratch = max_runes ? malloc(max_runes * sizeof(wchar_t)) : NULL;
-        if (max_runes && !scratch) {
+        wchar_t *scratch = own_items && max_runes
+            ? malloc(max_runes * sizeof(wchar_t)) : NULL;
+        if (own_items && max_runes && !scratch) {
             free(results);
             free(items);
             *out_n = 0;
             return NULL;
         }
-        bool own_items = input->items == NULL;
         for (int i = 0; i < total; i++) {
             if (own_items) {
                 mm_item_init(&items[i], input->lines[i], i + input->base);
@@ -236,19 +241,24 @@ int *mm_batch_search(mm_input_t *input, mm_pattern_t *pat, const mm_sort_criteri
         *out_n = 0;
         return NULL;
     }
+    bool own_items = input->items == NULL;
+    /* UI items are already decoded; avoid scanning every line to size an
+       unused decode buffer on every search refresh. */
     size_t max_runes = 0;
-    for (int i = 0; i < total; i++) {
-        size_t n2 = (size_t)strlen(input->lines[i]) + 1;
-        if (n2 > max_runes) max_runes = n2;
+    if (own_items) {
+        for (int i = 0; i < total; i++) {
+            size_t n2 = (size_t)strlen(input->lines[i]) + 1;
+            if (n2 > max_runes) max_runes = n2;
+        }
     }
-    wchar_t *scratch = max_runes ? malloc(max_runes * sizeof(wchar_t)) : NULL;
-    if (max_runes && !scratch) {
+    wchar_t *scratch = own_items && max_runes
+        ? malloc(max_runes * sizeof(wchar_t)) : NULL;
+    if (own_items && max_runes && !scratch) {
         free(results);
         free(items);
         *out_n = 0;
         return NULL;
     }
-    bool own_items = input->items == NULL;
     for (int i = 0; i < total; i++) {
         if (own_items) {
             mm_item_init(&items[i], input->lines[i], i + input->base);
