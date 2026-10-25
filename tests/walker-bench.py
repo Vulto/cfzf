@@ -321,7 +321,7 @@ with tempfile.TemporaryDirectory(prefix="cfzf-walker-bench-") as work:
         for key, values in samples.items():
             print(f"raw files={count} shape={shape} metric={key} samples=" +
                   ",".join(f"{v:.3f}" for v in values))
-        if (shape == "flat" and count == 100_000 and
+        if (shape == "nested" and count == 100_000 and
                 os.environ.get("WALK_BENCH_EARLY_EXIT") == "1"):
             early_exit(IMPL, root)
         if count == 1_000 and shape == "flat":
