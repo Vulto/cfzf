@@ -244,7 +244,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                 free(w); free(th); free(started);
                 *out_n = n; if (out_pos) *out_pos = mp; return out;
             }
-            free(out); free(mp); failed = true;
+            free(out); free(mp);
         }
         free(all);
         for (int k = 0; k < nthreads; k++) {
