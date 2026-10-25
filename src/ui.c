@@ -2712,6 +2712,8 @@ bool mm_ui_read_items(mm_ui_t *ui) {
     if (ui->input_fd < 0 || ui->input_done) return false;
     bool added = false;
     bool finished = false;
+    size_t bytes_read = 0;
+    const size_t read_budget = 256u * 1024u;
     char buf[131072];
     for (;;) {
         ssize_t n = read(ui->input_fd, buf, sizeof(buf));
@@ -2723,6 +2725,7 @@ bool mm_ui_read_items(mm_ui_t *ui) {
             break;
         }
         if (n == 0) { ui->input_done = true; finished = true; break; }
+        bytes_read += (size_t)n;
         if (ui->pending_len + (size_t)n + 1 > ui->pending_cap) {
             size_t ncap = ui->pending_cap ? ui->pending_cap : 65536;
             while (ncap < ui->pending_len + (size_t)n + 1) ncap *= 2;
@@ -2752,6 +2755,10 @@ bool mm_ui_read_items(mm_ui_t *ui) {
             memmove(ui->pending, ui->pending + start, ui->pending_len - start);
             ui->pending_len -= start;
         }
+        /* A continuously-writing producer can keep the pipe readable forever.
+           Return to the event loop after a bounded batch so keyboard input is
+           not starved while a large stream is ingested. */
+        if (bytes_read >= read_budget) break;
     }
     /* The last line of the stream is not terminated. */
     if (ui->input_done && ui->pending_len > 0) {

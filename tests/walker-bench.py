@@ -268,6 +268,9 @@ def early_exit(binary, root):
               f"time_to_first_path_ms={first_ms:.3f} "
               f"exit_latency_ms={exit_latency_ms:.3f} total_to_exit_ms={total_ms:.3f} "
               f"exited=true")
+        if exit_latency_ms > 100.0:
+            raise RuntimeError(
+                f"{binary} exit latency {exit_latency_ms:.3f} ms exceeds 100 ms")
     finally:
         try:
             os.close(master)
