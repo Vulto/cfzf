@@ -59,6 +59,9 @@ jobs:
       - name: Differential batch tests
         run: bash tests/batch-diff.sh
 
+      - name: Differential threaded ranked-search tests
+        run: bash tests/thread-diff.sh
+
       - name: Differential algorithm tests
         run: bash tests/algo-diff.sh
 
