@@ -14,7 +14,6 @@
 #define MM_WALK_MAX_DEPTH 256
 
 typedef struct {
-    char *name;
     char *path;
     bool  is_dir;
     bool  is_reg;
@@ -168,6 +167,11 @@ static bool emit_dir(mm_pathlist_t *pl, int out_fd,
     return true;
 }
 
+static const char *walk_entry_name(const mm_walk_entry_t *entry) {
+    const char *slash = strrchr(entry->path, '/');
+    return slash ? slash + 1 : entry->path;
+}
+
 static int walk_entry_cmp(const void *a, const void *b) {
     const mm_walk_entry_t *x = a;
     const mm_walk_entry_t *y = b;
@@ -177,7 +181,7 @@ static int walk_entry_cmp(const void *a, const void *b) {
         if (!x->is_dir && y->is_dir) return -1;
         if (x->is_dir && !y->is_dir) return 1;
     }
-    return strcmp(x->name, y->name);
+    return strcmp(walk_entry_name(x), walk_entry_name(y));
 }
 
 /* Is `ancestor` equal to or a parent directory of `path`? */
@@ -284,7 +288,8 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
                 is_dir = opts->follow && follow_symlink_dir(child, root_abs);
             }
         }
-        ents[n].name = strdup(de->d_name);
+        /* The basename is already stored at the end of child. Reuse it for
+           sorting/filtering instead of allocating a second copy per entry. */
         ents[n].path = child;
         ents[n].is_dir = is_dir;
         ents[n].is_reg = !is_dir;
@@ -297,7 +302,7 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
 
     for (int i = 0; i < n; i++) {
         if (stream && stream->failed) break;
-        const char *name = ents[i].name;
+        const char *name = walk_entry_name(&ents[i]);
         char *child = ents[i].path;
         /* fzf's "hidden" walker option only controls whether hidden
            directories are traversed; hidden files are always listed. */
@@ -316,15 +321,12 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
                 emit_path(pl, out_fd, stream, child);
             }
         }
-        free(ents[i].name);
         free(ents[i].path);
-        ents[i].name = NULL;
         ents[i].path = NULL;
     }
 
 done:
     for (int i = 0; i < n; i++) {
-        free(ents[i].name);
         free(ents[i].path);
     }
     free(ents);
