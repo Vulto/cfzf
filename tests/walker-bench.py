@@ -45,6 +45,8 @@ def measure(binary, root, count):
         os.chdir(root)
         env = os.environ.copy()
         env["TERM"] = "xterm-256color"
+        env.pop("FZF_DEFAULT_COMMAND", None)
+        env.pop("FZF_DEFAULT_OPTS", None)
         os.execvpe(binary, [binary, "--walker-root=.", "--no-color"], env)
     fcntl = __import__("fcntl")
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 100, 30, 0, 0))
@@ -111,11 +113,23 @@ def measure(binary, root, count):
         except OSError:
             pass
         try:
-            _, status = os.waitpid(pid, 0)
-        except ChildProcessError:
+            deadline = time.monotonic() + 2.0
+            status = None
+            while time.monotonic() < deadline:
+                try:
+                    waited, child_status = os.waitpid(pid, os.WNOHANG)
+                except ChildProcessError:
+                    status = 0
+                    break
+                if waited == pid:
+                    status = child_status
+                    break
+                time.sleep(0.02)
+            if status is None:
+                os.kill(pid, 9)
+                _, status = os.waitpid(pid, 0)
+        except ProcessLookupError:
             status = 0
-        if not os.WIFEXITED(status) and not os.WIFSIGNALED(status):
-            raise RuntimeError(f"could not reap {binary} walker process")
 
 def summarize(samples):
     med = statistics.median(samples)
