@@ -240,7 +240,21 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
     int n = 0, cap = 0;
     struct dirent *de;
     while ((de = readdir(d)) != NULL) {
-        if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
+        const char *entry_name = de->d_name;
+        if (!strcmp(entry_name, ".") || !strcmp(entry_name, "..")) continue;
+
+        /* Prune excluded names before allocating a full path or issuing any
+           metadata syscalls. The previous post-sort check did this work for
+           every entry inside excluded trees such as node_modules and .git. */
+        bool excluded = false;
+        for (int k = 0; opts->skip && k < opts->nskip; k++) {
+            if (!strcmp(opts->skip[k], entry_name)) {
+                excluded = true;
+                break;
+            }
+        }
+        if (excluded) continue;
+
         if (n == cap) {
             int ncap = cap ? cap * 2 : 64;
             mm_walk_entry_t *ne = realloc(ents, (size_t)ncap * sizeof(*ne));
