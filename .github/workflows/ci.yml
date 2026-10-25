@@ -71,6 +71,12 @@ jobs:
       - name: Differential file walker tests
         run: bash tests/walker-diff.sh
 
+      - name: Measure filesystem walker performance
+        env:
+          WALK_BENCH_REPEATS: 5
+          WALK_BENCH_TIMEOUT: 45
+        run: python3 tests/walker-bench.py /tmp/opencode/fzf-ref "$IMPL"
+
       - name: Reproducible performance comparison
         env:
           REF: /tmp/opencode/fzf-ref
