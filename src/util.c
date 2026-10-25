@@ -112,12 +112,16 @@ int mchars_decode(mchars_t *c) {
     const char *p = c->bytes;
     size_t rem = (size_t)c->raw_bytes;
     int i = 0;
-    while (rem > 0) {
-        wchar_t cp;
-        size_t used = mm_utf8_decode(p, rem, &cp);
-        runes[i++] = cp;
-        p += used;
-        rem -= used;
+    if (c->ascii) {
+        for (; rem > 0; rem--, p++) runes[i++] = (wchar_t)(unsigned char)*p;
+    } else {
+        while (rem > 0) {
+            wchar_t cp;
+            size_t used = mm_utf8_decode(p, rem, &cp);
+            runes[i++] = cp;
+            p += used;
+            rem -= used;
+        }
     }
     runes[i] = 0;
     c->runes = runes;
