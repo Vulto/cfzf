@@ -325,7 +325,7 @@ static int ascii_fuzzy_index(const wchar_t *text, int n, const wchar_t *pattern,
    item, so allocating the matrices per item dominates the runtime on large
    inputs; fzf avoids the same cost with its slab allocator.  A single
    process-wide buffer is safe here: the matcher is not re-entrant. */
-static int16_t *g_H0, *g_C0, *g_B;
+static _Thread_local int16_t *g_H0, *g_C0, *g_B;
 static int16_t *g_H, *g_C;
 static int     *g_F;
 static wchar_t *g_T;
