@@ -40,6 +40,7 @@ def make_tree(root, count):
         f.write("marker\n")
 
 def measure(binary, root, count):
+    start = time.perf_counter_ns()
     pid, master = pty.fork()
     if pid == 0:
         os.chdir(root)
@@ -50,7 +51,6 @@ def measure(binary, root, count):
         os.execvpe(binary, [binary, "--walker-root=.", "--no-color"], env)
     fcntl = __import__("fcntl")
     fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", 100, 30, 0, 0))
-    start = time.perf_counter_ns()
     first = None
     complete = None
     max_rss_kb = 0
@@ -67,7 +67,7 @@ def measure(binary, root, count):
                             break
             except (FileNotFoundError, ProcessLookupError):
                 pass
-            ready, _, _ = select.select([master], [], [], 0.05)
+            ready, _, _ = select.select([master], [], [], 0.01)
             if not ready:
                 continue
             try:
