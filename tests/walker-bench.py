@@ -202,7 +202,9 @@ def early_exit(binary, root):
                     pass
         if MARKER not in captured:
             raise RuntimeError(f"{binary} never displayed a generated file for early-exit test")
-        os.write(master, b"\\x03")
+        # Escape is a terminal byte rather than an ISIG-generated signal, so
+        # the strace wrapper cannot intercept it instead of the child.
+        os.write(master, b"\\x1b")
         deadline = time.monotonic() + 2.0
         status = None
         while time.monotonic() < deadline:
@@ -226,7 +228,7 @@ def early_exit(binary, root):
                 print("EARLY_EXIT_TRACE_END")
             except OSError:
                 pass
-            raise RuntimeError(f"{binary} hung after Ctrl-C during walker streaming")
+            raise RuntimeError(f"{binary} hung after Escape during walker streaming")
         elapsed = (time.perf_counter_ns() - started) / 1_000_000
         print(f"early_exit binary={os.path.realpath(binary)} "
               f"after_first_path_ms={elapsed:.3f} exited=true")
