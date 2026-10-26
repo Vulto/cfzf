@@ -170,6 +170,8 @@ check_invalid_option() {
     fi
 }
 check_invalid_option "threads-invalid" 'invalid --threads value' --filter=a --threads=bad
+check_invalid_option "algo-invalid" "invalid algorithm" --filter=a --algo=v3
+check_invalid_option "algo-missing" "--algo requires a value" --filter=a --algo
 check_invalid_option "threads-negative" 'invalid --threads value' --filter=a --threads=-1
 check_invalid_option "threads-missing-value" 'invalid --threads value' --filter=a --threads
 check_invalid_option "header-lines-invalid" 'invalid --header-lines value' --filter=a --header-lines=bad
