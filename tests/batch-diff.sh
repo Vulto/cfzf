@@ -72,6 +72,10 @@ check_file() {
     fi
 }
 
+# Help output is part of the CLI contract.
+check "help" --help
+check "short-help" -h
+
 # Basic filtering.
 for q in apple a e '' AN 'ch' 'a b' 'z' '1' '2'; do
     check "filter=$q" --filter="$q"
