@@ -61,11 +61,11 @@ check_file() {
     irc=$?
     if [ "$rrc" = "$irc" ] && cmp -s "$WORK/ref.out" "$WORK/impl.out" && cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
         pass=$((pass + 1))
-        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\\n' "$desc"
+        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
     else
         fail=$((fail + 1))
-        printf 'FAIL %s (exit ref=%s impl=%s)\\n' "$desc" "$rrc" "$irc"
-        cmp -s "$WORK/ref.out" "$WORK/impl.out" || printf 'stdout sizes: ref=%s impl=%s\\n' "$(wc -c < "$WORK/ref.out")" "$(wc -c < "$WORK/impl.out")"
+        printf 'FAIL %s (exit ref=%s impl=%s)\n' "$desc" "$rrc" "$irc"
+        cmp -s "$WORK/ref.out" "$WORK/impl.out" || printf 'stdout sizes: ref=%s impl=%s\n' "$(wc -c < "$WORK/ref.out")" "$(wc -c < "$WORK/impl.out")"
         cmp -s "$WORK/ref.err" "$WORK/impl.err" || diff -u "$WORK/ref.err" "$WORK/impl.err" | head -12 || true
     fi
 }
@@ -144,10 +144,10 @@ check_invalid_threads() {
     rc=$?
     if [ "$rc" -eq 2 ] && grep -q 'invalid --threads value' "$WORK/impl.err"; then
         pass=$((pass + 1))
-        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\\n' "$desc"
+        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
     else
         fail=$((fail + 1))
-        printf 'FAIL %s (exit=%s)\\n' "$desc" "$rc"
+        printf 'FAIL %s (exit=%s)\n' "$desc" "$rc"
         cat "$WORK/impl.err" >&2
     fi
 }
@@ -158,7 +158,7 @@ check_invalid_threads "threads-missing-value" --filter=a --threads
 # Exercise stdin reading and output at an exact 4 MiB boundary.
 BOUNDARY="$WORK/exact-4mib.txt"
 head -c 4194303 /dev/zero | tr '\\000' 'x' > "$BOUNDARY"
-printf '\\n' >> "$BOUNDARY"
+printf '\n' >> "$BOUNDARY"
 [ "$(wc -c < "$BOUNDARY")" -eq 4194304 ]
 check_file "stdin-exact-4mib-boundary" "$BOUNDARY" --filter=
 
