@@ -449,6 +449,24 @@ run_reload_case() {
 
 run_reload_case 'action-reload' 'ctrl-t:reload(seq 1 3)'
 
+run_reload_track_case() {
+    name=$1; args=$2
+    printf 'sleep 200\nkey up\nsleep 100\nkey ctrl-t\nsleep 300\n' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --color -- $args \
+        --bind 'ctrl-t:reload(seq 1 3)' > "$WORK/ref.c" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --color -- $args \
+        --bind 'ctrl-t:reload(seq 1 3)' > "$WORK/impl.c" 2>/dev/null
+    if diff -q "$WORK/ref.c" "$WORK/impl.c" > /dev/null; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.c" "$WORK/impl.c" | head -10
+    fi
+}
+run_reload_track_case 'action-reload-track' '--track'
+
 run_preview_case 'layout-reverse-list' --layout=reverse-list
 run_preview_case 'no-bold'           --no-bold
 run_preview_case 'no-color'          --no-color
