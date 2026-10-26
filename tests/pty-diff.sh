@@ -448,7 +448,7 @@ run_reload_case() {
 }
 
 run_reload_case 'action-reload' 'ctrl-t:reload(seq 1 3)'
-run_reload_case 'action-reload-empty' 'ctrl-t:reload(printf \\\"\\\")'
+run_reload_case 'action-reload-empty' 'ctrl-t:reload(true)'
 
 run_reload_track_case() {
     name=$1; args=$2
