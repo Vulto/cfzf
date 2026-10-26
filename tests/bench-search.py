@@ -89,8 +89,8 @@ def main() -> int:
 
             for threads in THREAD_COUNTS:
                 env = host_env.copy()
-                env["FZF_NUM_THREADS"] = str(threads)
-                command = [str(IMPL), *args]
+                env.pop("FZF_NUM_THREADS", None)
+                command = [str(IMPL), *args, f"--threads={threads}"]
                 # One untimed warm-up reduces first-run noise.
                 warm, _ = invoke(command, env, corpus)
                 if (warm.returncode, warm.stdout, warm.stderr) != (
