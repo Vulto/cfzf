@@ -22,6 +22,24 @@ static int *mm_batch_search_internal(mm_input_t *, mm_pattern_t *,
     const mm_sort_criteria_t *, bool, int *, mm_match_pos_t **,
     mm_result_t2 **, mm_item_t **, int *, bool *);
 
+static int requested_threads;
+
+void mm_filter_set_threads(int threads) {
+    requested_threads = threads > 0 ? threads : 0;
+}
+
+static int mm_filter_thread_count(int total) {
+    int nthreads = requested_threads;
+    if (nthreads <= 0) {
+        const char *te = getenv("FZF_NUM_THREADS");
+        nthreads = te && *te ? atoi(te) : 4;
+    }
+    if (nthreads <= 0) nthreads = 1;
+    if (nthreads > 16) nthreads = 16;
+    if (total < 10000) nthreads = 1;
+    return nthreads;
+}
+
 static void *mm_filter_worker_run(void *arg) {
     mm_filter_worker_t *w = arg;
     w->indices = mm_batch_search(&w->input, w->pat, w->crit, false,
@@ -89,11 +107,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
        concurrently, then concatenate them in original order. Each child stays
        below the threshold and uses the ordinary single-threaded implementation. */
     if (!pat->sortable && total >= 10000) {
-        int nthreads = 4;
-        const char *te = getenv("FZF_NUM_THREADS");
-        if (te && *te) nthreads = atoi(te);
-        if (nthreads < 1) nthreads = 1;
-        if (nthreads > 16) nthreads = 16;
+        int nthreads = mm_filter_thread_count(total);
         if (nthreads > total / 2) nthreads = total / 2;
         if (nthreads > 1) {
             mm_filter_worker_t *workers = calloc((size_t)nthreads, sizeof(*workers));
@@ -178,12 +192,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
     }
 
     /* Try to use threading if beneficial */
-    int nthreads = 4;
-    const char *te = getenv("FZF_NUM_THREADS");
-    if (te && *te) nthreads = atoi(te);
-    if (nthreads <= 0) nthreads = 1;
-    if (nthreads > 16) nthreads = 16;
-    if (total < 10000) nthreads = 1;
+    int nthreads = mm_filter_thread_count(total);
 
     /* Workers retain complete result records; sort once globally after joining. */
     if (pat->sortable && total >= 10000 && nthreads > 1 && !raw_results) {
