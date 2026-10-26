@@ -212,6 +212,7 @@ check "enabled-alias" --filter=a --phony --enabled
 check "no-multi-short-alias" --filter=a +m
 check "no-color-short-alias" --filter=a +c
 check "no-256-short-alias" --filter=a +2
+check "batch-accepts-ui-only-flags" --filter=a --no-height --no-margin --no-padding --no-list-border --no-preview-border --no-tmux --no-popup --no-listen --no-black --bold --multi-line --hscroll --async --clear
 check "tail=3"         --filter=a --tail=3
 check "header-lines-tail-order" --filter= --header-lines=2 --tail=3
 check "multi"          --filter=a --multi
