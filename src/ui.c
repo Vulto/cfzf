@@ -2134,17 +2134,17 @@ static void ui_preview_restart(mm_ui_t *ui) {
 /* Mark an item as selected and remember the order of the selection. */
 static void ui_select_item(mm_ui_t *ui, int item) {
     if (!ui->selected || ui->selected[item]) return;
-    ui->selected[item] = true;
-    ui->nselected++;
     if (ui->sel_order_n + 1 > ui->sel_order_cap) {
         if (ui->sel_order_cap > INT_MAX / 2) return;
         int ncap = ui->sel_order_cap ? ui->sel_order_cap * 2 : 16;
         if ((size_t)ncap > SIZE_MAX / sizeof(*ui->sel_order)) return;
-        int *n = realloc(ui->sel_order, sizeof(int) * (size_t)ncap);
+        int *n = realloc(ui->sel_order, sizeof(*ui->sel_order) * (size_t)ncap);
         if (!n) return;
         ui->sel_order = n;
         ui->sel_order_cap = ncap;
     }
+    ui->selected[item] = true;
+    ui->nselected++;
     ui->sel_order[ui->sel_order_n++] = item;
 }
 
