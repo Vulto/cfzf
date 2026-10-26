@@ -282,7 +282,7 @@ static char *accept_nth_fields(const char *line, mm_delimiter_t delim,
     return stripped;
 }
 
-static char *accept_nth_expand(const char *spec, const char *line,
+static char *mm_accept_nth_expand(const char *spec, const char *line,
                                mm_delimiter_t delim, int index) {
     if (accept_nth_chars(spec))
         return accept_nth_fields(line, delim, spec, false);
@@ -1056,6 +1056,8 @@ int main(int argc, char **argv) {
         #undef ARG_EQ
     }
 
+    if (accept_nth_spec && !mm_accept_nth_validate(accept_nth_spec)) return 2;
+
     /* Key bindings and expected keys are parsed before the input is read so
        that a parse error does not leak the input buffer. */
     mm_keymap_t keymap;
@@ -1377,6 +1379,7 @@ int main(int argc, char **argv) {
         mm_ui_t ui;
         memset(&ui, 0, sizeof(ui));
         ui.crit = crit;
+        ui.accept_nth_spec = accept_nth_spec;
         if (!mm_delimiter_init(&ui.delim, delim_str)) {
             fprintf(stderr, "fzf: out of memory\n");
             return 2;
