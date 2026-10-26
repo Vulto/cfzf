@@ -33,22 +33,43 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
 /* --- query buffer helpers --- */
 static void query_set(mm_ui_t *ui, const char *s) {
     size_t n = strlen(s);
+    if (n == SIZE_MAX) return;
     if (n + 1 > ui->query_cap) {
         size_t nc = ui->query_cap ? ui->query_cap : 64;
-        while (n + 1 > nc) nc *= 2;
-        ui->query_buf = realloc(ui->query_buf, nc);
+        while (n + 1 > nc) {
+            if (nc > SIZE_MAX / 2) {
+                nc = n + 1;
+                break;
+            }
+            nc *= 2;
+        }
+        char *buf = realloc(ui->query_buf, nc);
+        if (!buf) return;
+        ui->query_buf = buf;
         ui->query_cap = nc;
     }
     memcpy(ui->query_buf, s, n + 1);
     ui->query_len = n;
-    ui->query_pos = (int)n;
+    ui->query_pos = n > INT_MAX ? INT_MAX : (int)n;
 }
 
 static void query_insert(mm_ui_t *ui, const char *s, size_t n) {
-    if (ui->query_len + n + 1 > ui->query_cap) {
+    if (n > SIZE_MAX - ui->query_len - 1 ||
+        ui->query_len + n > INT_MAX)
+        return;
+    size_t required = ui->query_len + n + 1;
+    if (required > ui->query_cap) {
         size_t nc = ui->query_cap ? ui->query_cap : 64;
-        while (ui->query_len + n + 1 > nc) nc *= 2;
-        ui->query_buf = realloc(ui->query_buf, nc);
+        while (required > nc) {
+            if (nc > SIZE_MAX / 2) {
+                nc = required;
+                break;
+            }
+            nc *= 2;
+        }
+        char *buf = realloc(ui->query_buf, nc);
+        if (!buf) return;
+        ui->query_buf = buf;
         ui->query_cap = nc;
     }
     size_t pos = (size_t)ui->query_pos;
