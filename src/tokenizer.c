@@ -96,8 +96,19 @@ bool mm_parse_ranges(const char *str, mm_range_t **out, int *outn) {
     for (const char *p = str;; p++) {
         if (*p != ',' && *p != 0) continue;
         mm_range_t range;
-        if (p == start || !mm_parse_range(strndup(start, (size_t)(p - start)), &range)) {
-            /* Avoid allocating a temporary string for malformed empty fields. */
+        size_t token_len = (size_t)(p - start);
+        if (token_len == 0) {
+            free(ranges);
+            return false;
+        }
+        char *token = strndup(start, token_len);
+        if (!token) {
+            free(ranges);
+            return false;
+        }
+        bool valid = mm_parse_range(token, &range);
+        free(token);
+        if (!valid) {
             free(ranges);
             return false;
         }
