@@ -126,10 +126,48 @@ static void ui_search(mm_ui_t *ui);
 static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b);
 static void ui_exec_event(mm_ui_t *ui, const char *name);
 
+static char *ui_track_key_for(mm_ui_t *ui, int item) {
+    if (!ui->id_nth_spec || item < 0 || item >= ui->count) return NULL;
+    char *raw = mm_accept_nth_expand(ui->id_nth_spec, ui->lines[item],
+                                     ui->delim, item);
+    if (!raw) return NULL;
+    char *key = mm_strip_last_delimiter(raw, ui->delim);
+    free(raw);
+    return key;
+}
+
+static bool ui_restore_tracked_cursor(mm_ui_t *ui, int tracked_item,
+                                      const char *track_key) {
+    if (track_key && ui->id_nth_spec) {
+        for (int i = 0; i < ui->nresults; i++) {
+            char *candidate = ui_track_key_for(ui, ui->results[i]);
+            bool match = candidate && strcmp(candidate, track_key) == 0;
+            free(candidate);
+            if (match) {
+                ui->cursor = i;
+                return true;
+            }
+        }
+        return false;
+    }
+    if (tracked_item >= 0) {
+        for (int i = 0; i < ui->nresults; i++) {
+            if (ui->results[i] == tracked_item) {
+                ui->cursor = i;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 static void ui_search(mm_ui_t *ui) {
     const char *prev_query = ui->query_buf;
     int prev_nresults = ui->nresults;
-    int tracked_item = ((ui->track || ui->track_current) && ui->results && ui->cursor >= 0 &&
+    char *track_key = ui->pending_track_key;
+    ui->pending_track_key = NULL;
+    int tracked_item = (!track_key && (ui->track || ui->track_current) &&
+                        ui->results && ui->cursor >= 0 &&
                         ui->cursor < ui->nresults) ? ui->results[ui->cursor] : -1;
 
     if (ui->phony || !ui->search_enabled) {
@@ -148,14 +186,11 @@ static void ui_search(mm_ui_t *ui) {
         mm_match_pos_free(ui->match_pos, ui->match_pos_n);
         ui->match_pos = NULL;
         ui->match_pos_n = 0;
-        bool restored = false;
-        if (tracked_item >= 0) {
-            for (int i = 0; i < ui->nresults; i++) {
-                if (ui->results[i] == tracked_item) { ui->cursor = i; restored = true; break; }
-            }
-        }
-        if (tracked_item >= 0 && !restored && ui->track_current && !ui->track)
+        bool restored = ui_restore_tracked_cursor(ui, tracked_item, track_key);
+        if ((tracked_item >= 0 || track_key) && !restored &&
+            ui->track_current && !ui->track)
             ui->track_current = false;
+        free(track_key);
         if (!restored && ui->cursor >= ui->nresults) ui->cursor = ui->nresults ? ui->nresults - 1 : 0;
         if (ui->offset > ui->cursor) ui->offset = ui->cursor;
         /* Trigger events. */
@@ -168,7 +203,7 @@ static void ui_search(mm_ui_t *ui) {
     bool forward = mm_criteria_forward(&ui->crit);
     mm_pattern_t *pat = mm_pattern_build(ui->query_buf, ui->fuzzy, ui->extended,
                                          ui->case_mode, !ui->literal, forward, true);
-    if (!pat) { ui->nresults = 0; /* Trigger events. */
+    if (!pat) { ui->nresults = 0; free(track_key); /* Trigger events. */
         if (strcmp(prev_query, ui->query_buf) != 0) ui_exec_event(ui, "change");
         if (prev_nresults != ui->nresults) ui_exec_event(ui, "result");
         return; }
@@ -195,14 +230,11 @@ static void ui_search(mm_ui_t *ui) {
         ui->search_results = res ? malloc((size_t)(n > 0 ? n : 1) * sizeof(int)) : NULL;
         if (ui->search_results && res) memcpy(ui->search_results, res, (size_t)n * sizeof(int));
     }
-    bool restored = false;
-    if (tracked_item >= 0 && res) {
-        for (int i = 0; i < n; i++) {
-            if (res[i] == tracked_item) { ui->cursor = i; restored = true; break; }
-        }
-    }
-    if (tracked_item >= 0 && !restored && ui->track_current && !ui->track)
+    bool restored = ui_restore_tracked_cursor(ui, tracked_item, track_key);
+    if ((tracked_item >= 0 || track_key) && !restored &&
+        ui->track_current && !ui->track)
         ui->track_current = false;
+    free(track_key);
     if (!restored && ui->cursor >= n) ui->cursor = n ? n - 1 : 0;
     if (ui->offset > ui->cursor) ui->offset = ui->cursor;
     mm_pattern_free(pat);
