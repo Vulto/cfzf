@@ -52,6 +52,15 @@ static bool parse_cli_positive(const char *option, const char *value,
     return false;
 }
 
+static const char *required_cli_arg(int argc, char **argv, int *index,
+                                    const char *option) {
+    if (*index + 1 >= argc) {
+        fprintf(stderr, "%s requires a value\n", option);
+        return NULL;
+    }
+    return argv[++*index];
+}
+
 /* Print the manual page.  The page is looked up next to the executable and
    in the usual man directories; when it cannot be found a short summary is
    printed instead. */
@@ -302,8 +311,14 @@ int main(int argc, char **argv) {
         }
         #define ARG_EQ(name) (!strncmp(a, name "=", sizeof(name)))
         if (ARG_EQ("--filter")) { filter = a + sizeof("--filter=") - 1; }
-        else if (!strcmp(a, "-f") || !strcmp(a, "--filter")) { if (i+1<argc) filter = argv[++i]; }
-        else if (!strcmp(a, "--query") || !strcmp(a, "-q")) { if (i+1<argc) query = argv[++i]; }
+        else if (!strcmp(a, "-f") || !strcmp(a, "--filter")) {
+            filter = required_cli_arg(argc, argv, &i, "--filter");
+            if (!filter) return 2;
+        }
+        else if (!strcmp(a, "--query") || !strcmp(a, "-q")) {
+            query = required_cli_arg(argc, argv, &i, "--query");
+            if (!query) return 2;
+        }
         else if (ARG_EQ("--query")) { query = a + 8; }
         else if (!strcmp(a, "--exact") || !strcmp(a, "-e")) exact = true;
         else if (!strcmp(a, "--extended") || !strcmp(a, "-x")) extended = true;
@@ -317,18 +332,45 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "+i") || !strcmp(a, "--no-ignore-case")) case_mode = CASE_RESPECT;
         else if (!strcmp(a, "--smart-case")) case_mode = CASE_SMART;
         else if (ARG_EQ("--scheme")) { scheme = a + 9; }
-        else if (!strcmp(a, "--scheme")) { if (i+1<argc) scheme = argv[++i]; }
+        else if (!strcmp(a, "--scheme")) {
+            scheme = required_cli_arg(argc, argv, &i, "--scheme");
+            if (!scheme) return 2;
+        }
         else if (ARG_EQ("--tiebreak")) { tiebreak = a + 11; }
-        else if (!strcmp(a, "--tiebreak")) { if (i+1<argc) tiebreak = argv[++i]; }
-        else if (ARG_EQ("--tail")) { tail = atoi(a + 7); }
-        else if (!strcmp(a, "--tail")) { if (i+1<argc) tail = atoi(argv[++i]); }
+        else if (!strcmp(a, "--tiebreak")) {
+            tiebreak = required_cli_arg(argc, argv, &i, "--tiebreak");
+            if (!tiebreak) return 2;
+        }
+        else if (ARG_EQ("--tail")) {
+            if (!parse_cli_positive("--tail", a + 7, &tail)) return 2;
+        }
+        else if (!strcmp(a, "--tail")) {
+            if (i + 1 >= argc) {
+                (void)parse_cli_positive("--tail", NULL, &tail);
+                return 2;
+            }
+            if (!parse_cli_positive("--tail", argv[++i], &tail)) return 2;
+        }
+        else if (!strcmp(a, "--no-tail")) tail = -1;
         else if (ARG_EQ("--nth")) { nth_spec = a + 6; }
-        else if (!strcmp(a, "--nth")) { if (i+1<argc) nth_spec = argv[++i]; }
+        else if (!strcmp(a, "--nth")) {
+            nth_spec = required_cli_arg(argc, argv, &i, "--nth");
+            if (!nth_spec) return 2;
+        }
         else if (ARG_EQ("--with-nth")) { with_nth_spec = a + 11; }
-        else if (!strcmp(a, "--with-nth")) { if (i+1<argc) with_nth_spec = argv[++i]; }
+        else if (!strcmp(a, "--with-nth")) {
+            with_nth_spec = required_cli_arg(argc, argv, &i, "--with-nth");
+            if (!with_nth_spec) return 2;
+        }
         else if (ARG_EQ("--delimiter")) { delim_str = a + 12; }
-        else if (!strcmp(a, "--delimiter")) { if (i+1<argc) delim_str = argv[++i]; }
-        else if (!strcmp(a, "-d")) { if (i+1<argc) delim_str = argv[++i]; }
+        else if (!strcmp(a, "--delimiter")) {
+            delim_str = required_cli_arg(argc, argv, &i, "--delimiter");
+            if (!delim_str) return 2;
+        }
+        else if (!strcmp(a, "-d")) {
+            delim_str = required_cli_arg(argc, argv, &i, "--delimiter");
+            if (!delim_str) return 2;
+        }
         else if (!strncmp(a, "-d", 2) && a[2] != 0 && a[1] != '-') { delim_str = a + 2; }
         else if (!strcmp(a, "--literal")) literal = true;
         else if (!strcmp(a, "--no-literal")) literal = false;
