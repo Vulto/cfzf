@@ -23,6 +23,7 @@ while [ $i -lt 20 ]; do printf 'item%02d\n' "$i" >> "$WORK/many.txt"; i=$((i+1))
 # Long items for the list wrapping.
 printf 'x%.0s' $(seq 1 80) > "$WORK/long.txt"
 printf '\nshort\n' >> "$WORK/long.txt"
+printf '日本語テキスト\n日本語\n' > "$WORK/unicode.txt"
 
 pass=0
 fail=0
@@ -110,6 +111,15 @@ send X
 sleep 200
 key enter
 sleep 200' "$WORK/items.txt"
+run_case 'query-cursor-unicode' 'sleep 250
+send 日本語
+sleep 100
+key home
+key right
+send X
+sleep 200
+key enter
+sleep 200' "$WORK/unicode.txt"
 run_case 'query-cursor-delete' 'sleep 250
 send banana
 sleep 100
