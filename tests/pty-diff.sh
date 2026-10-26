@@ -618,6 +618,9 @@ done
 for shape in rounded sharp top bottom horizontal; do
     run_border_case "border-label-$shape" "$shape" --border-label=LABEL
 done
+run_border_case "border-label-pos-left" rounded --border-label=LABEL --border-label-pos=2:top
+run_border_case "border-label-pos-right" rounded --border-label=LABEL --border-label-pos=-2:top
+run_border_case "border-label-pos-bottom" rounded --border-label=LABEL --border-label-pos=center:bottom
 
 # The execute action writes the current item to a file; compare the file
 # contents produced by the reference and the implementation.
