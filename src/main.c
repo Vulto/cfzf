@@ -1309,6 +1309,22 @@ int main(int argc, char **argv) {
                  !strcmp(a, "--clear")) {
             /* UI-only flags do not change batch filtering semantics. */
         }
+        else if (!strcmp(a, "--tty-default") ||
+                 !strcmp(a, "--proxy-script") ||
+                 !strcmp(a, "--toggle-sort") ||
+                 !strcmp(a, "--profile-cpu") ||
+                 !strcmp(a, "--profile-mem") ||
+                 !strcmp(a, "--profile-block") ||
+                 !strcmp(a, "--profile-mutex")) {
+            if (!required_cli_arg(argc, argv, &i, a)) return 2;
+        }
+        else if (ARG_EQ("--tty-default") || ARG_EQ("--proxy-script") ||
+                 ARG_EQ("--toggle-sort") || ARG_EQ("--profile-cpu") ||
+                 ARG_EQ("--profile-mem") || ARG_EQ("--profile-block") ||
+                 ARG_EQ("--profile-mutex")) {
+            /* Values are parsed for CLI compatibility; these facilities are
+               not used by the batch filter implementation. */
+        }
         else if ((a[0] == '-' || a[0] == '+') && a[1] != 0) {
             /* fzf rejects unknown options (PLAN: no silently ignored flags). */
             fprintf(stderr, "unknown option: %s\n", a);
