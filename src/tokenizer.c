@@ -145,41 +145,69 @@ bool mm_parse_ranges(const char *str, mm_range_t **out, int *outn) {
 
 static bool is_awk_white(char c) { return c == '\t' || c == ' ' || c == '\n'; }
 
+static void free_tokens(char **tokens, int n) {
+    if (!tokens) return;
+    for (int i = 0; i < n; i++) free(tokens[i]);
+    free(tokens);
+}
+
+static bool append_token(char ***tokens, int *count, int *capacity,
+                         const char *text, size_t length) {
+    if (*count == *capacity) {
+        if (*capacity > INT_MAX / 2) return false;
+        int next = *capacity ? *capacity * 2 : 8;
+        if ((size_t)next > SIZE_MAX / sizeof(**tokens)) return false;
+        char **grown = realloc(*tokens, (size_t)next * sizeof(**tokens));
+        if (!grown) return false;
+        *tokens = grown;
+        *capacity = next;
+    }
+    char *token = strndup(text, length);
+    if (!token) return false;
+    (*tokens)[(*count)++] = token;
+    return true;
+}
+
 /* awkTokenizer: tokens are \S+\s* ; returns prefixLength = leading whitespace
    rune count. */
 static char **awk_tokenize(const char *input, int *prefix_length, int *outn) {
-    int cap = 8, n = 0;
-    char **ret = malloc((size_t)cap * sizeof(char *));
-    if (!ret) { *outn = 0; return NULL; }
-    int prefix = 0;
+    int cap = 0, n = 0, prefix = 0;
+    char **ret = NULL;
     int state = 0; /* 0=nil 1=black 2=white */
-    long begin = 0, end = 0;
-    size_t len = strlen(input);
+    size_t begin = 0, end = 0, len = strlen(input);
     for (size_t idx = 0; idx < len; idx++) {
         char r = input[idx];
         bool white = is_awk_white(r);
         switch (state) {
         case 0:
             if (white) prefix++;
-            else { state = 1; begin = (long)idx; end = (long)idx + 1; }
+            else { state = 1; begin = idx; end = idx + 1; }
             break;
         case 1:
-            end = (long)idx + 1;
+            end = idx + 1;
             if (white) state = 2;
             break;
         case 2:
-            if (white) end = (long)idx + 1;
+            if (white) end = idx + 1;
             else {
-                if (n == cap) { cap *= 2; ret = realloc(ret, (size_t)cap * sizeof(char *)); }
-                ret[n++] = strndup(input + begin, (size_t)(end - begin));
-                state = 1; begin = (long)idx; end = (long)idx + 1;
+                if (!append_token(&ret, &n, &cap, input + begin, end - begin)) {
+                    free_tokens(ret, n);
+                    *prefix_length = 0;
+                    *outn = 0;
+                    return NULL;
+                }
+                state = 1;
+                begin = idx;
+                end = idx + 1;
             }
             break;
         }
     }
-    if (begin < end) {
-        if (n == cap) { cap *= 2; ret = realloc(ret, (size_t)cap * sizeof(char *)); }
-        ret[n++] = strndup(input + begin, (size_t)(end - begin));
+    if (begin < end && !append_token(&ret, &n, &cap, input + begin, end - begin)) {
+        free_tokens(ret, n);
+        *prefix_length = 0;
+        *outn = 0;
+        return NULL;
     }
     *prefix_length = prefix;
     *outn = n;
