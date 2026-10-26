@@ -180,9 +180,9 @@ static void ui_restore_selected_keys(mm_ui_t *ui, char **keys, int key_count) {
             if (!match || ui->selected[item]) continue;
 
             if (ui->sel_order_n == ui->sel_order_cap) {
+                if (ui->sel_order_cap > INT_MAX / 2) return;
                 int new_cap = ui->sel_order_cap ? ui->sel_order_cap * 2 : 16;
-                if (new_cap < ui->sel_order_cap ||
-                    (size_t)new_cap > SIZE_MAX / sizeof(*ui->sel_order))
+                if ((size_t)new_cap > SIZE_MAX / sizeof(*ui->sel_order))
                     return;
                 int *grown = realloc(ui->sel_order,
                                      (size_t)new_cap * sizeof(*ui->sel_order));
@@ -2137,7 +2137,9 @@ static void ui_select_item(mm_ui_t *ui, int item) {
     ui->selected[item] = true;
     ui->nselected++;
     if (ui->sel_order_n + 1 > ui->sel_order_cap) {
+        if (ui->sel_order_cap > INT_MAX / 2) return;
         int ncap = ui->sel_order_cap ? ui->sel_order_cap * 2 : 16;
+        if ((size_t)ncap > SIZE_MAX / sizeof(*ui->sel_order)) return;
         int *n = realloc(ui->sel_order, sizeof(int) * (size_t)ncap);
         if (!n) return;
         ui->sel_order = n;
