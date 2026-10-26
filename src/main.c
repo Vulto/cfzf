@@ -763,6 +763,7 @@ int main(int argc, char **argv) {
             history_spec = required_cli_arg(argc, argv, &i, "--history");
             if (!history_spec) return 2;
         }
+        else if (!strcmp(a, "--no-history")) history_spec = NULL;
         else if (ARG_EQ("--history-size")) {
             if (!parse_cli_positive("--history-size", a + 15, &history_size)) return 2;
         }
@@ -788,6 +789,7 @@ int main(int argc, char **argv) {
             preview_cmd = required_cli_arg(argc, argv, &i, "--preview");
             if (!preview_cmd) return 2;
         }
+        else if (!strcmp(a, "--no-preview")) preview_cmd = NULL;
         else if (ARG_EQ("--preview-window")) preview_win_spec = a + 17;
         else if (!strcmp(a, "--preview-window")) {
             preview_win_spec = required_cli_arg(argc, argv, &i, "--preview-window");
