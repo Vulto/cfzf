@@ -58,7 +58,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-029 | `--freeze-right` | - | - | unstarted |
 | OPT-030 | `\-\-gap` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:gap-default, tests/batch-diff.sh:gap-explicit-value, tests/batch-diff.sh:no-gap | implemented but unverified |
 | OPT-031 | `\-\-gap\-line` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:no-gap-line, tests/batch-diff.sh:gap-line-optional | implemented but unverified |
-| OPT-032 | `\-\-ghost` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
+| OPT-032 | `\-\-ghost` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:ghost-missing | implemented but unverified |
 | OPT-033 | `--graph` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-034 | `--gutter` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-035 | `--gutter-raw` | src/main.c | tests/pty-diff.sh | verified |
@@ -71,7 +71,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-042 | `--header-lines-border` | - | - | unstarted |
 | OPT-043 | `--height` | src/ui.c, src/terminal.c | tests/pty-diff.sh | verified |
 | OPT-044 | `--highlight-line` | src/ui.c | tests/pty-diff.sh | verified |
-| OPT-045 | `\-\-history` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
+| OPT-045 | `\-\-history` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-missing | implemented but unverified |
 | OPT-046 | `\-\-history\-size` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-size-invalid, tests/batch-diff.sh:history-size-zero | implemented but unverified |
 | OPT-047 | `--hscroll-off` | src/ui.c, src/main.c | tests/batch-diff.sh:hscroll-off-negative | implemented but unverified |
 | OPT-048 | `--id-nth` | - | - | unstarted |
@@ -93,7 +93,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-064 | `--literal` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-065 | `--margin` | src/ui.c, src/main.c | tests/pty-diff.sh | implemented but unverified |
 | OPT-066 | `\-\-marker` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
-| OPT-067 | `--marker-multi-line` | src/main.c | - | implemented |
+| OPT-067 | `--marker-multi-line` | src/main.c | tests/batch-diff.sh:marker-multi-line-missing | implemented but unverified |
 | OPT-068 | `\-\-min\-height` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-069 | `--multi` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-070 | `--no` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
@@ -121,15 +121,15 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh | implemented but unverified |
 | OPT-093 | `\-\-pointer` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-094 | `--popup` | - | - | unstarted |
-| OPT-095 | `\-\-preview` | src/preview.c, src/ui.c | tests/pty-diff.sh | verified |
+| OPT-095 | `\-\-preview` | src/preview.c, src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:preview-missing | implemented but unverified |
 | OPT-096 | `--preview-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-097 | `--preview-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-098 | `--preview-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
-| OPT-099 | `\-\-preview\-window` | src/preview.c, src/ui.c | tests/pty-diff.sh | verified |
+| OPT-099 | `\-\-preview\-window` | src/preview.c, src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:preview-window-missing | implemented but unverified |
 | OPT-100 | `--preview-wrap-sign` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-101 | `--print0` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-102 | `--print-query` | src/main.c | tests/batch-diff.sh | verified |
-| OPT-103 | `--prompt` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
+| OPT-103 | `--prompt` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:prompt-missing | implemented but unverified |
 | OPT-104 | `--query` | src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:query-missing | implemented but unverified |
 | OPT-105 | `--raw` | src/main.c | - | implemented |
 | OPT-106 | `--read0` | src/main.c | tests/batch-diff.sh | verified |
