@@ -52,9 +52,10 @@ static void *mm_filter_ranked_worker_run(void *arg) {
     mm_filter_worker_t *w = arg;
     int ignored = 0;
     w->ranked_ok = false;
-    (void)mm_batch_search_internal(&w->input, w->pat, w->crit, false,
+    int *indices = mm_batch_search_internal(&w->input, w->pat, w->crit, false,
         &ignored, NULL, &w->ranked_results, &w->ranked_items,
         &w->count, &w->ranked_ok);
+    free(indices);
     return NULL;
 }
 
