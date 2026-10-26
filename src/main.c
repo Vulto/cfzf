@@ -267,7 +267,7 @@ int main(int argc, char **argv) {
         if (end_options) {
             if (!query) query = a;
             else {
-                fprintf(stderr, "unexpected positional argument: %s\\n", a);
+                fprintf(stderr, "unexpected positional argument: %s\n", a);
                 return 2;
             }
             continue;
@@ -279,7 +279,7 @@ int main(int argc, char **argv) {
         if (a[0] != '-' && a[0] != '+') {
             if (!query) query = a;
             else {
-                fprintf(stderr, "unexpected positional argument: %s\\n", a);
+                fprintf(stderr, "unexpected positional argument: %s\n", a);
                 return 2;
             }
             continue;
@@ -704,13 +704,13 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--header")) { if (i+1<argc) header = argv[++i]; }
         else if (ARG_EQ("--header-lines")) {
             if (!parse_nonnegative_int(a + 15, &header_lines)) {
-                fprintf(stderr, "invalid --header-lines value: %s\\n", a + 15);
+                fprintf(stderr, "invalid --header-lines value: %s\n", a + 15);
                 return 2;
             }
         }
         else if (!strcmp(a, "--header-lines")) {
             if (i + 1 >= argc || !parse_nonnegative_int(argv[++i], &header_lines)) {
-                fprintf(stderr, "invalid --header-lines value\\n");
+                fprintf(stderr, "invalid --header-lines value\n");
                 return 2;
             }
         }
