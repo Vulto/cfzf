@@ -218,7 +218,7 @@ static bool mm_cli_words_push(mm_cli_words_t *words, char *word) {
 
 static bool mm_cli_word_append(char **word, size_t *length, size_t *capacity,
                                char ch) {
-    if (*length == *capacity) {
+    if (*capacity == 0 || *length >= *capacity - 1) {
         size_t next = *capacity ? *capacity * 2 : 32;
         if (next < *capacity || next > SIZE_MAX - 1) return false;
         char *grown = realloc(*word, next);
