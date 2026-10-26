@@ -39,7 +39,7 @@ static bool parse_nonnegative_int(const char *s, int *out) {
 static bool parse_cli_nonnegative(const char *option, const char *value,
                                   int *out) {
     if (parse_nonnegative_int(value, out)) return true;
-    fprintf(stderr, "invalid %s value: %s\\n", option,
+    fprintf(stderr, "invalid %s value: %s\n", option,
             value ? value : "");
     return false;
 }
@@ -47,7 +47,7 @@ static bool parse_cli_nonnegative(const char *option, const char *value,
 static bool parse_cli_positive(const char *option, const char *value,
                                int *out) {
     if (parse_nonnegative_int(value, out) && *out > 0) return true;
-    fprintf(stderr, "invalid %s value: %s\\n", option,
+    fprintf(stderr, "invalid %s value: %s\n", option,
             value ? value : "");
     return false;
 }
