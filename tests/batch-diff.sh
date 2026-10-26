@@ -162,6 +162,16 @@ check_invalid_option "threads-missing-value" 'invalid --threads value' --filter=
 check_invalid_option "header-lines-invalid" 'invalid --header-lines value' --filter=a --header-lines=bad
 check_invalid_option "header-lines-negative" 'invalid --header-lines value' --filter=a --header-lines=-1
 check_invalid_option "header-lines-missing-value" 'invalid --header-lines value' --filter=a --header-lines
+check_invalid_option "multi-max-invalid" 'invalid --multi-max value' --filter=a --multi-max=bad
+check_invalid_option "multi-max-negative" 'invalid --multi-max value' --filter=a --multi-max=-1
+check_invalid_option "gap-invalid" 'invalid --gap value' --filter=a --gap=bad
+check_invalid_option "gap-negative" 'invalid --gap value' --filter=a --gap=-1
+check_invalid_option "padding-invalid" 'invalid --padding value' --filter=a --padding=bad
+check_invalid_option "margin-negative" 'invalid --margin value' --filter=a --margin=-1
+check_invalid_option "scroll-off-invalid" 'invalid --scroll-off value' --filter=a --scroll-off=bad
+check_invalid_option "hscroll-off-negative" 'invalid --hscroll-off value' --filter=a --hscroll-off=-1
+check_invalid_option "tabstop-zero" 'invalid --tabstop value' --filter=a --tabstop=0
+check_invalid_option "history-size-invalid" 'invalid --history-size value' --filter=a --history-size=bad
 
 # Exercise stdin reading and output at an exact 4 MiB boundary.
 BOUNDARY="$WORK/exact-4mib.txt"
