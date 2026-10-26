@@ -10,6 +10,12 @@
 #include <limits.h>
 #include <stdint.h>
 
+static mm_range_t normalize_range(int begin, int end) {
+    if (begin == 1 && end != 1) begin = MM_RANGE_ELLIPSIS;
+    if (end == -1) end = MM_RANGE_ELLIPSIS;
+    return (mm_range_t){.begin = begin, .end = end};
+}
+
 static bool parse_range_int(const char *s, size_t len, int *out) {
     if (!s || !out || len == 0) return false;
     size_t digit = (s[0] == '-' || s[0] == '+') ? 1u : 0u;
@@ -37,18 +43,11 @@ static bool parse_range_int(const char *s, size_t len, int *out) {
 
 bool mm_parse_range(const char *s, mm_range_t *out) {
     if (!s || !out || !*s) return false;
-    if (strcmp(s, "..") == 0) {
-        out->begin = MM_RANGE_ELLIPSIS;
-        out->end = MM_RANGE_ELLIPSIS;
-        return true;
-    }
-
     const char *dots = strstr(s, "..");
     if (!dots) {
         int value;
         if (!parse_range_int(s, strlen(s), &value) || value == 0) return false;
-        out->begin = value;
-        out->end = value;
+        *out = normalize_range(value, value);
         return true;
     }
 
@@ -56,33 +55,15 @@ bool mm_parse_range(const char *s, mm_range_t *out) {
     if (strstr(dots + 2, "..")) return false;
     size_t left_len = (size_t)(dots - s);
     const char *right = dots + 2;
-    if (left_len == 0) {
-        int end;
-        if (!*right) {
-            out->begin = MM_RANGE_ELLIPSIS;
-            out->end = MM_RANGE_ELLIPSIS;
-            return true;
-        }
-        if (!parse_range_int(right, strlen(right), &end) || end == 0) return false;
-        out->begin = MM_RANGE_ELLIPSIS;
-        out->end = end;
-        return true;
-    }
-    if (!*right) {
-        int begin;
-        if (!parse_range_int(s, left_len, &begin) || begin == 0) return false;
-        out->begin = begin;
-        out->end = MM_RANGE_ELLIPSIS;
-        return true;
-    }
-
-    int begin, end;
-    if (!parse_range_int(s, left_len, &begin) ||
-        !parse_range_int(right, strlen(right), &end) ||
-        begin == 0 || end == 0 || (begin < 0 && end > 0))
+    int begin = MM_RANGE_ELLIPSIS, end = MM_RANGE_ELLIPSIS;
+    if (left_len != 0 &&
+        (!parse_range_int(s, left_len, &begin) || begin == 0))
         return false;
-    out->begin = begin;
-    out->end = end;
+    if (*right && (!parse_range_int(right, strlen(right), &end) || end == 0))
+        return false;
+    if (left_len != 0 && *right && begin < 0 && end > 0)
+        return false;
+    *out = normalize_range(begin, end);
     return true;
 }
 
@@ -366,14 +347,22 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim,
                 return NULL;
         } else {
             const char *p = text;
-            while (*p) {
+            for (;;) {
                 const char *hit = strstr(p, delim.str);
                 size_t segment = hit ? (size_t)(hit - p) + delimiter_len : strlen(p);
                 if (!append_token(&tokens, &n, &cap, p, segment)) {
                     free_tokens(tokens, n);
                     return NULL;
                 }
+                if (!hit) break;
                 p += segment;
+                if (!*p) {
+                    if (!append_token(&tokens, &n, &cap, p, 0)) {
+                        free_tokens(tokens, n);
+                        return NULL;
+                    }
+                    break;
+                }
             }
         }
     }
