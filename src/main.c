@@ -775,7 +775,14 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--prompt")) prompt = a + 9;
         else if (!strcmp(a, "--prompt")) { if (i+1<argc) prompt = argv[++i]; }
         else if (ARG_EQ("--header")) header = a + 9;
-        else if (!strcmp(a, "--header")) { if (i+1<argc) header = argv[++i]; }
+        else if (!strcmp(a, "--header")) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "--header requires a value\n");
+                return 2;
+            }
+            header = argv[++i];
+        }
+        else if (!strcmp(a, "--no-header")) header = NULL;
         else if (ARG_EQ("--header-lines")) {
             if (!parse_nonnegative_int(a + 15, &header_lines)) {
                 fprintf(stderr, "invalid --header-lines value: %s\n", a + 15);
