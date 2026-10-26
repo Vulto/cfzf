@@ -134,7 +134,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-105 | `--raw` | src/main.c | - | implemented |
 | OPT-106 | `--read0` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-107 | `--reverse` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
-| OPT-108 | `--scheme` | src/result.c | tests/batch-diff.sh | verified |
+| OPT-108 | `--scheme` | src/result.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:scheme-missing | implemented but unverified |
 | OPT-109 | `--scrollbar` | src/ui.c, src/main.c | - | implemented |
 | OPT-110 | `--scroll-off` | src/ui.c, src/main.c | tests/batch-diff.sh:scroll-off-invalid | implemented but unverified |
 | OPT-111 | `--select-1` | - | tests/batch-diff.sh | verified |
@@ -146,13 +146,13 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-117 | `--tac` | src/result.c | tests/batch-diff.sh | verified |
 | OPT-118 | `--tail` | src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:tail-missing, tests/batch-diff.sh:no-tail | implemented but unverified |
 | OPT-119 | `--threads` | src/main.c, src/filter.c | tests/thread-diff.sh:--threads=2, tests/thread-diff.sh:--threads=4, tests/batch-diff.sh:threads-zero-default | implemented but unverified |
-| OPT-120 | `--tiebreak` | src/result.c | tests/batch-diff.sh | verified |
+| OPT-120 | `--tiebreak` | src/result.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:tiebreak-missing | implemented but unverified |
 | OPT-121 | `--tmux` | - | - | unstarted |
 | OPT-122 | `--track` | - | - | unstarted |
 | OPT-123 | `\-\-walker` | src/walker.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
 | OPT-124 | `\-\-walker\-root` | src/walker.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
 | OPT-125 | `\-\-walker\-skip` | src/walker.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
-| OPT-126 | `--with-nth` | src/tokenizer.c | tests/batch-diff.sh | verified |
+| OPT-126 | `--with-nth` | src/tokenizer.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:with-nth-missing | implemented but unverified |
 | OPT-127 | `\-\-with\-shell` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-128 | `--wrap` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-129 | `--wrap-sign` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
