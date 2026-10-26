@@ -279,73 +279,92 @@ void mm_delimiter_free(mm_delimiter_t *delim) {
     delim->is_regex = false;
 }
 
-char **mm_tokenize(const char *text, mm_delimiter_t delim, int **prefix_lengths, int *outn) {
+char **mm_tokenize(const char *text, mm_delimiter_t delim,
+                   int **prefix_lengths, int *outn) {
+    if (!prefix_lengths || !outn || !text) return NULL;
+    *prefix_lengths = NULL;
+    *outn = 0;
+
+    int cap = 0, n = 0;
+    char **tokens = NULL;
     if (delim.is_regex && delim.rx) {
-        /* Regex delimiter: tokens include the matched delimiter, like
-           fzf's Tokenize (src/tokenizer.go). */
         regex_t *rx = (regex_t *)delim.rx;
-        int cap = 8, n = 0;
-        char **ret = malloc((size_t)cap * sizeof(char *));
-        if (!ret) { *outn = 0; *prefix_lengths = NULL; return NULL; }
-        size_t begin = 0;
-        size_t tlen = strlen(text);
-        regmatch_t m[1];
-        while (regexec(rx, text + begin, 1, m, begin == 0 ? 0 : REG_NOTBOL) == 0) {
-            size_t mend = begin + (size_t)m[0].rm_eo;
-            size_t seglen = mend - begin;
-            if (n == cap) { cap *= 2; ret = realloc(ret, (size_t)cap * sizeof(char *)); }
-            ret[n++] = strndup(text + begin, seglen);
-            if (mend == begin) break; /* empty match, avoid looping */
-            begin = mend;
-            if (begin >= tlen) break;
+        size_t begin = 0, text_len = strlen(text);
+        regmatch_t match[1];
+        while (begin < text_len &&
+               regexec(rx, text + begin, 1, match,
+                       begin == 0 ? 0 : REG_NOTBOL) == 0) {
+            if (match[0].rm_eo < 0) break;
+            size_t end = begin + (size_t)match[0].rm_eo;
+            if (end < begin || end > text_len ||
+                !append_token(&tokens, &n, &cap, text + begin, end - begin)) {
+                free_tokens(tokens, n);
+                return NULL;
+            }
+            if (end == begin) break;
+            begin = end;
         }
-        if (begin < tlen) {
-            if (n == cap) { cap *= 2; ret = realloc(ret, (size_t)cap * sizeof(char *)); }
-            ret[n++] = strndup(text + begin, tlen - begin);
+        if (begin < text_len &&
+            !append_token(&tokens, &n, &cap, text + begin, text_len - begin)) {
+            free_tokens(tokens, n);
+            return NULL;
         }
-        if (*text == 0) *outn = 0;
-        else *outn = n;
-        int *pl = malloc((size_t)(n ? n : 1) * sizeof(int));
-        int plen = 0;
-        for (int i = 0; i < n; i++) { pl[i] = plen; plen += mm_utf8_count(ret[i]); }
-        *prefix_lengths = pl;
-        return ret;
-    }
-    if (!delim.str) {
-        int prefix = 0;
-        char **toks = awk_tokenize(text, &prefix, outn);
-        int *pl = malloc((size_t)(*outn ? *outn : 1) * sizeof(int));
-        int plen = prefix;
-        for (int i = 0; i < *outn; i++) {
-            pl[i] = plen;
-            plen += mm_utf8_count(toks[i]);
+    } else if (!delim.str) {
+        int leading = 0;
+        tokens = awk_tokenize(text, &leading, &n);
+        if (n > 0 && !tokens) return NULL;
+        int *prefix = malloc((size_t)(n ? n : 1) * sizeof(*prefix));
+        if (!prefix) {
+            free_tokens(tokens, n);
+            return NULL;
         }
-        *prefix_lengths = pl;
-        return toks;
+        int length = leading;
+        for (int i = 0; i < n; i++) {
+            prefix[i] = length;
+            length += mm_utf8_count(tokens[i]);
+        }
+        *prefix_lengths = prefix;
+        *outn = n;
+        return tokens;
+    } else {
+        size_t delimiter_len = (size_t)delim.slen;
+        if (delimiter_len == 0) {
+            /* Empty literal delimiters cannot advance; treat the input as one token. */
+            if (*text && !append_token(&tokens, &n, &cap, text, strlen(text)))
+                return NULL;
+        } else {
+            const char *p = text;
+            while (*p) {
+                const char *hit = strstr(p, delim.str);
+                size_t segment = hit ? (size_t)(hit - p) + delimiter_len : strlen(p);
+                if (!append_token(&tokens, &n, &cap, p, segment)) {
+                    free_tokens(tokens, n);
+                    return NULL;
+                }
+                p += segment;
+            }
+        }
     }
-    /* string delimiter: SplitAfter */
-    int cap = 8, n = 0;
-    char **ret = malloc((size_t)cap * sizeof(char *));
-    if (!ret) { *outn = 0; *prefix_lengths = NULL; return NULL; }
-    const char *p = text;
-    size_t dlen = (size_t)delim.slen;
-    while (*p) {
-        const char *hit = strstr(p, delim.str);
-        size_t seg;
-        if (hit) seg = (size_t)(hit - p) + dlen;
-        else seg = strlen(p);
-        if (n == cap) { cap *= 2; ret = realloc(ret, (size_t)cap * sizeof(char *)); }
-        ret[n++] = strndup(p, seg);
-        p += seg;
+
+    int *prefix = malloc((size_t)(n ? n : 1) * sizeof(*prefix));
+    if (!prefix) {
+        free_tokens(tokens, n);
+        return NULL;
     }
-    if (*text == 0) *outn = 0;
-    else *outn = n;
-    int *pl = malloc((size_t)(n ? n : 1) * sizeof(int));
-    if (!pl) { for (int i = 0; i < n; i++) free(ret[i]); free(ret); *outn = 0; *prefix_lengths = NULL; return NULL; }
-    int plen = 0;
-    for (int i = 0; i < n; i++) { pl[i] = plen; plen += mm_utf8_count(ret[i]); }
-    *prefix_lengths = pl;
-    return ret;
+    int length = 0;
+    for (int i = 0; i < n; i++) {
+        prefix[i] = length;
+        int token_length = mm_utf8_count(tokens[i]);
+        if (token_length > INT_MAX - length) {
+            free(prefix);
+            free_tokens(tokens, n);
+            return NULL;
+        }
+        length += token_length;
+    }
+    *prefix_lengths = prefix;
+    *outn = n;
+    return tokens;
 }
 
 char *mm_strip_last_delimiter(const char *str, mm_delimiter_t delim) {
