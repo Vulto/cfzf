@@ -417,8 +417,17 @@ int main(int argc, char **argv) {
             walker_spec = required_cli_arg(argc, argv, &i, "--walker");
             if (!walker_spec) return 2;
         }
-        else if (ARG_EQ("--walker-root")) walker_root = a + 14;
-        else if (!strcmp(a, "--walker-root")) { if (i+1<argc) walker_root = argv[++i]; }
+        else if (ARG_EQ("--walker-root")) {
+            walker_root = a + 14;
+            if (!*walker_root) {
+                fprintf(stderr, "--walker-root requires a value\\n");
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--walker-root")) {
+            walker_root = required_cli_arg(argc, argv, &i, "--walker-root");
+            if (!walker_root) return 2;
+        }
         else if (ARG_EQ("--walker-skip")) walker_skip = a + 14;
         else if (!strcmp(a, "--walker-skip")) {
             walker_skip = required_cli_arg(argc, argv, &i, "--walker-skip");
@@ -452,10 +461,20 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--phony")) phony = true;
         else if (!strcmp(a, "--no-phony")) phony = false;
         else if (ARG_EQ("--footer")) footer_spec = a + 9;
-        else if (ARG_EQ("--padding")) padding = atoi(a + 10);
-        else if (ARG_EQ("--margin")) margin = atoi(a + 9);
-        else if (!strcmp(a, "--margin")) { if (i+1<argc) margin = atoi(argv[++i]); }
-        else if (!strcmp(a, "--padding")) { if (i+1<argc) padding = atoi(argv[++i]); }
+        else if (ARG_EQ("--padding")) {
+            if (!parse_cli_nonnegative("--padding", a + 10, &padding)) return 2;
+        }
+        else if (ARG_EQ("--margin")) {
+            if (!parse_cli_nonnegative("--margin", a + 9, &margin)) return 2;
+        }
+        else if (!strcmp(a, "--margin")) {
+            const char *v = required_cli_arg(argc, argv, &i, "--margin");
+            if (!v || !parse_cli_nonnegative("--margin", v, &margin)) return 2;
+        }
+        else if (!strcmp(a, "--padding")) {
+            const char *v = required_cli_arg(argc, argv, &i, "--padding");
+            if (!v || !parse_cli_nonnegative("--padding", v, &padding)) return 2;
+        }
         else if (ARG_EQ("--gutter")) gutter_spec = a + 9;
         else if (!strcmp(a, "--gutter")) { if (i+1<argc) gutter_spec = argv[++i]; }
         else if (ARG_EQ("--gutter-raw")) gutter_raw_spec = a + 13;
