@@ -378,13 +378,13 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                         free(toks == stack_toks ? NULL : toks);
                         free(stk_text == stack_text ? NULL : stk_text);
                         for (int k = 0; k < ntok_in; k++) free(tokens[k]);
-                        free(tokens); free(tpl);
+                        free(tokens);
+                        free(tpl);
                         for (int k = 0; k < nout; k++) free(outs[k]);
-                        free(outs); free(opl);
-                        *out_n = 0;
-                        free(results);
-                        free(items);
-                        return NULL;
+                        free(outs);
+                        free(opl);
+                        search_failed = true;
+                        break;
                     }
                 }
                 int decoded_count = 0;
@@ -417,8 +417,16 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                 free(tokens); free(tpl);
                 if (input->length_from_transform) {
                     size_t tot = 0;
-                    for (int k = 0; k < nout; k++) tot += strlen(outs[k]);
-                    joined = malloc(tot + 1);
+                    bool size_overflow = false;
+                    for (int k = 0; k < nout; k++) {
+                        size_t part = strlen(outs[k]);
+                        if (part > SIZE_MAX - tot) {
+                            size_overflow = true;
+                            break;
+                        }
+                        tot += part;
+                    }
+                    joined = size_overflow || tot == SIZE_MAX ? NULL : malloc(tot + 1);
                     if (!joined) {
                         for (int k = 0; k < nout; k++) {
                             mchars_free(&stk_text[k]);
