@@ -303,6 +303,8 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
             *out_n = 0;
             return NULL;
         }
+        int items_initialized = 0;
+        bool search_failed = false;
         for (int i = 0; i < total; i++) {
             if (own_items) {
                 mm_item_init(&items[i], input->lines[i], i + input->base);
@@ -319,6 +321,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                 items[i].colors = NULL;
                 items[i].text.borrowed = 1;
             }
+            items_initialized = i + 1;
             char *joined = NULL;
 
             mm_token_t stack_toks[32];
@@ -374,7 +377,8 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                         free(toks);
                         if (stk_text != stack_text) free(stk_text);
                     }
-                    continue;
+                    search_failed = true;
+                    break;
                 }
                 for (int k = 0; k < ntok_in; k++) free(tokens[k]);
                 free(tokens); free(tpl);
@@ -452,6 +456,17 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                 n++;
             }
             free(pos);
+        }
+
+        if (search_failed) {
+            for (int i = 0; i < n; i++) free(results[i].pos);
+            free(results);
+            for (int i = 0; i < items_initialized; i++) mm_item_free(&items[i]);
+            free(items);
+            free(scratch);
+            *out_n = 0;
+            if (out_pos) *out_pos = NULL;
+            return NULL;
         }
 
         if (raw_results) {
