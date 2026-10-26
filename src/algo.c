@@ -110,6 +110,7 @@ bool mm_algo_set_version(int version) {
 
 bool mm_algo_init(const char *scheme) {
     if (!scheme || strcmp(scheme, "default") == 0) {
+        delimiterChars = "/,:;|";
         bonusBoundaryWhite = bonusBoundary + 2;
         bonusBoundaryDelimiter = bonusBoundary + 1;
         initialCharClass = charWhite;
@@ -119,6 +120,7 @@ bool mm_algo_init(const char *scheme) {
         delimiterChars = "/";
         initialCharClass = charDelimiter;
     } else if (strcmp(scheme, "history") == 0) {
+        delimiterChars = "/,:;|";
         bonusBoundaryWhite = bonusBoundary;
         bonusBoundaryDelimiter = bonusBoundary;
         initialCharClass = charWhite;
