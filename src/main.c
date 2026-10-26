@@ -492,19 +492,17 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--phony")) phony = true;
         else if (!strcmp(a, "--no-phony")) phony = false;
         else if (ARG_EQ("--footer")) footer_spec = a + 9;
-        else if (ARG_EQ("--padding")) {
-            if (!parse_cli_nonnegative("--padding", a + 10, &padding)) return 2;
-        }
-        else if (ARG_EQ("--margin")) {
-            if (!parse_cli_nonnegative("--margin", a + 9, &margin)) return 2;
-        }
+        else if (ARG_EQ("--padding")) padding = atoi(a + 10);
+        else if (ARG_EQ("--margin")) margin = atoi(a + 9);
         else if (!strcmp(a, "--margin")) {
             const char *v = required_cli_arg(argc, argv, &i, "--margin");
-            if (!v || !parse_cli_nonnegative("--margin", v, &margin)) return 2;
+            if (!v) return 2;
+            margin = atoi(v);
         }
         else if (!strcmp(a, "--padding")) {
             const char *v = required_cli_arg(argc, argv, &i, "--padding");
-            if (!v || !parse_cli_nonnegative("--padding", v, &padding)) return 2;
+            if (!v) return 2;
+            padding = atoi(v);
         }
         else if (ARG_EQ("--gutter")) gutter_spec = a + 9;
         else if (!strcmp(a, "--gutter")) { if (i+1<argc) gutter_spec = argv[++i]; }
