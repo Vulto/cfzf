@@ -2102,6 +2102,25 @@ static void ui_run_command(mm_ui_t *ui, const char *cmd, bool silent) {
 
 /* Execute one action. Returns false when the action should end the loop. */
 static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
+    /* One-shot tracking ends as soon as the user explicitly moves focus.
+       Query edits and refreshes keep it active so the same item can be found
+       in the updated result order. */
+    if (ui->track_current && !ui->track) {
+        switch (b->action) {
+        case MM_ACT_UP: case MM_ACT_DOWN:
+        case MM_ACT_UP_MATCH: case MM_ACT_DOWN_MATCH:
+        case MM_ACT_FIRST: case MM_ACT_LAST: case MM_ACT_BEST:
+        case MM_ACT_PAGE_UP: case MM_ACT_PAGE_DOWN:
+        case MM_ACT_HALF_PAGE_UP: case MM_ACT_HALF_PAGE_DOWN:
+        case MM_ACT_OFFSET_UP: case MM_ACT_OFFSET_DOWN:
+        case MM_ACT_OFFSET_MIDDLE:
+        case MM_ACT_JUMP: case MM_ACT_JUMP_ACCEPT:
+            ui->track_current = false;
+            break;
+        default:
+            break;
+        }
+    }
     switch (b->action) {
     case MM_ACT_ACCEPT:
         return false;   /* leave the loop */
