@@ -62,6 +62,13 @@ jobs:
       - name: Differential threaded ranked-search tests
         run: bash tests/thread-diff.sh
 
+      - name: Benchmark ranked-search performance against fzf
+        env:
+          BENCH_ITEMS: 100000
+          BENCH_REPEATS: 3
+          IMPL: ${{ github.workspace }}/cfzf
+        run: python3 tests/bench-search.py
+
       - name: Differential algorithm tests
         run: bash tests/algo-diff.sh
 
