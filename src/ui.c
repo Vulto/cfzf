@@ -39,6 +39,7 @@ static void query_set(mm_ui_t *ui, const char *s) {
     }
     memcpy(ui->query_buf, s, n + 1);
     ui->query_len = n;
+    ui->query_pos = (int)n;
 }
 
 static void query_insert(mm_ui_t *ui, const char *s, size_t n) {
@@ -48,31 +49,37 @@ static void query_insert(mm_ui_t *ui, const char *s, size_t n) {
         ui->query_buf = realloc(ui->query_buf, nc);
         ui->query_cap = nc;
     }
-    memmove(ui->query_buf + ui->query_len + n, ui->query_buf + ui->query_len,
-            ui->query_len - ui->query_len + 1);
-    memcpy(ui->query_buf + ui->query_len, s, n);
+    size_t pos = (size_t)ui->query_pos;
+    if (pos > ui->query_len) pos = ui->query_len;
+    memmove(ui->query_buf + pos + n, ui->query_buf + pos,
+            ui->query_len - pos + 1);
+    memcpy(ui->query_buf + pos, s, n);
     ui->query_len += n;
+    ui->query_pos = (int)(pos + n);
     ui->query_buf[ui->query_len] = 0;
 }
 
 static void query_backspace(mm_ui_t *ui) {
-    if (ui->query_len == 0) return;
-    /* Remove the last UTF-8 sequence. */
-    size_t i = ui->query_len - 1;
-    while (i > 0 && ((unsigned char)ui->query_buf[i] & 0xC0) == 0x80) i--;
-    ui->query_len = i;
-    ui->query_buf[ui->query_len] = 0;
+    size_t pos = (size_t)ui->query_pos;
+    if (pos > ui->query_len) pos = ui->query_len;
+    if (pos == 0) return;
+    size_t start = pos - 1;
+    while (start > 0 && ((unsigned char)ui->query_buf[start] & 0xC0) == 0x80)
+        start--;
+    memmove(ui->query_buf + start, ui->query_buf + pos, ui->query_len - pos + 1);
+    ui->query_len -= pos - start;
+    ui->query_pos = (int)start;
 }
 
 static void query_delete(mm_ui_t *ui) {
-    if (ui->query_len == 0) return;
-    size_t i = ui->query_len;
-    size_t adv = 1;
-    while (i + adv < ui->query_len &&
-           ((unsigned char)ui->query_buf[i + adv] & 0xC0) == 0x80) adv++;
-    if (i + adv > ui->query_len) adv = 1;
-    memmove(ui->query_buf + i, ui->query_buf + i + adv, ui->query_len - i - adv + 1);
-    ui->query_len -= adv;
+    size_t pos = (size_t)ui->query_pos;
+    if (pos >= ui->query_len) return;
+    size_t end = pos + 1;
+    while (end < ui->query_len &&
+           ((unsigned char)ui->query_buf[end] & 0xC0) == 0x80)
+        end++;
+    memmove(ui->query_buf + pos, ui->query_buf + end, ui->query_len - end + 1);
+    ui->query_len -= end - pos;
 }
 
 /* --- searching --- */
@@ -2584,13 +2591,31 @@ int mm_ui_run(mm_ui_t *ui) {
                 }
             }
             break;
+        case MM_EV_LEFT:
+        case MM_EV_CTRL_B:
+            if (ui->query_pos > 0) {
+                ui->query_pos--;
+                while (ui->query_pos > 0 &&
+                       ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
+                    ui->query_pos--;
+            }
+            break;
+        case MM_EV_RIGHT:
+        case MM_EV_CTRL_F:
+            if ((size_t)ui->query_pos < ui->query_len) {
+                ui->query_pos++;
+                while ((size_t)ui->query_pos < ui->query_len &&
+                       ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
+                    ui->query_pos++;
+            }
+            break;
         case MM_EV_HOME:
         case MM_EV_CTRL_A:
-            ui->cursor = 0;
+            ui->query_pos = 0;
             break;
         case MM_EV_END:
         case MM_EV_CTRL_E:
-            if (ui->nresults > 0) ui->cursor = ui->nresults - 1;
+            ui->query_pos = (int)ui->query_len;
             break;
         case MM_EV_BACKSPACE:
         case MM_EV_CTRL_H:
@@ -2607,9 +2632,9 @@ int mm_ui_run(mm_ui_t *ui) {
             break;
         case MM_EV_CTRL_W:
             /* Delete the previous word. */
-            while (ui->query_len > 0 && ui->query_buf[ui->query_len - 1] == ' ')
+            while (ui->query_pos > 0 && ui->query_buf[ui->query_pos - 1] == ' ')
                 query_backspace(ui);
-            while (ui->query_len > 0 && ui->query_buf[ui->query_len - 1] != ' ')
+            while (ui->query_pos > 0 && ui->query_buf[ui->query_pos - 1] != ' ')
                 query_backspace(ui);
             ui_search(ui);
             break;
