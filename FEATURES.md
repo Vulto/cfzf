@@ -250,7 +250,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-087 | `put` | - | - | unstarted |
 | ACT-088 | `rebind` | - | - | unstarted |
 | ACT-089 | `refresh-preview` | src/bind.c, src/ui.c | - | implemented |
-| ACT-090 | `reload` | src/bind.c, src/ui.c | - | implemented |
+| ACT-090 | `reload` | src/bind.c, src/ui.c | tests/pty-diff.sh:action-reload, tests/pty-diff.sh:action-reload-empty, tests/pty-diff.sh:action-reload-track | implemented but unverified |
 | ACT-091 | `reload-sync` | - | - | unstarted |
 | ACT-092 | `replace-query` | src/bind.c, src/ui.c | - | implemented |
 | ACT-093 | `select` | - | - | unstarted |
