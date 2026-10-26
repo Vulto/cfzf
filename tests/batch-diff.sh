@@ -202,7 +202,6 @@ check_invalid_option "marker-multi-line-missing" '--marker-multi-line requires a
 check_invalid_option "history-missing" '--history requires a value' --filter=a --history
 check_invalid_option "preview-missing" '--preview requires a value' --filter=a --preview
 check_invalid_option "preview-window-missing" '--preview-window requires a value' --filter=a --preview-window
-check_invalid_option "history-missing" '--history requires a value' --filter=a --history
 check_invalid_option "prompt-missing" '--prompt requires a value' --filter=a --prompt
 check_invalid_option "tail-missing" 'invalid --tail value' --filter=a --tail
 check_invalid_option "tail-zero" 'invalid --tail value' --filter=a --tail=0
