@@ -98,6 +98,22 @@ static void free_tokens(wchar_t **t, int n) {
     free(t);
 }
 
+/* Release partially parsed query terms on every allocation-failure path. */
+static void parse_terms_cleanup(mm_termset_t *sets, int setcnt,
+                                mm_term_t *set, int setn,
+                                wchar_t **tokens, int ntoks) {
+    for (int i = 0; i < setcnt; i++) {
+        for (int j = 0; j < sets[i].count; j++)
+            free(sets[i].terms[j].text);
+        free(sets[i].terms);
+    }
+    for (int j = 0; j < setn; j++)
+        free(set[j].text);
+    free(set);
+    free(sets);
+    free_tokens(tokens, ntoks);
+}
+
 /* parse terms from an extended query */
 static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
                         const wchar_t *str, int slen,
@@ -120,7 +136,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
         int tlen = (int)wcslen(text);
         /* lowerText */
         wchar_t *lower = malloc((size_t)(tlen + 1) * sizeof(wchar_t));
-        if (!lower) { free(sets); free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+        if (!lower) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
         for (int i = 0; i < tlen; i++) lower[i] = lower_ascii(text[i]);
         lower[tlen] = 0;
 
@@ -131,7 +147,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
         bool norm = false;
         if (normalize) {
             wchar_t *nn = malloc((size_t)(tlen + 1) * sizeof(wchar_t));
-            if (!nn) { free(lower); free(sets); free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+            if (!nn) { free(lower); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
             for (int i = 0; i < tlen; i++) nn[i] = mm_algo_normalize_rune(lower[i]);
             nn[tlen] = 0;
             norm = runes_equal(lower, nn, tlen);
@@ -160,7 +176,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
         after_bar = false;
 
         wchar_t *tbuf = malloc((size_t)(ftlen + 1) * sizeof(wchar_t));
-        if (!tbuf) { free(owned); free(sets); free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+        if (!tbuf) { free(owned); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
         wmemcpy(tbuf, finaltext, (size_t)ftlen);
         tbuf[ftlen] = 0;
         int tl = ftlen;
@@ -200,7 +216,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
                 if (setcnt == setcap) {
                     int ncap = setcap * 2;
                     mm_termset_t *ns = realloc(sets, (size_t)ncap * sizeof(mm_termset_t));
-                    if (!ns) { free(sets); free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+                    if (!ns) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
                     sets = ns; setcap = ncap;
                 }
                 sets[setcnt].terms = set; sets[setcnt].count = setn;
@@ -208,14 +224,14 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
                 set = NULL; setn = 0; setalloc = 0;
             }
             wchar_t *textRunes = malloc((size_t)(tl + 1) * sizeof(wchar_t));
-            if (!textRunes) { free(sets); free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+            if (!textRunes) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
             wmemcpy(textRunes, tbuf, (size_t)tl);
             textRunes[tl] = 0;
             if (norm) normalize_runes(textRunes, tl);
             if (setn == setalloc) {
                 int nalloc = setalloc ? setalloc * 2 : 4;
                 mm_term_t *nt = realloc(set, (size_t)nalloc * sizeof(mm_term_t));
-                if (!nt) { free(textRunes); free(sets); free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+                if (!nt) { free(textRunes); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
                 set = nt; setalloc = nalloc;
             }
             set[setn].typ = typ;
@@ -234,7 +250,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
         if (setcnt == setcap) {
             int ncap = setcap * 2;
             mm_termset_t *ns = realloc(sets, (size_t)ncap * sizeof(mm_termset_t));
-            if (!ns) { free(sets); free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+            if (!ns) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
             sets = ns; setcap = ncap;
         }
         sets[setcnt].terms = set; sets[setcnt].count = setn;
