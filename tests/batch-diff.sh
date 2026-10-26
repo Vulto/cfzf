@@ -85,6 +85,7 @@ check "smart-case"     --filter=CH
 check "ignore-case"    --filter=CH --ignore-case
 check "ansi-filter" --ansi --filter=red
 check "ansi-filter-visible-text" --ansi --filter=apple
+check "ansi-nth-visible-text" --ansi --filter=apple --nth=2 --delimiter=' '
 check "ansi-do-not-match-control-codes" --ansi --filter=31
 check "case-sensitive" --filter=CH --case-sensitive
 
