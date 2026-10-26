@@ -69,7 +69,8 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
     if (raw_count) *raw_count = 0;
     if (raw_ok) *raw_ok = false;
     if (!input || !pat || !crit || !out_n || input->count < 0 ||
-        (input->count > 0 && !input->lines && !input->items))
+        (input->count > 0 && !input->lines && !input->items) ||
+        (input->nth_ranges && input->nth_n > 0 && !input->lines))
         return NULL;
     int total = input->count;
     if (total == 0) {
