@@ -348,8 +348,27 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
             if (input->nth_ranges && input->nth_n > 0) {
                 int ntok_in = 0, *tpl = NULL;
                 char **tokens = mm_tokenize(input->lines[i], input->delim, &tpl, &ntok_in);
+                if (!tokens || !tpl) {
+                    for (int k = 0; k < ntok_in; k++) free(tokens ? tokens[k] : NULL);
+                    free(tokens);
+                    free(tpl);
+                    search_failed = true;
+                    break;
+                }
                 int nout = 0, *opl = NULL;
                 char **outs = mm_transform(tokens, ntok_in, tpl, input->nth_ranges, input->nth_n, &opl, &nout);
+                if (!outs || !opl) {
+                    for (int k = 0; k < ntok_in; k++) free(tokens[k]);
+                    free(tokens);
+                    free(tpl);
+                    if (outs) {
+                        for (int k = 0; k < nout; k++) free(outs[k]);
+                        free(outs);
+                    }
+                    free(opl);
+                    search_failed = true;
+                    break;
+                }
                 ntoks = nout;
                 if (ntoks > 32) {
                     toks = malloc((size_t)ntoks * sizeof(*toks));
@@ -400,7 +419,20 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                     size_t tot = 0;
                     for (int k = 0; k < nout; k++) tot += strlen(outs[k]);
                     joined = malloc(tot + 1);
-                    if (!joined) { *out_n = 0; free(results); free(items); return NULL; }
+                    if (!joined) {
+                        for (int k = 0; k < nout; k++) {
+                            mchars_free(&stk_text[k]);
+                            free(outs[k]);
+                        }
+                        free(outs);
+                        free(opl);
+                        if (heap) {
+                            free(toks);
+                            if (stk_text != stack_text) free(stk_text);
+                        }
+                        search_failed = true;
+                        break;
+                    }
                     joined[0] = 0;
                     for (int k = 0; k < nout; k++) strcat(joined, outs[k]);
                     mchars_free(&items[i].text);
