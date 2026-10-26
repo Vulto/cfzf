@@ -2,6 +2,8 @@
 #include "pattern.h"
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <stdint.h>
 #include <wchar.h>
 #include <wctype.h>
 
@@ -36,6 +38,28 @@ static wchar_t *normalize_runes(wchar_t *r, int n) {
 
 static bool runes_equal(const wchar_t *a, const wchar_t *b, int n) {
     for (int i = 0; i < n; i++) if (a[i] != b[i]) return false;
+    return true;
+}
+
+/* Grow match-position buffers geometrically; extended queries can aggregate
+   many term matches, so exact-size reallocations make construction quadratic. */
+static bool int_buffer_reserve(int **buf, int *cap, int need) {
+    if (need < 0) return false;
+    if (need <= *cap) return true;
+    size_t ncap = *cap > 0 ? (size_t)*cap : 16u;
+    while (ncap < (size_t)need) {
+        if (ncap > (size_t)INT_MAX / 2u) {
+            ncap = (size_t)need;
+            break;
+        }
+        ncap *= 2u;
+    }
+    if (ncap > (size_t)INT_MAX || ncap > SIZE_MAX / sizeof(**buf))
+        return false;
+    int *next = realloc(*buf, ncap * sizeof(**buf));
+    if (!next) return false;
+    *buf = next;
+    *cap = (int)ncap;
     return true;
 }
 
@@ -470,7 +494,7 @@ bool mm_pattern_match_tokens(const mm_pattern_t *p, const mm_token_t *tokens, in
         mm_termset_t *ts = &p->term_sets[i];
         bool matched = false;
         int cur_score = 0;
-        int *curpos = NULL, curn = 0;
+        int *curpos = NULL, curn = 0, curcap = 0;
         for (int j = 0; j < ts->count; j++) {
             mm_term_t *t = &ts->terms[j];
             mm_match_t m = run_term_tokens(t, tokens, ntokens, p->forward, p->with_pos);
@@ -485,16 +509,18 @@ bool mm_pattern_match_tokens(const mm_pattern_t *p, const mm_token_t *tokens, in
                 cur_score = m.result.score;
                 if (p->with_pos) {
                     if (m.pos) {
-                        int *np = realloc(curpos, (size_t)(curn + m.npos) * sizeof(int));
-                        if (!np) { mm_match_free(&m); free(curpos); free(allpos); return false; }
-                        curpos = np;
+                        if (m.npos > INT_MAX - curn ||
+                            !int_buffer_reserve(&curpos, &curcap, curn + m.npos)) {
+                            mm_match_free(&m); free(curpos); free(allpos); return false;
+                        }
                         memcpy(curpos + curn, m.pos, (size_t)m.npos * sizeof(int));
                         curn += m.npos;
                     } else {
                         int span = m.result.end - m.result.start;
-                        int *np = realloc(curpos, (size_t)(curn + span) * sizeof(int));
-                        if (!np) { mm_match_free(&m); free(curpos); free(allpos); return false; }
-                        curpos = np;
+                        if (span < 0 || span > INT_MAX - curn ||
+                            !int_buffer_reserve(&curpos, &curcap, curn + span)) {
+                            mm_match_free(&m); free(curpos); free(allpos); return false;
+                        }
                         for (int k = 0; k < span; k++) curpos[curn + k] = m.result.start + k;
                         curn += span;
                     }
@@ -514,12 +540,9 @@ bool mm_pattern_match_tokens(const mm_pattern_t *p, const mm_token_t *tokens, in
             matched_sets++;
             total += cur_score;
             if (p->with_pos && curpos) {
-                if (alln + curn > allcap) {
-                    size_t ncap = (size_t)(alln + curn) * 2;
-                    int *np = realloc(allpos, ncap * sizeof(int));
-                    if (!np) { free(curpos); free(allpos); return false; }
-                    allpos = np;
-                    allcap = ncap;
+                if (curn > INT_MAX - alln ||
+                    !int_buffer_reserve(&allpos, &allcap, alln + curn)) {
+                    free(curpos); free(allpos); return false;
                 }
                 memcpy(allpos + alln, curpos, (size_t)curn * sizeof(int));
                 alln += curn;
