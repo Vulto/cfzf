@@ -156,6 +156,7 @@ check "no-multi-short-alias" --filter=a +m
 check "no-color-short-alias" --filter=a +c
 check "no-256-short-alias" --filter=a +2
 check "tail=3"         --filter=a --tail=3
+check "header-lines-tail-order" --filter= --header-lines=2 --tail=3
 check "multi"          --filter=a --multi
 check "select-1"       --filter=a --select-1
 check "exit-0"         --filter=a --exit-0
