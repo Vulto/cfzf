@@ -63,6 +63,7 @@ def main() -> int:
         cases = (
             ("score", ["--filter=alpha"]),
             ("score-length", ["--filter=alpha", "--tiebreak=length"]),
+            ("score-v1", ["--algo=v1", "--filter=alpha"]),
         )
         host_env = os.environ.copy()
         results: list[tuple[str, int, float]] = []
