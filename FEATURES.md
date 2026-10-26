@@ -274,15 +274,15 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-112 | `toggle-search` | src/bind.c, src/ui.c | - | implemented |
 | ACT-113 | `toggle-sort` | src/bind.c, src/ui.c | - | implemented |
 | ACT-114 | `toggle-track` | src/bind.c, src/ui.c | tests/pty-diff.sh:track-toggle-action, tests/pty-diff.sh:track-toggle-disable-action | implemented but unverified |
-| ACT-115 | `toggle-track-current` | src/bind.c, src/ui.c | - | implemented |
+| ACT-115 | `toggle-track-current` | src/bind.c, src/ui.c | tests/pty-diff.sh:toggle-track-current-action | implemented but unverified |
 | ACT-116 | `toggle-up` | src/bind.c, src/ui.c | - | implemented |
 | ACT-117 | `toggle-wrap` | src/bind.c, src/ui.c | - | implemented |
 | ACT-118 | `toggle-wrap-word` | src/bind.c, src/ui.c | - | implemented |
-| ACT-119 | `track` | src/bind.c, src/ui.c | tests/pty-diff.sh:track-current-item | implemented but unverified |
+| ACT-119 | `track` | src/bind.c, src/ui.c | tests/pty-diff.sh:track-current-action | implemented but unverified |
 | ACT-124 | `unbind` | src/bind.c, src/ui.c | - | implemented |
 | ACT-125 | `unix-line-discard` | src/bind.c, src/ui.c | - | implemented |
 | ACT-126 | `unix-word-rubout` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-unix-word-rubout | implemented but unverified |
-| ACT-127 | `untrack-current` | src/bind.c, src/ui.c | - | implemented |
+| ACT-127 | `untrack-current` | src/bind.c, src/ui.c | tests/pty-diff.sh:untrack-current-action | implemented but unverified |
 | ACT-128 | `up` | src/bind.c, src/ui.c | - | implemented |
 | ACT-129 | `up-match` | src/bind.c, src/ui.c | - | implemented |
 | ACT-130 | `up-selected` | src/bind.c, src/ui.c | - | implemented |
