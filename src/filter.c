@@ -445,7 +445,21 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                     for (int k = 0; k < nout; k++) strcat(joined, outs[k]);
                     mchars_free(&items[i].text);
                     mchars_init(&items[i].text, joined);
-                    mchars_decode(&items[i].text);
+                    if (!mchars_decode(&items[i].text)) {
+                        free(joined);
+                        for (int k = 0; k < nout; k++) {
+                            mchars_free(&stk_text[k]);
+                            free(outs[k]);
+                        }
+                        free(outs);
+                        free(opl);
+                        if (heap) {
+                            free(toks);
+                            if (stk_text != stack_text) free(stk_text);
+                        }
+                        search_failed = true;
+                        break;
+                    }
                 }
                 int score = 0;
                 int *pos = NULL, npos = 0;
