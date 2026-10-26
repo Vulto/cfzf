@@ -228,6 +228,7 @@ int main(int argc, char **argv) {
     int  gap = 0;
     const char *gap_line = NULL;
     bool phony = false;
+    bool disabled = false;
     bool wrap = false;
     bool wrap_word = false;
     const char *wrap_sign = NULL;
@@ -458,9 +459,9 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--gutter-raw")) { if (i+1<argc) gutter_raw_spec = argv[++i]; }
         else if (!strcmp(a, "--footer")) { if (i+1<argc) footer_spec = argv[++i]; }
         else if (!strcmp(a, "--no-footer")) footer_spec = NULL;
-        /* --disabled keeps the query but does not search with it. */
-        else if (!strcmp(a, "--disabled")) phony = true;
-        else if (!strcmp(a, "--no-disabled")) phony = false;
+        /* --disabled initially shows all items; search can be enabled by action. */
+        else if (!strcmp(a, "--disabled")) disabled = true;
+        else if (!strcmp(a, "--no-disabled")) disabled = false;
         else if (!strcmp(a, "--wrap")) wrap = true;
         else if (!strcmp(a, "--no-wrap")) wrap = false;
         else if (!strcmp(a, "--wrap-word")) { wrap = true; wrap_word = true; }
@@ -1267,6 +1268,7 @@ int main(int argc, char **argv) {
         ui.no_bold = no_bold;
         ui.gap = gap;
         ui.phony = phony;
+        ui.search_enabled = !disabled;
         ui.footer = footer_spec;
         ui.gutter = gutter_spec;
         /* The raw gutter is only used in the raw search mode, which is not
