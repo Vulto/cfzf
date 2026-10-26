@@ -27,7 +27,7 @@ with results tied to a specific implementation commit and pinned reference.
 
 | ID | Option | C location | Verification | Status |
 |----|--------|-----------|--------------|--------|
-| OPT-001 | `--accept-nth` | src/main.c, src/tokenizer.c, src/ui.c | tests/batch-diff.sh:accept-nth-regex-delimiter, tests/batch-diff.sh:accept-nth-literal-trailing-delimiter, tests/batch-diff.sh:accept-nth-ranges, tests/batch-diff.sh:accept-nth-template, tests/batch-diff.sh:accept-nth-invalid-range, tests/batch-diff.sh:accept-nth-template-no-placeholder | implemented but unverified |
+| OPT-001 | `--accept-nth` | src/main.c, src/tokenizer.c, src/ui.c | tests/batch-diff.sh:accept-nth-regex-delimiter, tests/batch-diff.sh:accept-nth-literal-trailing-delimiter, tests/batch-diff.sh:accept-nth-ranges, tests/batch-diff.sh:accept-nth-template, tests/batch-diff.sh:accept-nth-missing, tests/batch-diff.sh:accept-nth-invalid-range, tests/batch-diff.sh:accept-nth-template-no-placeholder | implemented but unverified |
 | OPT-002 | `--algo` | src/algo.c, src/pattern.c, src/main.c | tests/algo-diff.sh:algo=v1 q=$q, tests/algo-diff.sh:algo=v1 separate argument, tests/algo-diff.sh:algo=v2 q=$q, tests/batch-diff.sh:algo-invalid, tests/batch-diff.sh:algo-missing, tests/algo-diff.sh:algo=v1 extended query, tests/algo-diff.sh:algo=v1 nth token, tests/algo-diff.sh:unicode delimiter scheme=path, tests/algo-diff.sh:unicode delimiter scheme=history | implemented but unverified |
 | OPT-003 | `--ambidouble` | src/main.c | - | implemented |
 | OPT-004 | `--ansi` | src/ansi.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
