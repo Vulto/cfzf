@@ -54,9 +54,9 @@ for q in f ff oob foob a abc to oo val; do
 done
 for q in f ff oob foob a abc to oo val; do
     run "algo=v1 q=$q" --algo=v1 --filter="$q"
+    run "algo=v2 q=$q" --algo=v2 --filter="$q"
 done
 run "algo=v1 separate argument" --algo v1 --filter=foob
-run "algo=v2 explicit" --algo=v2 --filter=foob
 for q in ff oob foob; do
     run "exact q=$q" --filter="$q" --exact
     run "extended q=$q" --filter="$q" --extended
