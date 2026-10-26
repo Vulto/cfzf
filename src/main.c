@@ -1276,7 +1276,7 @@ int main(int argc, char **argv) {
         p = nl + 1;
     }
 
-    if (header_lines > 0 && !stream_input && count > 0) {
+    if (header_lines > 0 && !stream_input && count > 0 && !filter) {
         int h = header_lines;
         if (h > count) h = count;
         size_t hlen = 1;
