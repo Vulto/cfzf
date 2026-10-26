@@ -22,7 +22,10 @@ void mm_item_free(mm_item_t *it) {
 uint16_t mm_item_trim_length(mm_item_t *it) {
     if (it->trim_known) return it->trim_length;
     it->trim_known = true;
-    mchars_decode(&it->text);
+    if (!mchars_decode(&it->text)) {
+        it->trim_length = 0;
+        return 0;
+    }
     int len = it->text.length;
     int i;
     for (i = len - 1; i >= 0; i--) {
