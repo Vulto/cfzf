@@ -49,18 +49,37 @@ static int print_man_page(void) {
 }
 
 static char *read_all_stdin(size_t *outlen) {
-    size_t cap = 4 * 1024 * 1024, len = 0;
+    size_t cap = 4u * 1024u * 1024u, len = 0;
     char *buf = malloc(cap);
     if (!buf) { *outlen = 0; return NULL; }
     for (;;) {
-        if (len + 262144 > cap) {
-            char *nb = realloc(buf, cap * 2);
-            if (!nb) { free(buf); *outlen = 0; return NULL; }
-            buf = nb; cap *= 2;
+        /* Keep room for both the next read and the trailing NUL. */
+        if (cap - len < 262145u) {
+            if (cap > SIZE_MAX / 2) {
+                free(buf);
+                *outlen = 0;
+                return NULL;
+            }
+            size_t next_cap = cap * 2;
+            char *next = realloc(buf, next_cap);
+            if (!next) {
+                free(buf);
+                *outlen = 0;
+                return NULL;
+            }
+            buf = next;
+            cap = next_cap;
         }
-        size_t r = fread(buf + len, 1, 262144, stdin);
-        len += r;
-        if (r < 262144) break;
+        size_t nread = fread(buf + len, 1, 262144u, stdin);
+        len += nread;
+        if (nread < 262144u) {
+            if (ferror(stdin)) {
+                free(buf);
+                *outlen = 0;
+                return NULL;
+            }
+            break;
+        }
     }
     buf[len] = 0;
     *outlen = len;
