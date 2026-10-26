@@ -26,6 +26,16 @@ static void usage(FILE *out) {
     fprintf(out, "usage: fzf [OPTIONS]\n");
 }
 
+static bool parse_thread_count(const char *s, int *out) {
+    if (!s || !*s) return false;
+    char *end = NULL;
+    long value = strtol(s, &end, 10);
+    if (end == s || *end != '\0' || value < 0 || value > INT_MAX)
+        return false;
+    *out = (int)value;
+    return true;
+}
+
 /* Print the manual page.  The page is looked up next to the executable and
    in the usual man directories; when it cannot be found a short summary is
    printed instead. */
@@ -444,8 +454,18 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--marker-multi-line")) marker_multi_line = a + 20;
         else if (!strcmp(a, "--marker-multi-line")) { if (i+1<argc) marker_multi_line = argv[++i]; }
         else if (!strcmp(a, "--no-marker-multi-line")) marker_multi_line = NULL;
-        else if (ARG_EQ("--threads")) { threads = atoi(a + 10); if (threads < 0) { fprintf(stderr, "--threads must be a positive integer\n"); return 2; } }
-        else if (!strcmp(a, "--threads")) { if (i+1<argc) { threads = atoi(argv[++i]); if (threads < 0) { fprintf(stderr, "--threads must be a positive integer\n"); return 2; } } }
+        else if (ARG_EQ("--threads")) {
+            if (!parse_thread_count(a + 10, &threads)) {
+                fprintf(stderr, "invalid --threads value: %s\n", a + 10);
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--threads")) {
+            if (i + 1 >= argc || !parse_thread_count(argv[++i], &threads)) {
+                fprintf(stderr, "invalid --threads value\n");
+                return 2;
+            }
+        }
         else if (!strcmp(a, "--track")) track = true;
         else if (!strcmp(a, "--no-track")) track = false;
         else if (!strcmp(a, "--disabled")) phony = true;
