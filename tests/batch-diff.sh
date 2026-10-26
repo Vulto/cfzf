@@ -80,10 +80,15 @@ check "version" --version
 # Basic filtering.
 for q in apple a e '' AN 'ch' 'a b' 'z' '1' '2'; do
     check "filter=$q" --filter="$q"
+check "filter-separated-argument" --filter a
+check "filter-short-alias" -f a
 done
 
 # Match modes.
 check "exact"          --filter=ch --exact
+check "exact-short-alias" --filter=ch -e
+check "ignore-case-short-alias" --filter=CH -i
+check "no-extended-short-alias" --filter=ch +x
 check "extended-off"   --filter=ch --no-extended
 check "extended-on"    --filter=ch --extended
 check "smart-case"     --filter=CH
