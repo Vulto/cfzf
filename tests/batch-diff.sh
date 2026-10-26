@@ -106,6 +106,7 @@ check "tac"            --filter=a --tac
 check "no-sort"        --filter=a +s
 check "sort-zero-short-alias" --filter=a -s 0
 check "sort-zero-equals" --filter=a --sort=0
+check "sort-negative-equals" --filter=a --sort=-1
 check "sort"           --filter=a --sort
 check "tiebreak=length"  --filter=a --tiebreak=length
 check "tiebreak=begin"   --filter=a --tiebreak=begin
