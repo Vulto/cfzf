@@ -72,6 +72,8 @@ run "tiebreak=pathname" --filter=c --tiebreak=pathname
 run "tiebreak=index" --filter=a --tiebreak=index
 run "scheme=path" --filter=c --scheme=path
 run "scheme=history" --filter=a --scheme=history
+run "unicode delimiter scheme=path" --filter=x --scheme=path
+run "unicode delimiter scheme=history" --filter=x --scheme=history
 run "tac" --filter=a --tac
 run "no-sort" --filter=a +s
 
