@@ -72,8 +72,8 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-043 | `--height` | src/ui.c, src/terminal.c | tests/pty-diff.sh | verified |
 | OPT-044 | `--highlight-line` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-045 | `\-\-history` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
-| OPT-046 | `\-\-history\-size` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
-| OPT-047 | `--hscroll-off` | src/ui.c, src/main.c | - | implemented |
+| OPT-046 | `\-\-history\-size` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-size-invalid | implemented but unverified |
+| OPT-047 | `--hscroll-off` | src/ui.c, src/main.c | tests/batch-diff.sh:hscroll-off-negative | implemented but unverified |
 | OPT-048 | `--id-nth` | - | - | unstarted |
 | OPT-049 | `--ignore-case` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-050 | `--info[=default/inline-right/hidden]` | src/main.c, src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
@@ -91,7 +91,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-062 | `--list-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-063 | `--list-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-064 | `--literal` | src/pattern.c | tests/batch-diff.sh | verified |
-| OPT-065 | `--margin` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
+| OPT-065 | `--margin` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:margin-negative | implemented but unverified |
 | OPT-066 | `\-\-marker` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-067 | `--marker-multi-line` | src/main.c | - | implemented |
 | OPT-068 | `\-\-min\-height` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
@@ -118,7 +118,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-089 | `--nth` | src/tokenizer.c | tests/batch-diff.sh | verified |
 | OPT-090 | `--nushell` | - | - | unstarted |
 | OPT-091 | `--oneline` / `--no-oneline` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
-| OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
+| OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:padding-invalid | implemented but unverified |
 | OPT-093 | `\-\-pointer` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-094 | `--popup` | - | - | unstarted |
 | OPT-095 | `\-\-preview` | src/preview.c, src/ui.c | tests/pty-diff.sh | verified |
@@ -136,13 +136,13 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-107 | `--reverse` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-108 | `--scheme` | src/result.c | tests/batch-diff.sh | verified |
 | OPT-109 | `--scrollbar` | src/ui.c, src/main.c | - | implemented |
-| OPT-110 | `--scroll-off` | src/ui.c, src/main.c | - | implemented |
+| OPT-110 | `--scroll-off` | src/ui.c, src/main.c | tests/batch-diff.sh:scroll-off-invalid | implemented but unverified |
 | OPT-111 | `--select-1` | - | tests/batch-diff.sh | verified |
 | OPT-112 | `--separator` | src/ui.c, src/main.c | - | implemented |
 | OPT-113 | `--smart-case` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-114 | `--style` | src/main.c, src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | implemented but unverified |
 | OPT-115 | `\-\-sync` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
-| OPT-116 | `--tabstop` | src/ui.c, src/main.c | - | implemented |
+| OPT-116 | `--tabstop` | src/ui.c, src/main.c | tests/batch-diff.sh:tabstop-zero | implemented but unverified |
 | OPT-117 | `--tac` | src/result.c | tests/batch-diff.sh | verified |
 | OPT-118 | `--tail` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-119 | `--threads` | src/main.c, src/filter.c | tests/thread-diff.sh:--threads=2, tests/thread-diff.sh:--threads=4 | implemented but unverified |
