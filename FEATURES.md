@@ -28,7 +28,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ID | Option | C location | Verification | Status |
 |----|--------|-----------|--------------|--------|
 | OPT-001 | `--accept-nth` | src/main.c | - | implemented |
-| OPT-002 | `--algo` | src/algo.c, src/pattern.c, src/main.c | tests/algo-diff.sh:algo=v1 q=ff, tests/algo-diff.sh:algo=v1 separate argument, tests/algo-diff.sh:algo=v2 q=ff, tests/batch-diff.sh:algo-invalid, tests/batch-diff.sh:algo-missing, tests/algo-diff.sh:algo=v1 extended query, tests/algo-diff.sh:algo=v1 nth token | implemented but unverified |
+| OPT-002 | `--algo` | src/algo.c, src/pattern.c, src/main.c | tests/algo-diff.sh:algo=v1 q=ff, tests/algo-diff.sh:algo=v1 separate argument, tests/algo-diff.sh:algo=v2 q=ff, tests/batch-diff.sh:algo-invalid, tests/batch-diff.sh:algo-missing, tests/algo-diff.sh:algo=v1 extended query, tests/algo-diff.sh:algo=v1 nth token, tests/algo-diff.sh:algo=v1 q=x, tests/algo-diff.sh:algo=v2 q=x | implemented but unverified |
 | OPT-003 | `--ambidouble` | src/main.c | - | implemented |
 | OPT-004 | `--ansi` | src/ansi.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-005 | `--bash` | src/main.c | - | implemented |
