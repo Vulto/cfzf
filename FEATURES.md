@@ -71,7 +71,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-042 | `--header-lines-border` | - | - | unstarted |
 | OPT-043 | `--height` | src/ui.c, src/terminal.c | tests/pty-diff.sh | verified |
 | OPT-044 | `--highlight-line` | src/ui.c | tests/pty-diff.sh | verified |
-| OPT-045 | `\-\-history` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-missing | implemented but unverified |
+| OPT-045 | `\-\-history` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-missing, tests/batch-diff.sh:no-history | implemented but unverified |
 | OPT-046 | `\-\-history\-size` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-size-invalid, tests/batch-diff.sh:history-size-zero | implemented but unverified |
 | OPT-047 | `--hscroll-off` | src/ui.c, src/main.c | tests/batch-diff.sh:hscroll-off-negative | implemented but unverified |
 | OPT-048 | `--id-nth` | - | - | unstarted |
@@ -121,7 +121,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh | implemented but unverified |
 | OPT-093 | `\-\-pointer` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-094 | `--popup` | - | - | unstarted |
-| OPT-095 | `\-\-preview` | src/preview.c, src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:preview-missing | implemented but unverified |
+| OPT-095 | `\-\-preview` | src/preview.c, src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:preview-missing, tests/batch-diff.sh:no-preview | implemented but unverified |
 | OPT-096 | `--preview-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-097 | `--preview-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-098 | `--preview-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
