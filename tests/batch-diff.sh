@@ -205,6 +205,7 @@ check_invalid_option() {
     fi
 }
 check_invalid_option "threads-invalid" 'invalid --threads value' --filter=a --threads=bad
+check_invalid_option "sort-invalid" 'invalid --sort value' --filter=a --sort=bad
 check_invalid_option "unknown-plus-option" "unknown option: +z" --filter=a +z
 check_invalid_option "algo-invalid" "invalid algorithm" --filter=a --algo=v3
 check_invalid_option "algo-missing" "--algo requires a value" --filter=a --algo
