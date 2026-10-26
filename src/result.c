@@ -29,7 +29,15 @@ bool mm_parse_tiebreak(const char *str, mm_sort_criteria_t *out, const char **er
     bool has_index = false, has_chunk = false, has_length = false;
     bool has_begin = false, has_end = false, has_pathname = false;
 
+    if (!str || !out || !err) {
+        if (err) *err = "invalid tiebreak arguments";
+        return false;
+    }
     char *dup = strdup(str);
+    if (!dup) {
+        *err = "out of memory";
+        return false;
+    }
     char *save = NULL;
     for (char *tok = strtok_r(dup, ",", &save); tok; tok = strtok_r(NULL, ",", &save)) {
         for (char *p = tok; *p; p++) *p = (char)((*p >= 'A' && *p <= 'Z') ? *p + 32 : *p);
@@ -40,26 +48,31 @@ bool mm_parse_tiebreak(const char *str, mm_sort_criteria_t *out, const char **er
             if (has_chunk) { *err = "duplicate sort criteria: chunk"; free(dup); return false; }
             if (has_index) { *err = "index should be the last criterion"; free(dup); return false; }
             has_chunk = true;
+            if (out->count >= 4) { *err = "at most 3 tiebreaks are allowed"; free(dup); return false; }
             out->crit[out->count++] = BY_CHUNK;
         } else if (strcmp(tok, "pathname") == 0) {
             if (has_pathname) { *err = "duplicate sort criteria: pathname"; free(dup); return false; }
             if (has_index) { *err = "index should be the last criterion"; free(dup); return false; }
             has_pathname = true;
+            if (out->count >= 4) { *err = "at most 3 tiebreaks are allowed"; free(dup); return false; }
             out->crit[out->count++] = BY_PATHNAME;
         } else if (strcmp(tok, "length") == 0) {
             if (has_length) { *err = "duplicate sort criteria: length"; free(dup); return false; }
             if (has_index) { *err = "index should be the last criterion"; free(dup); return false; }
             has_length = true;
+            if (out->count >= 4) { *err = "at most 3 tiebreaks are allowed"; free(dup); return false; }
             out->crit[out->count++] = BY_LENGTH;
         } else if (strcmp(tok, "begin") == 0) {
             if (has_begin) { *err = "duplicate sort criteria: begin"; free(dup); return false; }
             if (has_index) { *err = "index should be the last criterion"; free(dup); return false; }
             has_begin = true;
+            if (out->count >= 4) { *err = "at most 3 tiebreaks are allowed"; free(dup); return false; }
             out->crit[out->count++] = BY_BEGIN;
         } else if (strcmp(tok, "end") == 0) {
             if (has_end) { *err = "duplicate sort criteria: end"; free(dup); return false; }
             if (has_index) { *err = "index should be the last criterion"; free(dup); return false; }
             has_end = true;
+            if (out->count >= 4) { *err = "at most 3 tiebreaks are allowed"; free(dup); return false; }
             out->crit[out->count++] = BY_END;
         } else {
             static char msg[128];
@@ -68,7 +81,6 @@ bool mm_parse_tiebreak(const char *str, mm_sort_criteria_t *out, const char **er
         }
     }
     free(dup);
-    if (out->count > 5) { *err = "at most 3 tiebreaks are allowed"; return false; }
     return true;
 }
 
