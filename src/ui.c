@@ -105,6 +105,22 @@ static void query_delete(mm_ui_t *ui) {
     ui->query_len -= end - pos;
 }
 
+static void query_kill_before_cursor(mm_ui_t *ui) {
+    size_t pos = (size_t)ui->query_pos;
+    if (pos > ui->query_len) pos = ui->query_len;
+    if (pos == 0) return;
+    memmove(ui->query_buf, ui->query_buf + pos, ui->query_len - pos + 1);
+    ui->query_len -= pos;
+    ui->query_pos = 0;
+}
+
+static void query_kill_after_cursor(mm_ui_t *ui) {
+    size_t pos = (size_t)ui->query_pos;
+    if (pos > ui->query_len) pos = ui->query_len;
+    ui->query_len = pos;
+    ui->query_buf[pos] = '\0';
+}
+
 /* --- searching --- */
 static void ui_search(mm_ui_t *ui);
 static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b);
@@ -2267,25 +2283,25 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui_search(ui);
         break;
     case MM_ACT_KILL_LINE:
-        query_set(ui, "");
+        query_kill_after_cursor(ui);
         ui_search(ui);
         break;
     case MM_ACT_KILL_WORD:
-        while (ui->query_len > 0 && ui->query_buf[ui->query_len - 1] != ' ')
-            query_backspace(ui);
+        while ((size_t)ui->query_pos < ui->query_len &&
+               ui->query_buf[ui->query_pos] == ' ')
+            query_delete(ui);
+        while ((size_t)ui->query_pos < ui->query_len &&
+               ui->query_buf[ui->query_pos] != ' ')
+            query_delete(ui);
         ui_search(ui);
         break;
     case MM_ACT_BACKWARD_KILL_WORD:
-        while (ui->query_len > 0 && ui->query_buf[ui->query_len - 1] == ' ')
-            query_backspace(ui);
-        while (ui->query_len > 0 && ui->query_buf[ui->query_len - 1] != ' ')
-            query_backspace(ui);
-        ui_search(ui);
-        break;
     case MM_ACT_UNIX_WORD_RUBOUT:
-        while (ui->query_len > 0 && ui->query_buf[ui->query_len - 1] == ' ')
+        while (ui->query_pos > 0 &&
+               ui->query_buf[ui->query_pos - 1] == ' ')
             query_backspace(ui);
-        while (ui->query_len > 0 && ui->query_buf[ui->query_len - 1] != ' ')
+        while (ui->query_pos > 0 &&
+               ui->query_buf[ui->query_pos - 1] != ' ')
             query_backspace(ui);
         ui_search(ui);
         break;
@@ -2698,7 +2714,11 @@ int mm_ui_run(mm_ui_t *ui) {
             ui_search(ui);
             break;
         case MM_EV_CTRL_U:
-            query_set(ui, "");
+            query_kill_before_cursor(ui);
+            ui_search(ui);
+            break;
+        case MM_EV_CTRL_K:
+            query_kill_after_cursor(ui);
             ui_search(ui);
             break;
         case MM_EV_CTRL_W:
