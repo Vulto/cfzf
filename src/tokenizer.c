@@ -9,6 +9,185 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdint.h>
+#include <stdio.h>
+
+static bool mm_accept_nth_chars(const char *s) {
+    if (!s || !*s) return false;
+    for (const unsigned char *p = (const unsigned char *)s; *p; p++)
+        if (!((*p >= '0' && *p <= '9') || *p == ',' ||
+              *p == '-' || *p == '.')) return false;
+    return true;
+}
+
+static bool mm_accept_nth_validate(const char *spec) {
+    if (!spec || !*spec) {
+        fprintf(stderr, "invalid --accept-nth: empty expression\\n");
+        return false;
+    }
+    if (mm_accept_nth_chars(spec)) {
+        mm_range_t *ranges = NULL;
+        int nranges = 0;
+        bool valid = mm_parse_ranges(spec, &ranges, &nranges);
+        free(ranges);
+        if (!valid)
+            fprintf(stderr, "invalid --accept-nth: %s\\n", spec);
+        return valid;
+    }
+    bool found = false;
+    for (const char *p = spec; *p; p++) {
+        if (*p != '{') continue;
+        const char *end = strchr(p + 1, '}');
+        if (!end) continue;
+        size_t len = (size_t)(end - (p + 1));
+        if (len == 1 && p[1] == 'n') {
+            found = true;
+            break;
+        }
+        bool numeric = len > 0;
+        for (size_t i = 0; i < len; i++) {
+            char c = p[1 + i];
+            if (!((c >= '0' && c <= '9') || c == ',' ||
+                  c == '-' || c == '.')) {
+                numeric = false;
+                break;
+            }
+        }
+        if (numeric) { found = true; break; }
+    }
+    if (!found)
+        fprintf(stderr, "invalid --accept-nth: template should include at least 1 placeholder: %s\\n", spec);
+    return found;
+}
+
+static bool append_text(char **buf, size_t *length, size_t *capacity,
+                        const char *text, size_t count) {
+    if (count > SIZE_MAX - *length - 1) return false;
+    size_t needed = *length + count + 1;
+    if (needed > *capacity) {
+        size_t next = *capacity ? *capacity : 64;
+        while (next < needed) {
+            if (next > SIZE_MAX / 2) { next = needed; break; }
+            next *= 2;
+        }
+        char *grown = realloc(*buf, next);
+        if (!grown) return false;
+        *buf = grown;
+        *capacity = next;
+    }
+    if (count) memcpy(*buf + *length, text, count);
+    *length += count;
+    (*buf)[*length] = 0;
+    return true;
+}
+
+static char *accept_nth_fields(const char *line, mm_delimiter_t delim,
+                               const char *expression, bool strip_last) {
+    mm_range_t *ranges = NULL;
+    int nranges = 0;
+    if (!mm_parse_ranges(expression, &ranges, &nranges)) return NULL;
+    int *prefix = NULL, ntokens = 0;
+    char **tokens = mm_tokenize(line, delim, &prefix, &ntokens);
+    if (!tokens) {
+        free(ranges);
+        free(prefix);
+        return NULL;
+    }
+    int *out_prefix = NULL, nout = 0;
+    char **out = mm_transform(tokens, ntokens, prefix, ranges, nranges,
+                              &out_prefix, &nout);
+    free(ranges);
+    free(prefix);
+    for (int i = 0; i < ntokens; i++) free(tokens[i]);
+    free(tokens);
+    free(out_prefix);
+    if (!out) return NULL;
+
+    size_t length = 0;
+    for (int i = 0; i < nout; i++) {
+        size_t part = strlen(out[i]);
+        if (part > SIZE_MAX - length - 1) {
+            for (int j = 0; j < nout; j++) free(out[j]);
+            free(out);
+            return NULL;
+        }
+        length += part;
+    }
+    char *joined = malloc(length + 1);
+    if (!joined) {
+        for (int i = 0; i < nout; i++) free(out[i]);
+        free(out);
+        return NULL;
+    }
+    size_t offset = 0;
+    for (int i = 0; i < nout; i++) {
+        size_t part = strlen(out[i]);
+        memcpy(joined + offset, out[i], part);
+        offset += part;
+        free(out[i]);
+    }
+    joined[offset] = 0;
+    free(out);
+    if (!strip_last) return joined;
+    char *stripped = mm_strip_last_delimiter(joined, delim);
+    free(joined);
+    return stripped;
+}
+
+static char *mm_accept_nth_expand(const char *spec, const char *line,
+                               mm_delimiter_t delim, int index) {
+    if (mm_accept_nth_chars(spec))
+        return accept_nth_fields(line, delim, spec, false);
+
+    char *out = NULL;
+    size_t length = 0, capacity = 0;
+    for (size_t i = 0; spec[i];) {
+        if (spec[i] == '{') {
+            const char *end = strchr(spec + i + 1, '}');
+            if (end) {
+                size_t token_len = (size_t)(end - (spec + i + 1));
+                const char *token = spec + i + 1;
+                if (token_len == 1 && token[0] == 'n') {
+                    char number[32];
+                    int n = snprintf(number, sizeof(number), "%d", index);
+                    if (n < 0 || !append_text(&out, &length, &capacity,
+                                             number, (size_t)n)) goto fail;
+                    i = (size_t)(end - spec) + 1;
+                    continue;
+                }
+                bool numeric = token_len > 0;
+                for (size_t j = 0; j < token_len; j++)
+                    if (!((token[j] >= '0' && token[j] <= '9') ||
+                          token[j] == ',' || token[j] == '-' ||
+                          token[j] == '.')) {
+                        numeric = false;
+                        break;
+                    }
+                if (numeric) {
+                    char *expression = strndup(token, token_len);
+                    if (!expression) goto fail;
+                    char *fields = accept_nth_fields(line, delim,
+                                                     expression, true);
+                    free(expression);
+                    if (fields) {
+                        bool ok = append_text(&out, &length, &capacity,
+                                              fields, strlen(fields));
+                        free(fields);
+                        if (!ok) goto fail;
+                    }
+                    i = (size_t)(end - spec) + 1;
+                    continue;
+                }
+            }
+        }
+        if (!append_text(&out, &length, &capacity, spec + i, 1)) goto fail;
+        i++;
+    }
+    if (!out) out = strdup("");
+    return out;
+fail:
+    free(out);
+    return NULL;
+}
 
 static mm_range_t normalize_range(int begin, int end) {
     if (begin == 1 && end != 1) begin = MM_RANGE_ELLIPSIS;
