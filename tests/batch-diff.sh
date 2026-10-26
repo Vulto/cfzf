@@ -142,6 +142,8 @@ check "header-lines-two" --filter=a --header-lines=2
 check "header-lines-zero" --filter=a --header-lines=0
 check "no-header-lines" --filter=a --header-lines=1 --no-header-lines
 check "no-header" --filter=a --header=sample --no-header
+check "no-preview" --filter=a --preview=echo --no-preview
+check "no-history" --filter=a --history=/tmp/cfzf-history-test --no-history
 check "threads-zero-default" --filter=alpha --threads=0
 check "tail-one" --filter=a --tail=1
 check "no-tail" --filter=a --tail=1 --no-tail
@@ -200,6 +202,7 @@ check_invalid_option "marker-multi-line-missing" '--marker-multi-line requires a
 check_invalid_option "history-missing" '--history requires a value' --filter=a --history
 check_invalid_option "preview-missing" '--preview requires a value' --filter=a --preview
 check_invalid_option "preview-window-missing" '--preview-window requires a value' --filter=a --preview-window
+check_invalid_option "history-missing" '--history requires a value' --filter=a --history
 check_invalid_option "prompt-missing" '--prompt requires a value' --filter=a --prompt
 check_invalid_option "tail-missing" 'invalid --tail value' --filter=a --tail
 check_invalid_option "tail-zero" 'invalid --tail value' --filter=a --tail=0
