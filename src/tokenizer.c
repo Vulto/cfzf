@@ -19,7 +19,7 @@ static bool mm_accept_nth_chars(const char *s) {
     return true;
 }
 
-static bool mm_accept_nth_validate(const char *spec) {
+bool mm_accept_nth_validate(const char *spec) {
     if (!spec || !*spec) {
         fprintf(stderr, "invalid --accept-nth: empty expression\\n");
         return false;
@@ -133,7 +133,7 @@ static char *accept_nth_fields(const char *line, mm_delimiter_t delim,
     return stripped;
 }
 
-static char *mm_accept_nth_expand(const char *spec, const char *line,
+char *mm_accept_nth_expand(const char *spec, const char *line,
                                mm_delimiter_t delim, int index) {
     if (mm_accept_nth_chars(spec))
         return accept_nth_fields(line, delim, spec, false);
