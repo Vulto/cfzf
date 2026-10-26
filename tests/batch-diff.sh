@@ -197,6 +197,8 @@ check_invalid_option "delimiter-missing" '--delimiter requires a value' --delimi
 check_invalid_option "scheme-missing" '--scheme requires a value' --filter=a --scheme
 check_invalid_option "tiebreak-missing" '--tiebreak requires a value' --filter=a --tiebreak
 check_invalid_option "with-nth-missing" '--with-nth requires a value' --filter=a --with-nth
+check_invalid_option "walker-missing" '--walker requires a value' --filter=a --walker
+check_invalid_option "walker-skip-missing" '--walker-skip requires a value' --filter=a --walker-skip
 check_invalid_option "ghost-missing" '--ghost requires a value' --filter=a --ghost
 check_invalid_option "marker-multi-line-missing" '--marker-multi-line requires a value' --filter=a --marker-multi-line
 check_invalid_option "history-missing" '--history requires a value' --filter=a --history
