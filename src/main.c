@@ -230,11 +230,31 @@ int main(int argc, char **argv) {
 
     /* fzf defaults: extended ON, fuzzy ON */
     extended = true;
+    bool end_options = false;
 
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
+        if (end_options) {
+            if (!query) query = a;
+            else {
+                fprintf(stderr, "unexpected positional argument: %s\\n", a);
+                return 2;
+            }
+            continue;
+        }
+        if (!strcmp(a, "--")) {
+            end_options = true;
+            continue;
+        }
+        if (a[0] != '-' && a[0] != '+') {
+            if (!query) query = a;
+            else {
+                fprintf(stderr, "unexpected positional argument: %s\\n", a);
+                return 2;
+            }
+            continue;
+        }
         #define ARG_EQ(name) (!strncmp(a, name "=", sizeof(name)))
-        if (!strcmp(a, "--")) { /* end of options */ }
         if (ARG_EQ("--filter")) { filter = a + sizeof("--filter=") - 1; }
         else if (!strcmp(a, "-f") || !strcmp(a, "--filter")) { if (i+1<argc) filter = argv[++i]; }
         else if (!strcmp(a, "--query") || !strcmp(a, "-q")) { if (i+1<argc) query = argv[++i]; }
@@ -649,7 +669,6 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--algo")) { const char *al = a + 7; if (strcmp(al, "v1") && strcmp(al, "v2")) { fprintf(stderr, "invalid algorithm: %s\n", al); return 2; } }
         else if (!strcmp(a, "--version")) { printf("0.74.3 (c23)\n"); return 0; }
         else if (!strcmp(a, "--help") || !strcmp(a, "-h")) { usage(stdout); return 0; }
-        else if (!strcmp(a, "--")) { /* end of options */ }
         else if (a[0] == '-' && a[1] != 0) {
             /* fzf rejects unknown options (PLAN: no silently ignored flags). */
             fprintf(stderr, "unknown option: %s\n", a);
