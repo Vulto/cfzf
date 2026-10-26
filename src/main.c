@@ -895,7 +895,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--algo")) { const char *al = required_cli_arg(argc, argv, &i, "--algo"); if (!al) return 2; int version = !strcmp(al, "v1") ? 1 : !strcmp(al, "v2") ? 2 : 0; if (!version || !mm_algo_set_version(version)) { fprintf(stderr, "invalid algorithm: %s\n", al); return 2; } }
         else if (!strcmp(a, "--version")) { printf("0.74.3 (c23)\n"); return 0; }
         else if (!strcmp(a, "--help") || !strcmp(a, "-h")) { usage(stdout); return 0; }
-        else if (a[0] == '-' && a[1] != 0) {
+        else if ((a[0] == '-' || a[0] == '+') && a[1] != 0) {
             /* fzf rejects unknown options (PLAN: no silently ignored flags). */
             fprintf(stderr, "unknown option: %s\n", a);
             return 2;
