@@ -3187,6 +3187,7 @@ void mm_ui_free(mm_ui_t *ui) {
     free(ui->selected);
     free(ui->results);
     free(ui->search_results);
+    free(ui->pending_track_key);
     free(ui->query_buf);
     mm_delimiter_free(&ui->delim);
     mm_keymap_free(&ui->keymap);
@@ -3202,5 +3203,6 @@ void mm_ui_free(mm_ui_t *ui) {
     ui->items = NULL;
     ui->selected = NULL;
     ui->results = NULL;
+    ui->pending_track_key = NULL;
     ui->query_buf = NULL;
 }
