@@ -149,9 +149,9 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-120 | `--tiebreak` | src/result.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:tiebreak-missing | implemented but unverified |
 | OPT-121 | `--tmux` | - | - | unstarted |
 | OPT-122 | `--track` | - | - | unstarted |
-| OPT-123 | `\-\-walker` | src/walker.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
+| OPT-123 | `\-\-walker` | src/walker.c, src/main.c | tests/pty-diff.sh, tests/walker-diff.sh, tests/batch-diff.sh:walker-missing | implemented but unverified |
 | OPT-124 | `\-\-walker\-root` | src/walker.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
-| OPT-125 | `\-\-walker\-skip` | src/walker.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
+| OPT-125 | `\-\-walker\-skip` | src/walker.c, src/main.c | tests/pty-diff.sh, tests/walker-diff.sh, tests/batch-diff.sh:walker-skip-missing | implemented but unverified |
 | OPT-126 | `--with-nth` | src/tokenizer.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:with-nth-missing | implemented but unverified |
 | OPT-127 | `\-\-with\-shell` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-128 | `--wrap` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
