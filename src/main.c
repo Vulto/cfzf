@@ -358,6 +358,8 @@ int main(int argc, char **argv) {
         }
         else if (ARG_EQ("--query")) { query = a + 8; }
         else if (!strcmp(a, "--exact") || !strcmp(a, "-e")) exact = true;
+        else if (!strcmp(a, "--extended-exact")) { exact = true; extended = true; }
+        else if (!strcmp(a, "--no-exact") || !strcmp(a, "+e")) exact = false;
         else if (!strcmp(a, "--extended") || !strcmp(a, "-x")) extended = true;
         else if (!strcmp(a, "--no-extended") || !strcmp(a, "+x")) extended = false;
         else if (!strcmp(a, "--no-sort") || !strcmp(a, "+s")) no_sort = true;
@@ -365,6 +367,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--tac")) tac = true;
         else if (!strcmp(a, "--no-tac")) tac = false;
         else if (!strcmp(a, "--print-query")) print_query = true;
+        else if (!strcmp(a, "--no-print-query")) print_query = false;
         else if (!strcmp(a, "--ignore-case") || !strcmp(a, "-i")) case_mode = CASE_IGNORE;
         else if (!strcmp(a, "+i") || !strcmp(a, "--no-ignore-case")) case_mode = CASE_RESPECT;
         else if (!strcmp(a, "--smart-case")) case_mode = CASE_SMART;
@@ -411,9 +414,10 @@ int main(int argc, char **argv) {
         else if (!strncmp(a, "-d", 2) && a[2] != 0 && a[1] != '-') { delim_str = a + 2; }
         else if (!strcmp(a, "--literal")) literal = true;
         else if (!strcmp(a, "--no-literal")) literal = false;
-        else if (!strcmp(a, "--read0") || !strcmp(a, "-0")) read0 = true;
-        else if (!strcmp(a, "--no-read0") || !strcmp(a, "+0")) read0 = false;
+        else if (!strcmp(a, "--read0")) read0 = true;
+        else if (!strcmp(a, "--no-read0")) read0 = false;
         else if (!strcmp(a, "--print0")) print0 = true;
+        else if (!strcmp(a, "--no-print0")) print0 = false;
         else if (!strcmp(a, "--sync")) { /* batch is inherently sync */ }
         else if (!strcmp(a, "--multi") || !strcmp(a, "-m")) multi = true;
         else if (!strcmp(a, "--no-multi")) multi = false;
@@ -444,7 +448,9 @@ int main(int argc, char **argv) {
             }
         }
         else if (!strcmp(a, "--select-1") || !strcmp(a, "-1")) select_1 = true;
-        else if (!strcmp(a, "--exit-0")) exit_0 = true;
+        else if (!strcmp(a, "--no-select-1") || !strcmp(a, "+1")) select_1 = false;
+        else if (!strcmp(a, "--exit-0") || !strcmp(a, "-0")) exit_0 = true;
+        else if (!strcmp(a, "--no-exit-0") || !strcmp(a, "+0")) exit_0 = false;
         else if (!strcmp(a, "--expect")) expect = true;
         else if (!strcmp(a, "--no-expect")) expect = false;
         else if (ARG_EQ("--walker")) walker_spec = a + 9;
