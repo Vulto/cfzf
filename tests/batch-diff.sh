@@ -138,11 +138,15 @@ check "unsupported-oneline" --filter=a --oneline
 check "unsupported-no-oneline" --filter=a --no-oneline
 check "style-full"     --filter=a --style=full
 
-check_invalid_threads() {
-    desc=$1; shift
+check_invalid_option() {
+    desc=$1
+    expected=$2
+    shift 2
+    set +e
     "$IMPL" "$@" < "$CORPUS" > "$WORK/impl.out" 2> "$WORK/impl.err"
     rc=$?
-    if [ "$rc" -eq 2 ] && grep -q 'invalid --threads value' "$WORK/impl.err"; then
+    set -e
+    if [ "$rc" -eq 2 ] && grep -q "$expected" "$WORK/impl.err"; then
         pass=$((pass + 1))
         [ -n "${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
     else
@@ -151,9 +155,12 @@ check_invalid_threads() {
         cat "$WORK/impl.err" >&2
     fi
 }
-check_invalid_threads "threads-invalid" --filter=a --threads=bad
-check_invalid_threads "threads-negative" --filter=a --threads=-1
-check_invalid_threads "threads-missing-value" --filter=a --threads
+check_invalid_option "threads-invalid" 'invalid --threads value' --filter=a --threads=bad
+check_invalid_option "threads-negative" 'invalid --threads value' --filter=a --threads=-1
+check_invalid_option "threads-missing-value" 'invalid --threads value' --filter=a --threads
+check_invalid_option "header-lines-invalid" 'invalid --header-lines value' --filter=a --header-lines=bad
+check_invalid_option "header-lines-negative" 'invalid --header-lines value' --filter=a --header-lines=-1
+check_invalid_option "header-lines-missing-value" 'invalid --header-lines value' --filter=a --header-lines
 
 # Exercise stdin reading and output at an exact 4 MiB boundary.
 BOUNDARY="$WORK/exact-4mib.txt"
