@@ -412,6 +412,11 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(a, "--no-tail")) tail = -1;
         else if (ARG_EQ("--nth")) { nth_spec = a + 6; }
+        else if (ARG_EQ("-n")) { nth_spec = a + 3; }
+        else if (!strcmp(a, "-n")) {
+            nth_spec = required_cli_arg(argc, argv, &i, "-n");
+            if (!nth_spec) return 2;
+        }
         else if (!strcmp(a, "--nth")) {
             nth_spec = required_cli_arg(argc, argv, &i, "--nth");
             if (!nth_spec) return 2;
