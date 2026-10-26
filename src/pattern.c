@@ -273,7 +273,11 @@ mm_pattern_t *mm_pattern_build(const char *query, bool fuzzy, bool extended,
         }
     } else {
         /* basic mode: lower the query unless case-sensitive */
-        wchar_t *lower = malloc((size_t)(qlen + 1) * sizeof(wchar_t));
+        wchar_t *lower = malloc(((size_t)qlen + 1) * sizeof(wchar_t));
+        if (!lower) {
+            mm_pattern_free(p);
+            return NULL;
+        }
         for (int i = 0; i < qlen; i++) lower[i] = lower_ascii(runes[i]);
         lower[qlen] = 0;
         bool case_sensitive = (case_mode == CASE_RESPECT) ||
@@ -284,7 +288,12 @@ mm_pattern_t *mm_pattern_build(const char *query, bool fuzzy, bool extended,
            string(algo.NormalizeRunes(...))). */
         p->normalize = false;
         if (normalize) {
-            wchar_t *nn = malloc((size_t)(qlen + 1) * sizeof(wchar_t));
+            wchar_t *nn = malloc(((size_t)qlen + 1) * sizeof(wchar_t));
+            if (!nn) {
+                free(lower);
+                mm_pattern_free(p);
+                return NULL;
+            }
             for (int i = 0; i < qlen; i++) nn[i] = mm_algo_normalize_rune(lower[i]);
             nn[qlen] = 0;
             p->normalize = runes_equal(lower, nn, qlen);
