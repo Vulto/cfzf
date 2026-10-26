@@ -23,6 +23,8 @@ cases=(
     "--filter=alpha --tiebreak=length"
     "--filter=src --scheme=path"
     "--filter=alpha --tac"
+    "--filter=alpha --threads=2"
+    "--filter=alpha --threads=4"
 )
 for args in "${cases[@]}"; do
     # Intentional word splitting: each case is a shell-like option list.
