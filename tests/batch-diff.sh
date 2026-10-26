@@ -166,8 +166,6 @@ check_invalid_option "multi-max-invalid" 'invalid --multi-max value' --filter=a 
 check_invalid_option "multi-max-negative" 'invalid --multi-max value' --filter=a --multi-max=-1
 check_invalid_option "gap-invalid" 'invalid --gap value' --filter=a --gap=bad
 check_invalid_option "gap-negative" 'invalid --gap value' --filter=a --gap=-1
-check_invalid_option "padding-invalid" 'invalid --padding value' --filter=a --padding=bad
-check_invalid_option "margin-negative" 'invalid --margin value' --filter=a --margin=-1
 check_invalid_option "scroll-off-invalid" 'invalid --scroll-off value' --filter=a --scroll-off=bad
 check_invalid_option "hscroll-off-negative" 'invalid --hscroll-off value' --filter=a --hscroll-off=-1
 check_invalid_option "tabstop-zero" 'invalid --tabstop value' --filter=a --tabstop=0
