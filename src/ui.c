@@ -161,6 +161,43 @@ static bool ui_restore_tracked_cursor(mm_ui_t *ui, int tracked_item,
     return false;
 }
 
+static void ui_free_identity_keys(char **keys, int count) {
+    if (!keys) return;
+    for (int i = 0; i < count; i++) free(keys[i]);
+    free(keys);
+}
+
+static void ui_restore_selected_keys(mm_ui_t *ui, char **keys, int key_count) {
+    ui->nselected = 0;
+    ui->sel_order_n = 0;
+    if (!ui->selected || !ui->multi || !keys) return;
+
+    for (int k = 0; k < key_count; k++) {
+        for (int item = 0; item < ui->count; item++) {
+            char *candidate = ui_track_key_for(ui, item);
+            bool match = candidate && strcmp(candidate, keys[k]) == 0;
+            free(candidate);
+            if (!match || ui->selected[item]) continue;
+
+            if (ui->sel_order_n == ui->sel_order_cap) {
+                int new_cap = ui->sel_order_cap ? ui->sel_order_cap * 2 : 16;
+                if (new_cap < ui->sel_order_cap ||
+                    (size_t)new_cap > SIZE_MAX / sizeof(*ui->sel_order))
+                    return;
+                int *grown = realloc(ui->sel_order,
+                                     (size_t)new_cap * sizeof(*ui->sel_order));
+                if (!grown) return;
+                ui->sel_order = grown;
+                ui->sel_order_cap = new_cap;
+            }
+            ui->selected[item] = true;
+            ui->sel_order[ui->sel_order_n++] = item;
+            ui->nselected++;
+            break;
+        }
+    }
+}
+
 static void ui_search(mm_ui_t *ui) {
     const char *prev_query = ui->query_buf;
     int prev_nresults = ui->nresults;
@@ -1907,6 +1944,22 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
         ui->results && ui->cursor >= 0 && ui->cursor < ui->nresults)
         track_key = ui_track_key_for(ui, ui->results[ui->cursor]);
 
+    char **selected_keys = NULL;
+    int selected_key_count = 0;
+    if (ui->id_nth_spec && ui->multi && ui->nselected > 0 &&
+        ui->sel_order && ui->sel_order_n > 0) {
+        selected_keys = calloc((size_t)ui->sel_order_n, sizeof(*selected_keys));
+        if (selected_keys) {
+            for (int i = 0; i < ui->sel_order_n; i++) {
+                int item = ui->sel_order[i];
+                if (item < 0 || item >= ui->count || !ui->selected[item])
+                    continue;
+                char *key = ui_track_key_for(ui, item);
+                if (key) selected_keys[selected_key_count++] = key;
+            }
+        }
+    }
+
     char **lines = NULL;
     int n = 0, cap = 0;
     bool failed = false;
@@ -1948,6 +2001,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
 
     if (failed) {
         free(track_key);
+        ui_free_identity_keys(selected_keys, selected_key_count);
         for (int i = 0; i < n; i++) free(lines[i]);
         free(lines);
         return;
@@ -1957,6 +2011,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
         lines = calloc(1, sizeof(*lines));
         if (!lines) {
             free(track_key);
+        ui_free_identity_keys(selected_keys, selected_key_count);
             return;
         }
     }
@@ -1965,6 +2020,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     bool *selected = calloc((size_t)(n ? n : 1), sizeof(*selected));
     if (!items || !selected) {
         free(track_key);
+        ui_free_identity_keys(selected_keys, selected_key_count);
         free(items);
         free(selected);
         for (int i = 0; i < n; i++) free(lines[i]);
@@ -1983,6 +2039,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     }
     if (failed) {
         free(track_key);
+        ui_free_identity_keys(selected_keys, selected_key_count);
         for (int i = 0; i < initialized; i++) mm_item_free(&items[i]);
         free(items);
         free(selected);
@@ -2005,6 +2062,10 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     ui->selected = selected;
     ui->count = n;
     ui->nselected = 0;
+    ui->sel_order_n = 0;
+    if (selected_key_count > 0)
+        ui_restore_selected_keys(ui, selected_keys, selected_key_count);
+    ui_free_identity_keys(selected_keys, selected_key_count);
     if (!ui->track && !ui->track_current) ui->cursor = 0;
     ui->offset = 0;
     free(ui->pending_track_key);
