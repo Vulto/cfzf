@@ -28,7 +28,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ID | Option | C location | Verification | Status |
 |----|--------|-----------|--------------|--------|
 | OPT-001 | `--accept-nth` | src/main.c | - | implemented |
-| OPT-002 | `--algo` | src/algo.c, src/pattern.c, src/main.c | tests/algo-diff.sh:algo=v1 q=ff, tests/algo-diff.sh:algo=v1 separate argument, tests/algo-diff.sh:algo=v2 explicit | implemented but unverified |
+| OPT-002 | `--algo` | src/algo.c, src/pattern.c, src/main.c | tests/algo-diff.sh:algo=v1 q=ff, tests/algo-diff.sh:algo=v1 separate argument, tests/algo-diff.sh:algo=v2 q=ff | implemented but unverified |
 | OPT-003 | `--ambidouble` | src/main.c | - | implemented |
 | OPT-004 | `--ansi` | src/ansi.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-005 | `--bash` | src/main.c | - | implemented |
