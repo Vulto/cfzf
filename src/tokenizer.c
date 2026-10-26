@@ -143,7 +143,13 @@ bool mm_parse_ranges(const char *str, mm_range_t **out, int *outn) {
     return n > 0;
 }
 
-static bool is_awk_white(char c) { return c == '\t' || c == ' ' || c == '\n'; }
+static bool is_awk_white(wchar_t c) {
+    return (c >= 0x0009 && c <= 0x000D) || c == 0x0020 ||
+           c == 0x0085 || c == 0x00A0 || c == 0x1680 ||
+           (c >= 0x2000 && c <= 0x200A) || c == 0x2028 ||
+           c == 0x2029 || c == 0x202F || c == 0x205F ||
+           c == 0x3000;
+}
 
 static void free_tokens(char **tokens, int n) {
     if (!tokens) return;
@@ -179,10 +185,12 @@ static char **awk_tokenize(const char *input, int *prefix_length, int *outn) {
         return NULL;
     }
     int state = 0; /* 0=nil 1=black 2=white */
-    size_t begin = 0, end = 0, len = strlen(input);
-    for (size_t idx = 0; idx < len; idx++) {
-        char r = input[idx];
-        bool white = is_awk_white(r);
+    size_t begin = 0, end = 0, length = strlen(input), idx = 0;
+    while (idx < length) {
+        wchar_t rune = 0;
+        size_t used = mm_utf8_decode(input + idx, length - idx, &rune);
+        if (used == 0 || used > length - idx) used = 1;
+        bool white = is_awk_white(rune);
         switch (state) {
         case 0:
             if (white) {
@@ -196,15 +204,15 @@ static char **awk_tokenize(const char *input, int *prefix_length, int *outn) {
             } else {
                 state = 1;
                 begin = idx;
-                end = idx + 1;
+                end = idx + used;
             }
             break;
         case 1:
-            end = idx + 1;
+            end = idx + used;
             if (white) state = 2;
             break;
         case 2:
-            if (white) end = idx + 1;
+            if (white) end = idx + used;
             else {
                 if (!append_token(&ret, &n, &cap, input + begin, end - begin)) {
                     free_tokens(ret, n);
@@ -214,10 +222,11 @@ static char **awk_tokenize(const char *input, int *prefix_length, int *outn) {
                 }
                 state = 1;
                 begin = idx;
-                end = idx + 1;
+                end = idx + used;
             }
             break;
         }
+        idx += used;
     }
     if (begin < end && !append_token(&ret, &n, &cap, input + begin, end - begin)) {
         free_tokens(ret, n);
@@ -400,10 +409,16 @@ char *mm_strip_last_delimiter(const char *str, mm_delimiter_t delim) {
             return strndup(str, n - d);
         return strdup(str);
     }
-    /* awk: TrimRight whitespace (truncate at first trailing non-space run) */
-    size_t n = strlen(str);
-    while (n > 0 && is_awk_white(str[n - 1])) n--;
-    return strndup(str, n);
+    /* awk: TrimRight Unicode whitespace, matching Go's unicode.IsSpace. */
+    size_t length = strlen(str), idx = 0, trim_end = 0;
+    while (idx < length) {
+        wchar_t rune = 0;
+        size_t used = mm_utf8_decode(str + idx, length - idx, &rune);
+        if (used == 0 || used > length - idx) used = 1;
+        if (!is_awk_white(rune)) trim_end = idx + used;
+        idx += used;
+    }
+    return strndup(str, trim_end);
 }
 
 char **mm_transform(char **tokens, int ntokens, int *tok_prefix,
