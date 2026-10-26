@@ -1131,9 +1131,17 @@ int main(int argc, char **argv) {
         memcpy(line, p, llen);
         line[llen] = 0;
         if (count == cap) {
-            char **nl2 = realloc(lines, (size_t)cap * 2 * sizeof(char *));
+            if (cap > INT_MAX / 2 ||
+                (size_t)cap * 2u > SIZE_MAX / sizeof(*lines)) {
+                free(line);
+                fprintf(stderr, "fzf: too many input records\n");
+                return 2;
+            }
+            int next_cap = cap * 2;
+            char **nl2 = realloc(lines, (size_t)next_cap * sizeof(*lines));
             if (!nl2) { free(line); fprintf(stderr, "fzf: out of memory\n"); return 2; }
-            lines = nl2; cap *= 2;
+            lines = nl2;
+            cap = next_cap;
         }
         lines[count++] = line;
         if (!nl) break;
