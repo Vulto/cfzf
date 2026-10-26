@@ -37,6 +37,24 @@ static bool parse_nonnegative_int(const char *s, int *out) {
     return true;
 }
 
+static bool parse_cli_signed(const char *option, const char *value,
+                                int *out) {
+    if (!value || !*value) {
+        fprintf(stderr, "invalid %s value: %s\\n", option,
+                value ? value : "");
+        return false;
+    }
+    char *end = NULL;
+    long parsed = strtol(value, &end, 10);
+    if (end == value || *end != '\\0' ||
+        parsed < INT_MIN || parsed > INT_MAX) {
+        fprintf(stderr, "invalid %s value: %s\\n", option, value);
+        return false;
+    }
+    *out = (int)parsed;
+    return true;
+}
+
 static bool parse_cli_nonnegative(const char *option, const char *value,
                                   int *out) {
     if (parse_nonnegative_int(value, out)) return true;
@@ -365,13 +383,13 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-sort") || !strcmp(a, "+s")) no_sort = true;
         else if (ARG_EQ("--sort")) {
             int sort_value;
-            if (!parse_cli_nonnegative("--sort", a + 7, &sort_value)) return 2;
-            no_sort = sort_value == 0;
+            if (!parse_cli_signed("--sort", a + 7, &sort_value)) return 2;
+            no_sort = sort_value <= 0;
         }
         else if (ARG_EQ("-s")) {
             int sort_value;
-            if (!parse_cli_nonnegative("-s", a + 3, &sort_value)) return 2;
-            no_sort = sort_value == 0;
+            if (!parse_cli_signed("-s", a + 3, &sort_value)) return 2;
+            no_sort = sort_value <= 0;
         }
         else if (!strcmp(a, "--sort") || !strcmp(a, "-s")) {
             no_sort = false;
