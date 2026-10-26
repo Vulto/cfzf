@@ -243,6 +243,13 @@ key ctrl-x
 sleep 150
 key enter
 sleep 200' "$WORK/items.txt" --bind=ctrl-x:backward-kill-word
+run_case 'bind-unix-word-rubout' 'sleep 250
+send apple banana
+sleep 100
+key ctrl-x
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:unix-word-rubout
 run_case 'no-match'     'sleep 350
 send zzzz
 sleep 250'                                        "$WORK/items.txt"
