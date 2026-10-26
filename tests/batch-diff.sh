@@ -115,6 +115,8 @@ check "delim-regex"    --filter=b --delimiter='[:_]' --nth=2
 check "delim-regex-zero-width" --filter=ba --delimiter='a*' --nth=2
 check "accept-nth-regex-delimiter" --filter=alpha --delimiter='[:_]' --accept-nth=2
 check "accept-nth-literal-trailing-delimiter" --filter=alpha --delimiter=: --accept-nth=2
+check "accept-nth-ranges" --filter=alpha --delimiter=: --accept-nth=1,2
+check "accept-nth-template" --filter=alpha --delimiter=: --accept-nth='Index: {n}, 1st: {1}, 2nd: {2}'
 
 # Output control.
 check "print-query"    --filter=a --print-query
@@ -200,6 +202,8 @@ check_invalid_option "header-missing" '--header requires a value' --filter=a --h
 check_invalid_option "filter-missing" '--filter requires a value' --filter
 check_invalid_option "query-missing" '--query requires a value' --query
 check_invalid_option "nth-missing" '--nth requires a value' --nth
+check_invalid_option "accept-nth-invalid-range" 'invalid --accept-nth' --filter=alpha --accept-nth=1,,2
+check_invalid_option "accept-nth-template-no-placeholder" 'template should include at least 1 placeholder' --filter=alpha --accept-nth=plain
 check_invalid_option "nth-empty-range" 'invalid --nth' --filter=a --nth=
 check_invalid_option "nth-empty-component" 'invalid --nth' --filter=a --nth=1,,2
 check_invalid_option "nth-trailing-comma" 'invalid --nth' --filter=a --nth=1,
