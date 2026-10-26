@@ -162,6 +162,7 @@ check_invalid_option() {
 }
 check_invalid_option "threads-invalid" 'invalid --threads value' --filter=a --threads=bad
 check_invalid_option "threads-negative" 'invalid --threads value' --filter=a --threads=-1
+check_invalid_option "threads-zero" 'invalid --threads value' --filter=a --threads=0
 check_invalid_option "threads-missing-value" 'invalid --threads value' --filter=a --threads
 check_invalid_option "header-lines-invalid" 'invalid --header-lines value' --filter=a --header-lines=bad
 check_invalid_option "header-lines-negative" 'invalid --header-lines value' --filter=a --header-lines=-1
