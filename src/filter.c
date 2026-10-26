@@ -313,7 +313,8 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
 
             mm_token_t stack_toks[32];
             mm_token_t *toks = stack_toks;
-            mchars_t stk_text[32];
+            mchars_t stack_text[32];
+            mchars_t *stk_text = stack_text;
             int ntoks = 1;
             bool heap = false;
 
@@ -323,7 +324,23 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                 int nout = 0, *opl = NULL;
                 char **outs = mm_transform(tokens, ntok_in, tpl, input->nth_ranges, input->nth_n, &opl, &nout);
                 ntoks = nout;
-                if (ntoks > 32) { toks = malloc((size_t)ntoks * sizeof(mm_token_t)); heap = true; }
+                if (ntoks > 32) {
+                    toks = malloc((size_t)ntoks * sizeof(*toks));
+                    stk_text = calloc((size_t)ntoks, sizeof(*stk_text));
+                    heap = true;
+                    if (!toks || !stk_text) {
+                        free(toks == stack_toks ? NULL : toks);
+                        free(stk_text == stack_text ? NULL : stk_text);
+                        for (int k = 0; k < ntok_in; k++) free(tokens[k]);
+                        free(tokens); free(tpl);
+                        for (int k = 0; k < nout; k++) free(outs[k]);
+                        free(outs); free(opl);
+                        *out_n = 0;
+                        free(results);
+                        free(items);
+                        return NULL;
+                    }
+                }
                 for (int k = 0; k < nout; k++) {
                     mchars_init(&stk_text[k], outs[k]);
                     mchars_decode(&stk_text[k]);
@@ -372,7 +389,10 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                 free(pos);
                 for (int k = 0; k < nout; k++) { mchars_free(&stk_text[k]); free(outs[k]); }
                 free(outs); free(opl);
-                if (heap) free(toks);
+                if (heap) {
+                    free(toks);
+                    if (stk_text != stack_text) free(stk_text);
+                }
                 free(joined);
                 continue;
             }
