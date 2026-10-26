@@ -61,7 +61,7 @@ bool mm_accept_nth_validate(const char *spec) {
 
 static bool append_text(char **buf, size_t *length, size_t *capacity,
                         const char *text, size_t count) {
-    if (count > SIZE_MAX - *length - 1) return false;
+    if (*length == SIZE_MAX || count > SIZE_MAX - *length - 1) return false;
     size_t needed = *length + count + 1;
     if (needed > *capacity) {
         size_t next = *capacity ? *capacity : 64;
@@ -105,7 +105,7 @@ static char *accept_nth_fields(const char *line, mm_delimiter_t delim,
     size_t length = 0;
     for (int i = 0; i < nout; i++) {
         size_t part = strlen(out[i]);
-        if (part > SIZE_MAX - length - 1) {
+        if (length == SIZE_MAX || part > SIZE_MAX - length - 1) {
             for (int j = 0; j < nout; j++) free(out[j]);
             free(out);
             return NULL;
