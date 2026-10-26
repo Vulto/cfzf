@@ -37,7 +37,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-008 | `--black` | src/main.c | - | implemented |
 | OPT-009 | `\-\-border` | src/terminal.c, src/ui.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
 | OPT-010 | `--border-label` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
-| OPT-011 | `--border-label-pos` | - | - | unstarted |
+| OPT-011 | `--border-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:border-label-pos-left, tests/pty-diff.sh:border-label-pos-right, tests/pty-diff.sh:border-label-pos-bottom | implemented but unverified |
 | OPT-012 | `--color` | src/color.c, src/ui.c | tests/pty-diff.sh | verified |
 | OPT-013 | `--cycle` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-014 | `--delimiter` | src/tokenizer.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:delimiter-missing | implemented but unverified |
