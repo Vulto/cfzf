@@ -1932,6 +1932,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     int initialized = 0;
     for (int i = 0; i < n; i++) {
         if (!mm_item_init(&items[i], lines[i], i)) {
+            mm_item_free(&items[i]);
             failed = true;
             break;
         }
