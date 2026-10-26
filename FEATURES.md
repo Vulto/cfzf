@@ -56,8 +56,8 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-027 | `--footer-label-pos` | - | - | unstarted |
 | OPT-028 | `--freeze-left` | - | - | unstarted |
 | OPT-029 | `--freeze-right` | - | - | unstarted |
-| OPT-030 | `\-\-gap` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
-| OPT-031 | `\-\-gap\-line` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
+| OPT-030 | `\-\-gap` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:gap-default, tests/batch-diff.sh:gap-explicit-value | implemented but unverified |
+| OPT-031 | `\-\-gap\-line` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:no-gap-line | implemented but unverified |
 | OPT-032 | `\-\-ghost` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-033 | `--graph` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-034 | `--gutter` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
