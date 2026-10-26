@@ -281,7 +281,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-119 | `track` | src/bind.c, src/ui.c | - | implemented |
 | ACT-124 | `unbind` | src/bind.c, src/ui.c | - | implemented |
 | ACT-125 | `unix-line-discard` | src/bind.c, src/ui.c | - | implemented |
-| ACT-126 | `unix-word-rubout` | src/bind.c, src/ui.c | - | implemented |
+| ACT-126 | `unix-word-rubout` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-unix-word-rubout | implemented but unverified |
 | ACT-127 | `untrack-current` | src/bind.c, src/ui.c | - | implemented |
 | ACT-128 | `up` | src/bind.c, src/ui.c | - | implemented |
 | ACT-129 | `up-match` | src/bind.c, src/ui.c | - | implemented |
