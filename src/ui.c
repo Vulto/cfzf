@@ -132,7 +132,7 @@ static void ui_search(mm_ui_t *ui) {
     int tracked_item = ((ui->track || ui->track_current) && ui->results && ui->cursor >= 0 &&
                         ui->cursor < ui->nresults) ? ui->results[ui->cursor] : -1;
 
-    if (ui->phony) {
+    if (ui->phony || !ui->search_enabled) {
         /* The query does not filter the items: every item is a result, in
            the order of the input. */
         int n = ui->count;
@@ -2539,7 +2539,17 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_TOGGLE_RAW:
         ui->ansi = !ui->ansi;
         break;
+    case MM_ACT_DISABLE_SEARCH:
+        ui->search_enabled = false;
+        ui_search(ui);
+        break;
+    case MM_ACT_ENABLE_SEARCH:
+        ui->search_enabled = true;
+        ui_search(ui);
+        break;
     case MM_ACT_TOGGLE_SEARCH:
+        ui->search_enabled = !ui->search_enabled;
+        ui_search(ui);
         break;
     case MM_ACT_TOGGLE_SORT:
         ui->no_sort = !ui->no_sort;
