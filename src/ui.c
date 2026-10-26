@@ -129,7 +129,7 @@ static void ui_exec_event(mm_ui_t *ui, const char *name);
 static void ui_search(mm_ui_t *ui) {
     const char *prev_query = ui->query_buf;
     int prev_nresults = ui->nresults;
-    int tracked_item = (ui->track && ui->results && ui->cursor >= 0 &&
+    int tracked_item = ((ui->track || ui->track_current) && ui->results && ui->cursor >= 0 &&
                         ui->cursor < ui->nresults) ? ui->results[ui->cursor] : -1;
 
     if (ui->phony) {
@@ -2526,6 +2526,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui->track = !ui->track;
         break;
     case MM_ACT_TOGGLE_TRACK_CURRENT:
+        if (!ui->track) ui->track_current = !ui->track_current;
         break;
     case MM_ACT_TOGGLE_WRAP:
         ui->wrap = !ui->wrap;
@@ -2534,7 +2535,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui->wrap_word = !ui->wrap_word;
         break;
     case MM_ACT_TRACK:
-        ui->track = true;
+        if (!ui->track) ui->track_current = true;
         break;
     case MM_ACT_UNBIND:
         break;
@@ -2543,6 +2544,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui_search(ui);
         break;
     case MM_ACT_UNTRACK_CURRENT:
+        if (!ui->track) ui->track_current = false;
         break;
     case MM_ACT_WAIT:
         break;
