@@ -143,6 +143,7 @@ check "header-lines-zero" --filter=a --header-lines=0
 check "no-header-lines" --filter=a --header-lines=1 --no-header-lines
 check "no-header" --filter=a --header=sample --no-header
 check "threads-zero-default" --filter=alpha --threads=0
+check "tail-one" --filter=a --tail=1
 check "no-tail" --filter=a --tail=1 --no-tail
 check "gap-default" --gap --filter=a
 check "gap-explicit-value" --gap 2 --filter=a
