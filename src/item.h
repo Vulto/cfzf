@@ -10,14 +10,14 @@ typedef struct {
     int32_t start; /* rune offset */
     int32_t end;   /* rune offset (exclusive) */
     int32_t color; /* encoded color pair */
-} mm_ansi_offset_t;
+} mm_item_color_offset_t;
 
 typedef struct {
     char *orig;          /* original bytes (may be NULL if == text) */
     mchars_t text;       /* decoded text */
     char *bytes;         /* owned byte buffer backing text */
     int32_t index;       /* ordinal index */
-    mm_ansi_offset_t *colors;
+    mm_item_color_offset_t *colors;
     int ncolors;
     uint16_t trim_length;
     bool trim_known;
