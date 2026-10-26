@@ -112,6 +112,7 @@ check "delim-colon"    --filter=b --delimiter=: --nth=2
 check "delim-attach"   --filter=b -d: --nth=2
 check "delim-regex"    --filter=b --delimiter='[:_]' --nth=2
 check "accept-nth-regex-delimiter" --filter=alpha --delimiter='[:_]' --accept-nth=2
+check "accept-nth-literal-trailing-delimiter" --filter=alpha --delimiter=: --accept-nth=2
 
 # Output control.
 check "print-query"    --filter=a --print-query
