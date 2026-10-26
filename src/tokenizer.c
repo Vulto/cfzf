@@ -414,19 +414,21 @@ char **mm_transform(char **tokens, int ntokens, int *tok_prefix,
             if (end < 0) end += (int64_t)ntokens + 1;
         }
 
-        int first_index = begin >= 1 && begin <= ntokens ? (int)(begin - 1) : 0;
-        if (begin == MM_RANGE_ELLIPSIS) first_index = 0;
-        if (first_index < ntokens && tok_prefix)
-            prefix[idx] = tok_prefix[first_index];
-
-        size_t total = 0;
         if (range.begin == MM_RANGE_ELLIPSIS && range.end == MM_RANGE_ELLIPSIS) {
             begin = 1;
             end = ntokens;
         }
-        if (begin <= end) {
-            for (int64_t i = begin; i <= end; i++) {
-                if (i < 1 || i > ntokens) continue;
+        if (range.begin == MM_RANGE_ELLIPSIS) {
+            if (tok_prefix && ntokens > 0) prefix[idx] = tok_prefix[0];
+        } else if (begin >= 1 && begin <= ntokens && tok_prefix) {
+            prefix[idx] = tok_prefix[(int)begin - 1];
+        }
+
+        int64_t first = begin < 1 ? 1 : begin;
+        int64_t last = end > ntokens ? ntokens : end;
+        size_t total = 0;
+        if (first <= last) {
+            for (int64_t i = first; i <= last; i++) {
                 size_t len = strlen(tokens[i - 1]);
                 if (len > SIZE_MAX - total) goto fail;
                 total += len;
@@ -436,9 +438,8 @@ char **mm_transform(char **tokens, int ntokens, int *tok_prefix,
         out[idx] = malloc(total + 1);
         if (!out[idx]) goto fail;
         size_t used = 0;
-        if (begin <= end) {
-            for (int64_t i = begin; i <= end; i++) {
-                if (i < 1 || i > ntokens) continue;
+        if (first <= last) {
+            for (int64_t i = first; i <= last; i++) {
                 size_t len = strlen(tokens[i - 1]);
                 memcpy(out[idx] + used, tokens[i - 1], len);
                 used += len;
