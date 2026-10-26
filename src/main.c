@@ -16,6 +16,7 @@
 #include <string.h>
 #include <locale.h>
 #include <limits.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <pthread.h>
