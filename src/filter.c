@@ -24,6 +24,12 @@ static int *mm_batch_search_internal(mm_input_t *, mm_pattern_t *,
 
 static int requested_threads;
 
+static int mm_int_compare(const void *a, const void *b) {
+    int x = *(const int *)a;
+    int y = *(const int *)b;
+    return (x > y) - (x < y);
+}
+
 void mm_filter_set_threads(int threads) {
     requested_threads = threads > 0 ? threads : 0;
 }
@@ -416,11 +422,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                         valid = true;
                     }
                     mm_result_set_bounds(&results[n], &items[i], score, minb, mine, maxe, valid, crit);
-                    for (int a = 1; a < npos; a++) {
-                        int v = pos[a], b = a - 1;
-                        while (b >= 0 && pos[b] > v) { pos[b + 1] = pos[b]; b--; }
-                        pos[b + 1] = v;
-                    }
+                    if (npos > 1) qsort(pos, (size_t)npos, sizeof(*pos), mm_int_compare);
                     results[n].pos = pos;
                     results[n].npos = npos;
                     pos = NULL;
@@ -453,11 +455,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                     valid = true;
                 }
                 mm_result_set_bounds(&results[n], &items[i], score, minb, mine, maxe, valid, crit);
-                for (int a = 1; a < npos; a++) {
-                    int v = pos[a], b = a - 1;
-                    while (b >= 0 && pos[b] > v) { pos[b + 1] = pos[b]; b--; }
-                    pos[b + 1] = v;
-                }
+                if (npos > 1) qsort(pos, (size_t)npos, sizeof(*pos), mm_int_compare);
                 results[n].pos = pos;
                 results[n].npos = npos;
                 pos = NULL;
