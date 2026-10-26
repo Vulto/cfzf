@@ -78,6 +78,9 @@ run_case() {
 }
 
 run_case 'initial'      'sleep 400'            "$WORK/items.txt"
+run_case 'positional-query' 'sleep 350' "$WORK/items.txt" an
+run_case 'positional-query-after-options' 'sleep 350' "$WORK/items.txt" -- an
+run_case 'positional-query-leading-dash' 'sleep 350' "$WORK/items.txt" -- -an
 run_case 'query'        'sleep 350
 send an
 sleep 300'                                        "$WORK/items.txt"
