@@ -1129,6 +1129,20 @@ int main(int argc, char **argv) {
         len = 0;
     }
 
+    if (!data) {
+        fprintf(stderr, "fzf: failed to read input or out of memory\n");
+        if (have_walk_thread) {
+            if (stream_fd >= 0 && stream_fd != STDIN_FILENO) close(stream_fd);
+            pthread_join(walk_thread, NULL);
+            have_walk_thread = false;
+        }
+        if (stream_fp) {
+            pclose(stream_fp);
+            stream_fp = NULL;
+        }
+        goto fail;
+    }
+
     /* split lines */
     int cap = 1024;
     lines = malloc((size_t)cap * sizeof(char *));
