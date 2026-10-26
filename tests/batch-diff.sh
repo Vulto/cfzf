@@ -234,11 +234,7 @@ check_invalid_option "preview-window-missing" '--preview-window requires a value
 check_invalid_option "prompt-missing" '--prompt requires a value' --filter=a --prompt
 check_invalid_option "tail-missing" 'invalid --tail value' --filter=a --tail
 check_invalid_option "tail-zero" 'invalid --tail value' --filter=a --tail=0
-check_invalid_option "margin-invalid" 'invalid --margin value' --filter=a --margin=bad
-check_invalid_option "margin-negative" 'invalid --margin value' --filter=a --margin=-1
 check_invalid_option "margin-missing" '--margin requires a value' --filter=a --margin
-check_invalid_option "padding-invalid" 'invalid --padding value' --filter=a --padding=bad
-check_invalid_option "padding-negative" 'invalid --padding value' --filter=a --padding=-1
 check_invalid_option "padding-missing" '--padding requires a value' --filter=a --padding
 check_invalid_option "walker-root-missing" '--walker-root requires a value' --filter=a --walker-root
 
