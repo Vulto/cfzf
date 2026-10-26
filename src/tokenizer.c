@@ -171,8 +171,13 @@ static bool append_token(char ***tokens, int *count, int *capacity,
 /* awkTokenizer: tokens are \S+\s* ; returns prefixLength = leading whitespace
    rune count. */
 static char **awk_tokenize(const char *input, int *prefix_length, int *outn) {
-    int cap = 0, n = 0, prefix = 0;
-    char **ret = NULL;
+    int cap = 8, n = 0, prefix = 0;
+    char **ret = malloc((size_t)cap * sizeof(*ret));
+    if (!ret) {
+        *prefix_length = 0;
+        *outn = 0;
+        return NULL;
+    }
     int state = 0; /* 0=nil 1=black 2=white */
     size_t begin = 0, end = 0, len = strlen(input);
     for (size_t idx = 0; idx < len; idx++) {
@@ -323,11 +328,7 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim,
     } else if (!delim.str) {
         int leading = 0;
         tokens = awk_tokenize(text, &leading, &n);
-        if (!tokens) {
-            if (n > 0) return NULL;
-            tokens = calloc(1, sizeof(*tokens));
-            if (!tokens) return NULL;
-        }
+        if (!tokens) return NULL;
         int *prefix = malloc((size_t)(n ? n : 1) * sizeof(*prefix));
         if (!prefix) {
             free_tokens(tokens, n);
