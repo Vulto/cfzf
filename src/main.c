@@ -590,7 +590,6 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-disabled")) phony = false;
         else if (!strcmp(a, "--phony")) phony = true;
         else if (!strcmp(a, "--no-phony")) phony = false;
-        else if (!strcmp(a, "--no-track")) track = false;
         else if (!strcmp(a, "--ambidouble")) ambidouble = true;
         else if (!strcmp(a, "--no-ambidouble")) ambidouble = false;
         else if (!strcmp(a, "--bash")) { /* print bash integration */ return 0; }
