@@ -91,7 +91,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-062 | `--list-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-063 | `--list-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-064 | `--literal` | src/pattern.c | tests/batch-diff.sh | verified |
-| OPT-065 | `--margin` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:margin-negative | implemented but unverified |
+| OPT-065 | `--margin` | src/ui.c, src/main.c | tests/pty-diff.sh | implemented but unverified |
 | OPT-066 | `\-\-marker` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-067 | `--marker-multi-line` | src/main.c | - | implemented |
 | OPT-068 | `\-\-min\-height` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
@@ -118,7 +118,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-089 | `--nth` | src/tokenizer.c | tests/batch-diff.sh | verified |
 | OPT-090 | `--nushell` | - | - | unstarted |
 | OPT-091 | `--oneline` / `--no-oneline` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
-| OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:padding-invalid | implemented but unverified |
+| OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh | implemented but unverified |
 | OPT-093 | `\-\-pointer` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-094 | `--popup` | - | - | unstarted |
 | OPT-095 | `\-\-preview` | src/preview.c, src/ui.c | tests/pty-diff.sh | verified |
