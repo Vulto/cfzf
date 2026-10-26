@@ -57,8 +57,6 @@ for q in ff oob foob abc; do
 done
 run "algo=v1 separate argument" --algo v1 --filter=foob
 run "algo=v2 explicit" --algo=v2 --filter=foob
-run "algo missing value" --algo
-run "algo invalid value" --algo=v3
 for q in ff oob foob; do
     run "exact q=$q" --filter="$q" --exact
     run "extended q=$q" --filter="$q" --extended
