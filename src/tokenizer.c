@@ -380,14 +380,83 @@ char *mm_strip_last_delimiter(const char *str, mm_delimiter_t delim) {
     return strndup(str, n);
 }
 
-static int min_i(int a, int b) { return a < b ? a : b; }
-static int max_i(int a, int b) { return a > b ? a : b; }
+char **mm_transform(char **tokens, int ntokens, int *tok_prefix,
+                    const mm_range_t *ranges, int nranges,
+                    int **prefix_lengths, int *outn) {
+    if (!prefix_lengths || !outn || nranges < 0 ||
+        (nranges > 0 && !ranges) || ntokens < 0) return NULL;
+    *prefix_lengths = NULL;
+    *outn = 0;
+    if (nranges == 0) return NULL;
+    if ((size_t)nranges > SIZE_MAX / sizeof(char *) ||
+        (size_t)nranges > SIZE_MAX / sizeof(int)) return NULL;
 
-char **mm_transform(char **tokens, int ntokens, int *tok_prefix, const mm_range_t *ranges,
-                    int nranges, int **prefix_lengths, int *outn) {
-    char **out = malloc((size_t)nranges * sizeof(char *));
-    int *pl = malloc((size_t)nranges * sizeof(int));
-    if (!out || !pl) { free(out); free(pl); *outn = 0; *prefix_lengths = NULL; return NULL; }
+    char **out = calloc((size_t)nranges, sizeof(*out));
+    int *prefix = calloc((size_t)nranges, sizeof(*prefix));
+    if (!out || !prefix) {
+        free(out);
+        free(prefix);
+        return NULL;
+    }
+
+    for (int idx = 0; idx < nranges; idx++) {
+        int64_t begin, end;
+        const mm_range_t range = ranges[idx];
+        if (range.begin == range.end && range.begin != MM_RANGE_ELLIPSIS) {
+            int64_t index = range.begin;
+            if (index < 0) index += (int64_t)ntokens + 1;
+            begin = index;
+            end = index;
+        } else {
+            begin = range.begin == MM_RANGE_ELLIPSIS ? 1 : range.begin;
+            end = range.end == MM_RANGE_ELLIPSIS ? ntokens : range.end;
+            if (begin < 0) begin += (int64_t)ntokens + 1;
+            if (end < 0) end += (int64_t)ntokens + 1;
+        }
+
+        int first_index = begin >= 1 && begin <= ntokens ? (int)(begin - 1) : 0;
+        if (begin == MM_RANGE_ELLIPSIS) first_index = 0;
+        if (first_index < ntokens && tok_prefix)
+            prefix[idx] = tok_prefix[first_index];
+
+        size_t total = 0;
+        if (range.begin == MM_RANGE_ELLIPSIS && range.end == MM_RANGE_ELLIPSIS) {
+            begin = 1;
+            end = ntokens;
+        }
+        if (begin <= end) {
+            for (int64_t i = begin; i <= end; i++) {
+                if (i < 1 || i > ntokens) continue;
+                size_t len = strlen(tokens[i - 1]);
+                if (len > SIZE_MAX - total) goto fail;
+                total += len;
+            }
+        }
+        if (total == SIZE_MAX) goto fail;
+        out[idx] = malloc(total + 1);
+        if (!out[idx]) goto fail;
+        size_t used = 0;
+        if (begin <= end) {
+            for (int64_t i = begin; i <= end; i++) {
+                if (i < 1 || i > ntokens) continue;
+                size_t len = strlen(tokens[i - 1]);
+                memcpy(out[idx] + used, tokens[i - 1], len);
+                used += len;
+            }
+        }
+        out[idx][used] = 0;
+    }
+
+    *prefix_lengths = prefix;
+    *outn = nranges;
+    return out;
+
+fail:
+    for (int i = 0; i < nranges; i++) free(out[i]);
+    free(out);
+    free(prefix);
+    return NULL;
+}
     for (int idx = 0; idx < nranges; idx++) {
         mm_range_t r = ranges[idx];
         int minIdx = 0;
