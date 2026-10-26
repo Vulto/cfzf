@@ -1592,6 +1592,10 @@ int main(int argc, char **argv) {
                 mm_delimiter_free(&delim);
                 free(nth);
                 if (wnth != nth) free(wnth);
+                if (ansi_lines) {
+                    for (int j = 0; j < count; j++) free(ansi_lines[j]);
+                    free(ansi_lines);
+                }
                 for (int j = 0; j < count; j++) free(lines[j]);
                 free(lines);
                 free(data);
