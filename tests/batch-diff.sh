@@ -204,6 +204,8 @@ check_invalid_option "header-missing" '--header requires a value' --filter=a --h
 check_invalid_option "filter-missing" '--filter requires a value' --filter
 check_invalid_option "query-missing" '--query requires a value' --query
 check_invalid_option "nth-missing" '--nth requires a value' --nth
+check_invalid_option "id-nth-missing" '--id-nth requires a value' --filter=a --id-nth
+check_invalid_option "id-nth-invalid" 'invalid --id-nth' --filter=a --id-nth=1,,2
 check_invalid_option "accept-nth-missing" '--accept-nth requires a value' --filter=alpha --accept-nth
 check_invalid_option "accept-nth-invalid-range" 'invalid --accept-nth' --filter=alpha --accept-nth=1,,2
 check_invalid_option "accept-nth-template-no-placeholder" 'template should include at least 1 placeholder' --filter=alpha --accept-nth=plain
