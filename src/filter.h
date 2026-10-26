@@ -34,6 +34,10 @@ typedef struct {
     int  npos;
 } mm_match_pos_t;
 
+/* Set the maximum worker count for subsequent batch searches. Zero keeps the
+   default/environment-controlled worker count. */
+void mm_filter_set_threads(int threads);
+
 /* Run a batch search. Returns a malloc'd array of result indices (into lines),
    sets *out_n.  When out_pos is not NULL, *out_pos receives a malloc'd array
    with the matched offsets of every result; the caller frees it with
