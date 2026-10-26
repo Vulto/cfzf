@@ -608,6 +608,8 @@ int main(int argc, char **argv) {
     /* fzf defaults: extended ON, fuzzy ON */
     extended = true;
     bool end_options = false;
+    bool show_help = false;
+    bool show_version = false;
 
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
@@ -1242,8 +1244,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-ansi")) ansi = false;
         else if (ARG_EQ("--algo")) { const char *al = a + 7; int version = !strcmp(al, "v1") ? 1 : !strcmp(al, "v2") ? 2 : 0; if (!version || !mm_algo_set_version(version)) { fprintf(stderr, "invalid algorithm: %s\n", al); return 2; } }
         else if (!strcmp(a, "--algo")) { const char *al = required_cli_arg(argc, argv, &i, "--algo"); if (!al) return 2; int version = !strcmp(al, "v1") ? 1 : !strcmp(al, "v2") ? 2 : 0; if (!version || !mm_algo_set_version(version)) { fprintf(stderr, "invalid algorithm: %s\n", al); return 2; } }
-        else if (!strcmp(a, "--version")) { printf("0.74 (devel)\n"); return 0; }
-        else if (!strcmp(a, "--help") || !strcmp(a, "-h")) { usage(stdout); return 0; }
+        else if (!strcmp(a, "--version")) { show_version = true; show_help = false; }
+        else if (!strcmp(a, "--help") || !strcmp(a, "-h")) { show_help = true; show_version = false; }
         else if ((a[0] == '-' || a[0] == '+') && a[1] != 0) {
             /* fzf rejects unknown options (PLAN: no silently ignored flags). */
             fprintf(stderr, "unknown option: %s\n", a);
@@ -1251,6 +1253,9 @@ int main(int argc, char **argv) {
         }
         #undef ARG_EQ
     }
+
+    if (show_help) { usage(stdout); return 0; }
+    if (show_version) { printf("0.74 (devel)\n"); return 0; }
 
     if (accept_nth_spec && !mm_accept_nth_validate(accept_nth_spec)) return 2;
     if (id_nth_spec) {
