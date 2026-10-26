@@ -128,6 +128,17 @@ key bspace
 sleep 200
 key enter
 sleep 200' "$WORK/items.txt"
+run_case 'query-word-cursor' 'sleep 250
+send apple banana cherry
+sleep 100
+key alt-left
+send X
+sleep 150
+key alt-right
+send Y
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt"
 run_case 'no-match'     'sleep 350
 send zzzz
 sleep 250'                                        "$WORK/items.txt"
