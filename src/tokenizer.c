@@ -404,6 +404,35 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim,
 }
 
 char *mm_strip_last_delimiter(const char *str, mm_delimiter_t delim) {
+    if (delim.is_regex && delim.rx) {
+        regex_t *rx = (regex_t *)delim.rx;
+        size_t length = strlen(str), begin = 0;
+        size_t last_start = 0, last_end = 0;
+        bool found = false;
+        regmatch_t match[1];
+        while (begin <= length &&
+               regexec(rx, str + begin, 1, match,
+                       begin == 0 ? 0 : REG_NOTBOL) == 0) {
+            if (match[0].rm_so < 0 || match[0].rm_eo < 0) break;
+            size_t start = begin + (size_t)match[0].rm_so;
+            size_t end = begin + (size_t)match[0].rm_eo;
+            if (start > length || end > length || end < start) break;
+            last_start = start;
+            last_end = end;
+            found = true;
+            if (end > begin) {
+                begin = end;
+            } else if (start < length) {
+                wchar_t rune;
+                size_t used = mm_utf8_decode(str + start, length - start, &rune);
+                begin = start + (used ? used : 1);
+            } else {
+                break;
+            }
+        }
+        return found && last_end == length
+            ? strndup(str, last_start) : strdup(str);
+    }
     if (delim.str) {
         size_t n = strlen(str), d = (size_t)delim.slen;
         if (d > 0 && n >= d && strncmp(str + n - d, delim.str, d) == 0)
