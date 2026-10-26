@@ -2011,7 +2011,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
         lines = calloc(1, sizeof(*lines));
         if (!lines) {
             free(track_key);
-        ui_free_identity_keys(selected_keys, selected_key_count);
+            ui_free_identity_keys(selected_keys, selected_key_count);
             return;
         }
     }
