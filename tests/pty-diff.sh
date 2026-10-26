@@ -470,6 +470,7 @@ run_reload_track_case() {
 }
 run_reload_track_case 'action-reload-track' '--track'
 run_case 'id-nth-reload-track' 'sleep 250\nkey down\nsleep 100\nkey ctrl-r\nsleep 300\nkey enter\nsleep 200' "$WORK/id-items.txt" --track --id-nth=1 --bind='ctrl-r:reload(printf "20 beta updated\\n10 alpha\\n30 gamma\\n")'
+run_case 'id-nth-reload-selection' 'sleep 250\nkey down\nkey tab\nsleep 100\nkey ctrl-r\nsleep 300\nkey enter\nsleep 200' "$WORK/id-items.txt" --multi --id-nth=1 --bind='ctrl-r:reload(printf "10 alpha\\n30 gamma\\n20 beta updated\\n")'
 
 run_preview_case 'layout-reverse-list' --layout=reverse-list
 run_preview_case 'no-bold'           --no-bold
