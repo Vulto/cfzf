@@ -1276,19 +1276,22 @@ int main(int argc, char **argv) {
         p = nl + 1;
     }
 
-    if (header_lines > 0 && !stream_input && count > 0 && !filter) {
+    if (header_lines > 0 && !stream_input && count > 0) {
         int h = header_lines;
         if (h > count) h = count;
-        size_t hlen = 1;
-        for (int i = 0; i < h; i++) hlen += strlen(lines[i]) + 1;
-        char *hbuf = malloc(hlen);
-        if (hbuf) {
-            hbuf[0] = 0;
-            for (int i = 0; i < h; i++) {
-                if (i) strcat(hbuf, "\n");
-                strcat(hbuf, lines[i]);
+        if (!filter) {
+            size_t hlen = 1;
+            for (int i = 0; i < h; i++) hlen += strlen(lines[i]) + 1;
+            char *hbuf = malloc(hlen);
+            if (hbuf) {
+                hbuf[0] = 0;
+                for (int i = 0; i < h; i++) {
+                    if (i) strcat(hbuf, "\n");
+                    strcat(hbuf, lines[i]);
+                }
+                header_lines_text = hbuf;
             }
-            header_lines_text = hbuf;
+    
         }
         for (int i = 0; i < h; i++) free(lines[i]);
         memmove(lines, lines + h, (size_t)(count - h) * sizeof(char *));
