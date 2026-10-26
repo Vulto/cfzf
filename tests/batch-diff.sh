@@ -138,6 +138,23 @@ check "unsupported-oneline" --filter=a --oneline
 check "unsupported-no-oneline" --filter=a --no-oneline
 check "style-full"     --filter=a --style=full
 
+check_invalid_threads() {
+    desc=$1; shift
+    "$IMPL" "$@" < "$CORPUS" > "$WORK/impl.out" 2> "$WORK/impl.err"
+    rc=$?
+    if [ "$rc" -eq 2 ] && grep -q 'invalid --threads value' "$WORK/impl.err"; then
+        pass=$((pass + 1))
+        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\\n' "$desc"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s (exit=%s)\\n' "$desc" "$rc"
+        cat "$WORK/impl.err" >&2
+    fi
+}
+check_invalid_threads "threads-invalid" --filter=a --threads=bad
+check_invalid_threads "threads-negative" --filter=a --threads=-1
+check_invalid_threads "threads-missing-value" --filter=a --threads
+
 # Exercise stdin reading and output at an exact 4 MiB boundary.
 BOUNDARY="$WORK/exact-4mib.txt"
 head -c 4194303 /dev/zero | tr '\\000' 'x' > "$BOUNDARY"
