@@ -90,9 +90,8 @@ def main() -> int:
         if duplicate_ids:
             print("  DUPLICATE IDS: " + ", ".join(duplicate_ids))
 
-        # A status is not considered evidenced merely because the test file exists.
-        # Current rows name suites rather than specific case identifiers; count and
-        # report these as declarations until case-level traceability is added.
+        # A status is not considered evidenced merely because a test is referenced.
+        # Named case references improve traceability but do not establish outcomes.
         for entry in entries:
             cells = entry["cells"]
             if len(cells) < 5:
