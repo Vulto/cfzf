@@ -67,7 +67,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-038 | `--header-first` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-039 | `--header-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-040 | `--header-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
-| OPT-041 | `--header-lines` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
+| OPT-041 | `--header-lines` | src/ui.c, src/main.c | tests/batch-diff.sh:header-lines-one, tests/batch-diff.sh:header-lines-two | implemented but unverified |
 | OPT-042 | `--header-lines-border` | - | - | unstarted |
 | OPT-043 | `--height` | src/ui.c, src/terminal.c | tests/pty-diff.sh | verified |
 | OPT-044 | `--highlight-line` | src/ui.c | tests/pty-diff.sh | verified |
@@ -145,7 +145,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-116 | `--tabstop` | src/ui.c, src/main.c | - | implemented |
 | OPT-117 | `--tac` | src/result.c | tests/batch-diff.sh | verified |
 | OPT-118 | `--tail` | src/main.c | tests/batch-diff.sh | verified |
-| OPT-119 | `--threads` | src/main.c, src/filter.c | tests/thread-diff.sh | implemented but unverified |
+| OPT-119 | `--threads` | src/main.c, src/filter.c | tests/thread-diff.sh:--threads=2, tests/thread-diff.sh:--threads=4 | implemented but unverified |
 | OPT-120 | `--tiebreak` | src/result.c | tests/batch-diff.sh | verified |
 | OPT-121 | `--tmux` | - | - | unstarted |
 | OPT-122 | `--track` | - | - | unstarted |
@@ -166,12 +166,12 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-001 | `accept` | - | - | unstarted |
 | ACT-002 | `accept-non-empty` | src/bind.c, src/ui.c | - | implemented |
 | ACT-003 | `accept-or-print-query` | src/bind.c, src/ui.c | - | implemented |
-| ACT-004 | `backward-char` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
-| ACT-005 | `backward-delete-char` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
+| ACT-004 | `backward-char` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-char | implemented but unverified |
+| ACT-005 | `backward-delete-char` | src/bind.c, src/ui.c | tests/pty-diff.sh:query-cursor-backspace | implemented but unverified |
 | ACT-006 | `backward-kill-subword` | - | - | unstarted |
-| ACT-007 | `backward-kill-word` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
+| ACT-007 | `backward-kill-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-kill-word | implemented but unverified |
 | ACT-008 | `backward-subword` | - | - | unstarted |
-| ACT-009 | `backward-word` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
+| ACT-009 | `backward-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-word | implemented but unverified |
 | ACT-010 | `become` | - | - | unstarted |
 | ACT-011 | `bell` | - | - | unstarted |
 | ACT-012 | `best` | - | - | unstarted |
@@ -209,24 +209,24 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-044 | `down-selected` | src/bind.c, src/ui.c | - | implemented |
 | ACT-045 | `enable-raw` | - | - | unstarted |
 | ACT-046 | `enable-search` | - | - | unstarted |
-| ACT-047 | `end-of-line` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
+| ACT-047 | `end-of-line` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-end-of-line | implemented but unverified |
 | ACT-048 | `exclude` | - | - | unstarted |
 | ACT-049 | `exclude-multi` | - | - | unstarted |
 | ACT-050 | `execute` | src/bind.c, src/ui.c | - | implemented |
 | ACT-051 | `execute-multi` | src/bind.c, src/ui.c | - | implemented |
 | ACT-052 | `execute-silent` | src/bind.c, src/ui.c | - | implemented |
 | ACT-053 | `first` | src/bind.c, src/ui.c | - | implemented |
-| ACT-054 | `forward-char` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
+| ACT-054 | `forward-char` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-forward-char | implemented but unverified |
 | ACT-055 | `forward-subword` | - | - | unstarted |
-| ACT-056 | `forward-word` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
+| ACT-056 | `forward-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-forward-word | implemented but unverified |
 | ACT-057 | `half-page-down` | src/bind.c, src/ui.c | - | implemented |
 | ACT-058 | `half-page-up` | src/bind.c, src/ui.c | - | implemented |
 | ACT-059 | `hide-header` | src/bind.c, src/ui.c | - | implemented |
 | ACT-061 | `hide-preview` | src/bind.c, src/ui.c | - | implemented |
 | ACT-062 | `jump` | - | - | unstarted |
 | ACT-063 | `jump-accept` | - | - | unstarted |
-| ACT-064 | `kill-line` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
-| ACT-066 | `kill-word` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
+| ACT-064 | `kill-line` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-kill-line | implemented but unverified |
+| ACT-066 | `kill-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-kill-word | implemented but unverified |
 | ACT-067 | `last` | src/bind.c, src/ui.c | - | implemented |
 | ACT-068 | `next-history` | src/bind.c, src/ui.c | - | implemented |
 | ACT-069 | `offset-down` | src/bind.c, src/ui.c | - | implemented |
