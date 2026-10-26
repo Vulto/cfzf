@@ -142,6 +142,8 @@ check "header-lines-two" --filter=a --header-lines=2
 check "header-lines-zero" --filter=a --header-lines=0
 check "gap-default" --gap --filter=a
 check "gap-explicit-value" --gap 2 --filter=a
+check "no-gap" --no-gap --filter=a
+check "no-gap-line" --no-gap-line --filter=a
 
 check_invalid_option() {
     desc=$1
