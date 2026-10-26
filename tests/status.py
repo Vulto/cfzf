@@ -64,6 +64,7 @@ def main() -> int:
     total_rows = 0
     missing_ids_total = 0
     named_case_refs = 0
+    suite_only_refs = 0
     for section, expected in EXPECTED.items():
         entries = rows[section]
         ids = [entry["id"] for entry in entries]
@@ -119,12 +120,15 @@ def main() -> int:
                             errors.append(
                                 f"line {entry['line']}: referenced test case does not exist: {reference}"
                             )
+                    else:
+                        suite_only_refs += 1
 
     print("")
     print(f"Inventory rows present: {total_rows}")
     print(f"Declared verified rows (not independently audited): {declared_verified}")
     print(f"Missing canonical inventory IDs: {missing_ids_total}")
     print(f"Named test-case references: {named_case_refs}")
+    print(f"Suite-only references: {suite_only_refs}")
     print("Feature completion percentage: NOT CALCULABLE")
     print("Reason: named test-case references establish traceability, not observed")
     print("test outcomes. A passing suite does not prove every feature marked")
