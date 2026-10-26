@@ -89,6 +89,8 @@ check "exact"          --filter=ch --exact
 check "exact-short-alias" --filter=ch -e
 check "ignore-case-short-alias" --filter=CH -i
 check "no-extended-short-alias" --filter=ch +x
+check "extended-exact" --filter=cr --extended-exact
+check "no-exact-alias" --filter=cr --exact +e
 check "extended-off"   --filter=ch --no-extended
 check "extended-on"    --filter=ch --extended
 check "smart-case"     --filter=CH
@@ -137,6 +139,11 @@ check "accept-nth-template" --filter=alpha --delimiter=: --accept-nth='Index: {n
 
 # Output control.
 check "print-query"    --filter=a --print-query
+check "no-print-query" --filter=a --print-query --no-print-query
+check "no-print0" --filter=a --print0 --no-print0
+check "exit-zero-short-alias-does-not-enable-read0" --filter=a -0
+check "no-exit-zero-short-alias-does-not-disable-read0" --filter=a +0
+check "no-select-one-short-alias" --filter=a +1
 check "tail=3"         --filter=a --tail=3
 check "multi"          --filter=a --multi
 check "select-1"       --filter=a --select-1
