@@ -33,7 +33,7 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
 /* --- query buffer helpers --- */
 static void query_set(mm_ui_t *ui, const char *s) {
     size_t n = strlen(s);
-    if (n == SIZE_MAX) return;
+    if (n > INT_MAX) return;
     if (n + 1 > ui->query_cap) {
         size_t nc = ui->query_cap ? ui->query_cap : 64;
         while (n + 1 > nc) {
@@ -50,7 +50,7 @@ static void query_set(mm_ui_t *ui, const char *s) {
     }
     memcpy(ui->query_buf, s, n + 1);
     ui->query_len = n;
-    ui->query_pos = n > INT_MAX ? INT_MAX : (int)n;
+    ui->query_pos = (int)n;
 }
 
 static void query_insert(mm_ui_t *ui, const char *s, size_t n) {
