@@ -141,6 +141,7 @@ check "header-lines-one" --filter=a --header-lines=1
 check "header-lines-two" --filter=a --header-lines=2
 check "header-lines-zero" --filter=a --header-lines=0
 check "no-header-lines" --filter=a --header-lines=1 --no-header-lines
+check "no-header" --filter=a --header=sample --no-header
 check "threads-zero-default" --filter=alpha --threads=0
 check "gap-default" --gap --filter=a
 check "gap-explicit-value" --gap 2 --filter=a
@@ -184,6 +185,7 @@ check_invalid_option "scroll-off-missing" 'invalid --scroll-off value' --filter=
 check_invalid_option "hscroll-off-missing" 'invalid --hscroll-off value' --filter=a --hscroll-off
 check_invalid_option "tabstop-missing" 'invalid --tabstop value' --filter=a --tabstop
 check_invalid_option "history-size-missing" 'invalid --history-size value' --filter=a --history-size
+check_invalid_option "header-missing" '--header requires a value' --filter=a --header
 
 # Exercise stdin reading and output at an exact 4 MiB boundary.
 BOUNDARY="$WORK/exact-4mib.txt"
