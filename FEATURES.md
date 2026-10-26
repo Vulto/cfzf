@@ -103,7 +103,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-074 | `--no-expect` | - | tests/batch-diff.sh | verified |
 | OPT-075 | `--no-extended` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-076 | `--no-header-lines-border` | - | - | unstarted |
-| OPT-077 | `--no-hscroll` | src/main.c | tests/pty-diff.sh | verified |
+| OPT-077 | `--no-hscroll` | src/main.c, src/ui.c | tests/pty-diff.sh:no-hscroll-match-visible | implemented but unverified |
 | OPT-078 | `--no-ignore-case` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-079 | `--no-info` | - | tests/batch-diff.sh | verified |
 | OPT-080 | `--no-input` | src/main.c | - | implemented |
@@ -262,7 +262,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-099 | `toggle-all` | src/bind.c, src/ui.c | - | implemented |
 | ACT-101 | `toggle-down` | src/bind.c, src/ui.c | - | implemented |
 | ACT-102 | `toggle-header` | src/bind.c, src/ui.c | - | implemented |
-| ACT-103 | `toggle-hscroll` | src/bind.c, src/ui.c | - | implemented |
+| ACT-103 | `toggle-hscroll` | src/bind.c, src/ui.c | tests/pty-diff.sh:toggle-hscroll-action | implemented but unverified |
 | ACT-104 | `toggle-in` | - | - | unstarted |
 | ACT-105 | `toggle-input` | - | - | unstarted |
 | ACT-106 | `toggle-multi-line` | - | - | unstarted |
