@@ -258,6 +258,10 @@ send c
 sleep 250'                                        "$WORK/paths.txt"
 
 run_case 'reverse'      'sleep 300'            "$WORK/items.txt" --reverse
+run_case 'gap-default-layout' 'sleep 300' "$WORK/items.txt" --gap
+run_case 'gap-disabled-layout' 'sleep 300' "$WORK/items.txt" --no-gap
+run_case 'gap-line-layout' 'sleep 300' "$WORK/items.txt" --gap=1 --gap-line='-'
+run_case 'gap-line-disabled-layout' 'sleep 300' "$WORK/items.txt" --gap=1 --no-gap-line
 run_case 'style-default' 'sleep 300'           "$WORK/items.txt" --style=default
 run_case 'style-default-border' 'sleep 300'    "$WORK/items.txt" --style=default --border=rounded
 run_case 'list-border-default' 'sleep 300'   "$WORK/items.txt" --list-border
