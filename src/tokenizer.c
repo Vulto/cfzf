@@ -315,7 +315,7 @@ bool mm_parse_ranges(const char *str, mm_range_t **out, int *outn) {
 }
 
 static bool is_awk_token_white(char c) {
-    return c == '\\t' || c == ' ' || c == '\\n';
+    return c == '\t' || c == ' ' || c == '\n';
 }
 
 static bool is_unicode_space(wchar_t c) {
