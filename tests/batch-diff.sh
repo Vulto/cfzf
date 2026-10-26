@@ -174,6 +174,7 @@ check_invalid_option "scroll-off-invalid" 'invalid --scroll-off value' --filter=
 check_invalid_option "hscroll-off-negative" 'invalid --hscroll-off value' --filter=a --hscroll-off=-1
 check_invalid_option "tabstop-zero" 'invalid --tabstop value' --filter=a --tabstop=0
 check_invalid_option "history-size-invalid" 'invalid --history-size value' --filter=a --history-size=bad
+check_invalid_option "history-size-zero" 'invalid --history-size value' --filter=a --history-size=0
 check_invalid_option "multi-max-missing" 'invalid --multi-max value' --filter=a --multi-max
 check_invalid_option "scroll-off-missing" 'invalid --scroll-off value' --filter=a --scroll-off
 check_invalid_option "hscroll-off-missing" 'invalid --hscroll-off value' --filter=a --hscroll-off
