@@ -167,6 +167,57 @@ key ctrl-k
 sleep 200
 key enter
 sleep 200' "$WORK/items.txt"
+run_case 'bind-backward-char' 'sleep 250
+send banana
+sleep 100
+key ctrl-x
+send X
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:backward-char
+run_case 'bind-forward-char' 'sleep 250
+send banana
+sleep 100
+key home
+key ctrl-x
+send X
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:forward-char
+run_case 'bind-beginning-of-line' 'sleep 250
+send banana
+sleep 100
+key ctrl-x
+send X
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:beginning-of-line
+run_case 'bind-end-of-line' 'sleep 250
+send banana
+sleep 100
+key home
+key ctrl-x
+send X
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:end-of-line
+run_case 'bind-backward-word' 'sleep 250
+send apple banana
+sleep 100
+key ctrl-x
+send X
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:backward-word
+run_case 'bind-forward-word' 'sleep 250
+send apple banana
+sleep 100
+key home
+key ctrl-x
+send X
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:forward-word
 run_case 'no-match'     'sleep 350
 send zzzz
 sleep 250'                                        "$WORK/items.txt"
