@@ -500,16 +500,10 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--marker-multi-line")) { if (i+1<argc) marker_multi_line = argv[++i]; }
         else if (!strcmp(a, "--no-marker-multi-line")) marker_multi_line = NULL;
         else if (ARG_EQ("--threads")) {
-            if (!parse_nonnegative_int(a + 10, &threads)) {
-                fprintf(stderr, "invalid --threads value: %s\n", a + 10);
-                return 2;
-            }
+            if (!parse_cli_positive("--threads", a + 10, &threads)) return 2;
         }
         else if (!strcmp(a, "--threads")) {
-            if (i + 1 >= argc || !parse_nonnegative_int(argv[++i], &threads)) {
-                fprintf(stderr, "invalid --threads value\n");
-                return 2;
-            }
+            if (i + 1 >= argc || !parse_cli_positive("--threads", argv[++i], &threads)) return 2;
         }
         else if (!strcmp(a, "--track")) track = true;
         else if (!strcmp(a, "--no-track")) track = false;
