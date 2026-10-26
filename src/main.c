@@ -503,7 +503,11 @@ int main(int argc, char **argv) {
             if (!parse_cli_positive("--threads", a + 10, &threads)) return 2;
         }
         else if (!strcmp(a, "--threads")) {
-            if (i + 1 >= argc || !parse_cli_positive("--threads", argv[++i], &threads)) return 2;
+            if (i + 1 >= argc) {
+                (void)parse_cli_positive("--threads", NULL, &threads);
+                return 2;
+            }
+            if (!parse_cli_positive("--threads", argv[++i], &threads)) return 2;
         }
         else if (!strcmp(a, "--track")) track = true;
         else if (!strcmp(a, "--no-track")) track = false;
