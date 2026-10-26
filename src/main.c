@@ -375,7 +375,14 @@ int main(int argc, char **argv) {
             if (!parse_cli_nonnegative("--gap", a + 6, &gap)) return 2;
         }
         else if (!strcmp(a, "--gap")) {
-            if (i + 1 >= argc || !parse_cli_nonnegative("--gap", argv[++i], &gap)) return 2;
+            gap = 1;
+            if (i + 1 < argc) {
+                int value;
+                if (parse_nonnegative_int(argv[i + 1], &value)) {
+                    gap = value;
+                    i++;
+                }
+            }
         }
         else if (ARG_EQ("--gap-line")) gap_line = a + 11;
         else if (!strcmp(a, "--gap-line")) { if (i+1<argc) gap_line = argv[++i]; }
