@@ -3248,6 +3248,10 @@ void mm_ui_free(mm_ui_t *ui) {
     }
     free(ui->items);
     free(ui->selected);
+    free(ui->sel_order);
+    ui->sel_order = NULL;
+    ui->sel_order_n = 0;
+    ui->sel_order_cap = 0;
     free(ui->results);
     free(ui->search_results);
     free(ui->pending_track_key);
