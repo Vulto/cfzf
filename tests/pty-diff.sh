@@ -16,6 +16,7 @@ if [ ! -x "$IMPL" ]; then
 fi
 
 printf 'apple\nbanana\ncherry\ndate\nelderberry\n' > "$WORK/items.txt"
+printf '10 alpha\n20 beta\n30 gamma\n' > "$WORK/id-items.txt"
 printf 'src/main.c\nsrc/util.c\nlib/foo.c\nREADME.md\n' > "$WORK/paths.txt"
 # A longer list, so that the list has to scroll.
 i=0; : > "$WORK/many.txt"
@@ -468,6 +469,7 @@ run_reload_track_case() {
     fi
 }
 run_reload_track_case 'action-reload-track' '--track'
+run_case 'id-nth-reload-track' 'sleep 250\nkey down\nsleep 100\nkey ctrl-r\nsleep 300\nkey enter\nsleep 200' "$WORK/id-items.txt" --track --id-nth=1 --bind='ctrl-r:reload(printf "20 beta updated\\n10 alpha\\n30 gamma\\n")'
 
 run_preview_case 'layout-reverse-list' --layout=reverse-list
 run_preview_case 'no-bold'           --no-bold
