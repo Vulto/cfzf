@@ -2523,6 +2523,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui_search(ui);
         break;
     case MM_ACT_TOGGLE_TRACK:
+        ui->track = !ui->track;
         break;
     case MM_ACT_TOGGLE_TRACK_CURRENT:
         break;
@@ -2533,6 +2534,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui->wrap_word = !ui->wrap_word;
         break;
     case MM_ACT_TRACK:
+        ui->track = true;
         break;
     case MM_ACT_UNBIND:
         break;
