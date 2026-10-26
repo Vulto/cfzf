@@ -1278,6 +1278,37 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--algo")) { const char *al = required_cli_arg(argc, argv, &i, "--algo"); if (!al) return 2; int version = !strcmp(al, "v1") ? 1 : !strcmp(al, "v2") ? 2 : 0; if (!version || !mm_algo_set_version(version)) { fprintf(stderr, "invalid algorithm: %s\n", al); return 2; } }
         else if (!strcmp(a, "--version")) { show_version = true; show_help = false; }
         else if (!strcmp(a, "--help") || !strcmp(a, "-h")) { show_help = true; show_version = false; }
+        else if (!strcmp(a, "--no-winpty") ||
+                 !strcmp(a, "--no-tmux") ||
+                 !strcmp(a, "--no-popup") ||
+                 !strcmp(a, "--force-tty-in") ||
+                 !strcmp(a, "--no-force-tty-in") ||
+                 !strcmp(a, "--no-keep-right") ||
+                 !strcmp(a, "--hscroll") ||
+                 !strcmp(a, "--no-sync") ||
+                 !strcmp(a, "--async") ||
+                 !strcmp(a, "--no-preview-border") ||
+                 !strcmp(a, "--no-height") ||
+                 !strcmp(a, "--no-margin") ||
+                 !strcmp(a, "--no-padding") ||
+                 !strcmp(a, "--no-list-border") ||
+                 !strcmp(a, "--no-list-label") ||
+                 !strcmp(a, "--no-header-border") ||
+                 !strcmp(a, "--no-header-label") ||
+                 !strcmp(a, "--no-footer-border") ||
+                 !strcmp(a, "--no-footer-label") ||
+                 !strcmp(a, "--no-input-border") ||
+                 !strcmp(a, "--no-input-label") ||
+                 !strcmp(a, "--no-border-label") ||
+                 !strcmp(a, "--no-preview-label") ||
+                 !strcmp(a, "--no-listen") ||
+                 !strcmp(a, "--no-listen-unsafe") ||
+                 !strcmp(a, "--no-black") ||
+                 !strcmp(a, "--bold") ||
+                 !strcmp(a, "--multi-line") ||
+                 !strcmp(a, "--clear")) {
+            /* UI-only flags do not change batch filtering semantics. */
+        }
         else if ((a[0] == '-' || a[0] == '+') && a[1] != 0) {
             /* fzf rejects unknown options (PLAN: no silently ignored flags). */
             fprintf(stderr, "unknown option: %s\n", a);
