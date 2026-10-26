@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 bool mm_scheme_criteria(const char *scheme, mm_sort_criteria_t *out) {
+    if (!out) return false;
     if (!scheme || strcmp(scheme, "default") == 0) {
         out->crit[0] = BY_SCORE; out->crit[1] = BY_LENGTH; out->count = 2;
         return true;
