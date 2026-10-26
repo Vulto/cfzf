@@ -820,9 +820,13 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         used += ui_str_width(ui->ghost);
     }
     ui_clear_to_eol(promptwin, list_w, used, MM_COL_DEFAULT);
-    /* Leave the terminal cursor at the end of the query, like fzf. */
+    /* Keep the terminal cursor aligned with the UTF-8 query insertion point. */
+    char saved = ui->query_buf[ui->query_pos];
+    ui->query_buf[ui->query_pos] = '\0';
+    int query_cursor_width = ui_str_width(ui->query_buf);
+    ui->query_buf[ui->query_pos] = saved;
     mm_window_move(promptwin, prompt_row,
-                   area_x + content_x + ui_str_width(pr) + ui_str_width(ui->query_buf));
+                   area_x + content_x + ui_str_width(pr) + query_cursor_width);
 
     /* When the info line is hidden, fzf draws a separator in its place. */
     if (!ui->info) {
