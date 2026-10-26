@@ -142,10 +142,8 @@ check_invalid_option() {
     desc=$1
     expected=$2
     shift 2
-    set +e
     "$IMPL" "$@" < "$CORPUS" > "$WORK/impl.out" 2> "$WORK/impl.err"
     rc=$?
-    set -e
     if [ "$rc" -eq 2 ] && grep -q "$expected" "$WORK/impl.err"; then
         pass=$((pass + 1))
         [ -n "${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
