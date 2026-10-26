@@ -1063,7 +1063,7 @@ int main(int argc, char **argv) {
                 bool size_overflow = false;
                 for (int i = 0; i < npaths; i++) {
                     size_t path_len = strlen(paths[i]);
-                    if (path_len > SIZE_MAX - total - 1) {
+                    if (total == SIZE_MAX || path_len > SIZE_MAX - total - 1) {
                         size_overflow = true;
                         break;
                     }
