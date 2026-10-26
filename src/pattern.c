@@ -417,6 +417,7 @@ static mm_match_t run_term_tokens(const mm_term_t *t, const mm_token_t *tokens, 
                     m.pos = span > 0 ? malloc((size_t)span * sizeof(int)) : NULL;
                     if (span > 0 && !m.pos) {
                         mm_match_free(&m);
+                        best.result.start = -2; /* distinguish OOM from no match */
                         return best;
                     }
                     for (int k = 0; k < span; k++)
@@ -473,6 +474,11 @@ bool mm_pattern_match_tokens(const mm_pattern_t *p, const mm_token_t *tokens, in
         for (int j = 0; j < ts->count; j++) {
             mm_term_t *t = &ts->terms[j];
             mm_match_t m = run_term_tokens(t, tokens, ntokens, p->forward, p->with_pos);
+            if (m.result.start == -2) {
+                free(curpos);
+                free(allpos);
+                return false;
+            }
             if (m.result.start >= 0) {
                 if (t->inv) { mm_match_free(&m); continue; }
                 matched = true;
