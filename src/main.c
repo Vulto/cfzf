@@ -409,11 +409,17 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--expect")) expect = true;
         else if (!strcmp(a, "--no-expect")) expect = false;
         else if (ARG_EQ("--walker")) walker_spec = a + 9;
-        else if (!strcmp(a, "--walker")) { if (i+1<argc) walker_spec = argv[++i]; }
+        else if (!strcmp(a, "--walker")) {
+            walker_spec = required_cli_arg(argc, argv, &i, "--walker");
+            if (!walker_spec) return 2;
+        }
         else if (ARG_EQ("--walker-root")) walker_root = a + 14;
         else if (!strcmp(a, "--walker-root")) { if (i+1<argc) walker_root = argv[++i]; }
         else if (ARG_EQ("--walker-skip")) walker_skip = a + 14;
-        else if (!strcmp(a, "--walker-skip")) { if (i+1<argc) walker_skip = argv[++i]; }
+        else if (!strcmp(a, "--walker-skip")) {
+            walker_skip = required_cli_arg(argc, argv, &i, "--walker-skip");
+            if (!walker_skip) return 2;
+        }
         else if (!strcmp(a, "--no-bold")) no_bold = true;
         else if (ARG_EQ("--gap")) {
             if (!parse_cli_nonnegative("--gap", a + 6, &gap)) return 2;
