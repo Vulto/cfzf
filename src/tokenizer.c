@@ -165,15 +165,26 @@ char *mm_accept_nth_expand(const char *spec, const char *line,
                 if (numeric) {
                     char *expression = strndup(token, token_len);
                     if (!expression) goto fail;
-                    char *fields = accept_nth_fields(line, delim,
-                                                     expression, true);
-                    free(expression);
-                    if (fields) {
+                    mm_range_t *ranges = NULL;
+                    int nranges = 0;
+                    bool valid = mm_parse_ranges(expression, &ranges, &nranges);
+                    free(ranges);
+                    if (valid) {
+                        char *fields = accept_nth_fields(line, delim,
+                                                         expression, true);
+                        if (!fields) {
+                            free(expression);
+                            goto fail;
+                        }
                         bool ok = append_text(&out, &length, &capacity,
                                               fields, strlen(fields));
                         free(fields);
-                        if (!ok) goto fail;
+                        if (!ok) {
+                            free(expression);
+                            goto fail;
+                        }
                     }
+                    free(expression);
                     i = (size_t)(end - spec) + 1;
                     continue;
                 }
