@@ -6,53 +6,126 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
+#include <limits.h>
+#include <stdint.h>
+
+static bool parse_range_int(const char *s, size_t len, int *out) {
+    if (!s || len == 0) return false;
+    char stack[64];
+    char *buf = stack;
+    if (len >= sizeof(stack)) {
+        buf = malloc(len + 1);
+        if (!buf) return false;
+    }
+    memcpy(buf, s, len);
+    buf[len] = 0;
+    char *end = NULL;
+    errno = 0;
+    long value = strtol(buf, &end, 10);
+    bool ok = errno != ERANGE && end != buf && *end == 0 &&
+              value >= INT_MIN && value <= INT_MAX;
+    if (buf != stack) free(buf);
+    if (!ok) return false;
+    *out = (int)value;
+    return true;
+}
 
 bool mm_parse_range(const char *s, mm_range_t *out) {
-    if (strcmp(s, "..") == 0) { out->begin = MM_RANGE_ELLIPSIS; out->end = MM_RANGE_ELLIPSIS; return true; }
-    if (strncmp(s, "..", 2) == 0) {
-        char *endp; long e = strtol(s + 2, &endp, 10);
-        if (*endp != 0 || e == 0) return false;
-        out->begin = MM_RANGE_ELLIPSIS; out->end = (int)e; return true;
+    if (!s || !out || !*s) return false;
+    if (strcmp(s, "..") == 0) {
+        out->begin = MM_RANGE_ELLIPSIS;
+        out->end = MM_RANGE_ELLIPSIS;
+        return true;
     }
-    size_t n = strlen(s);
-    if (n >= 2 && strcmp(s + n - 2, "..") == 0) {
-        char *tmp = strndup(s, n - 2);
-        char *endp; long b = strtol(tmp, &endp, 10);
-        bool ok = (*endp == 0 && b != 0);
-        free(tmp);
-        if (!ok) return false;
-        out->begin = (int)b; out->end = MM_RANGE_ELLIPSIS; return true;
+
+    const char *dots = strstr(s, "..");
+    if (!dots) {
+        int value;
+        if (!parse_range_int(s, strlen(s), &value) || value == 0) return false;
+        out->begin = value;
+        out->end = value;
+        return true;
     }
-    const char *dot = strstr(s, "..");
-    if (dot) {
-        char *a = strndup(s, (size_t)(dot - s));
-        char *endp1; long b = strtol(a, &endp1, 10); bool ok1 = (*endp1 == 0);
-        char *endp2; long e = strtol(dot + 2, &endp2, 10); bool ok2 = (*endp2 == 0);
-        free(a);
-        if (!ok1 || !ok2 || b == 0 || e == 0 || (b < 0 && e > 0)) return false;
-        out->begin = (int)b; out->end = (int)e; return true;
+
+    /* More than one range separator is not a valid nth expression. */
+    if (strstr(dots + 2, "..")) return false;
+    size_t left_len = (size_t)(dots - s);
+    const char *right = dots + 2;
+    if (left_len == 0) {
+        int end;
+        if (!*right) {
+            out->begin = MM_RANGE_ELLIPSIS;
+            out->end = MM_RANGE_ELLIPSIS;
+            return true;
+        }
+        if (!parse_range_int(right, strlen(right), &end) || end == 0) return false;
+        out->begin = MM_RANGE_ELLIPSIS;
+        out->end = end;
+        return true;
     }
-    char *endp; long v = strtol(s, &endp, 10);
-    if (*endp != 0 || v == 0) return false;
-    out->begin = (int)v; out->end = (int)v; return true;
+    if (!*right) {
+        int begin;
+        if (!parse_range_int(s, left_len, &begin) || begin == 0) return false;
+        out->begin = begin;
+        out->end = MM_RANGE_ELLIPSIS;
+        return true;
+    }
+
+    int begin, end;
+    if (!parse_range_int(s, left_len, &begin) ||
+        !parse_range_int(right, strlen(right), &end) ||
+        begin == 0 || end == 0 || (begin < 0 && end > 0))
+        return false;
+    out->begin = begin;
+    out->end = end;
+    return true;
 }
 
 bool mm_parse_ranges(const char *str, mm_range_t **out, int *outn) {
+    if (!out || !outn) return false;
+    *out = NULL;
+    *outn = 0;
+    if (!str || !*str) return false;
+
     int cap = 4, n = 0;
-    mm_range_t *rs = malloc((size_t)cap * sizeof(mm_range_t));
-    char *dup = strdup(str);
-    if (!rs || !dup) { free(rs); free(dup); *out = NULL; *outn = 0; return false; }
-    char *save = NULL;
-    for (char *tok = strtok_r(dup, ",", &save); tok; tok = strtok_r(NULL, ",", &save)) {
-        mm_range_t r;
-        if (!mm_parse_range(tok, &r)) { free(dup); free(rs); return false; }
-        if (n == cap) { cap *= 2; rs = realloc(rs, (size_t)cap * sizeof(mm_range_t)); }
-        rs[n++] = r;
+    mm_range_t *ranges = malloc((size_t)cap * sizeof(*ranges));
+    if (!ranges) return false;
+
+    const char *start = str;
+    for (const char *p = str;; p++) {
+        if (*p != ',' && *p != 0) continue;
+        mm_range_t range;
+        if (p == start || !mm_parse_range(strndup(start, (size_t)(p - start)), &range)) {
+            /* Avoid allocating a temporary string for malformed empty fields. */
+            free(ranges);
+            return false;
+        }
+        if (n == cap) {
+            if (cap > INT_MAX / 2) {
+                free(ranges);
+                return false;
+            }
+            int new_cap = cap * 2;
+            if ((size_t)new_cap > SIZE_MAX / sizeof(*ranges)) {
+                free(ranges);
+                return false;
+            }
+            mm_range_t *grown = realloc(ranges, (size_t)new_cap * sizeof(*ranges));
+            if (!grown) {
+                free(ranges);
+                return false;
+            }
+            ranges = grown;
+            cap = new_cap;
+        }
+        ranges[n++] = range;
+        if (*p == 0) break;
+        start = p + 1;
     }
-    free(dup);
-    if (n == 0) { free(rs); return false; }
-    *out = rs; *outn = n;
-    return true;
+    *out = ranges;
+    *outn = n;
+    return n > 0;
 }
 
 static bool is_awk_white(char c) { return c == '\t' || c == ' ' || c == '\n'; }
