@@ -240,7 +240,14 @@ static bool parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
                 if (setcnt == setcap) {
                     int ncap = setcap * 2;
                     mm_termset_t *ns = realloc(sets, (size_t)ncap * sizeof(mm_termset_t));
-                    if (!ns) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
+                    if (!ns) {
+                        free(tbuf);
+                        free(owned);
+                        parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks);
+                        *out_sets = NULL;
+                        *out_nsets = 0;
+                        return false;
+                    }
                     sets = ns; setcap = ncap;
                 }
                 sets[setcnt].terms = set; sets[setcnt].count = setn;
