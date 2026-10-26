@@ -143,7 +143,11 @@ bool mm_parse_ranges(const char *str, mm_range_t **out, int *outn) {
     return n > 0;
 }
 
-static bool is_awk_white(wchar_t c) {
+static bool is_awk_token_white(char c) {
+    return c == '\\t' || c == ' ' || c == '\\n';
+}
+
+static bool is_unicode_space(wchar_t c) {
     return (c >= 0x0009 && c <= 0x000D) || c == 0x0020 ||
            c == 0x0085 || c == 0x00A0 || c == 0x1680 ||
            (c >= 0x2000 && c <= 0x200A) || c == 0x2028 ||
@@ -185,12 +189,10 @@ static char **awk_tokenize(const char *input, int *prefix_length, int *outn) {
         return NULL;
     }
     int state = 0; /* 0=nil 1=black 2=white */
-    size_t begin = 0, end = 0, length = strlen(input), idx = 0;
-    while (idx < length) {
-        wchar_t rune = 0;
-        size_t used = mm_utf8_decode(input + idx, length - idx, &rune);
-        if (used == 0 || used > length - idx) used = 1;
-        bool white = is_awk_white(rune);
+    size_t begin = 0, end = 0, length = strlen(input);
+    for (size_t idx = 0; idx < length; idx++) {
+        char c = input[idx];
+        bool white = is_awk_token_white(c);
         switch (state) {
         case 0:
             if (white) {
@@ -204,15 +206,15 @@ static char **awk_tokenize(const char *input, int *prefix_length, int *outn) {
             } else {
                 state = 1;
                 begin = idx;
-                end = idx + used;
+                end = idx + 1;
             }
             break;
         case 1:
-            end = idx + used;
+            end = idx + 1;
             if (white) state = 2;
             break;
         case 2:
-            if (white) end = idx + used;
+            if (white) end = idx + 1;
             else {
                 if (!append_token(&ret, &n, &cap, input + begin, end - begin)) {
                     free_tokens(ret, n);
@@ -222,11 +224,10 @@ static char **awk_tokenize(const char *input, int *prefix_length, int *outn) {
                 }
                 state = 1;
                 begin = idx;
-                end = idx + used;
+                end = idx + 1;
             }
             break;
         }
-        idx += used;
     }
     if (begin < end && !append_token(&ret, &n, &cap, input + begin, end - begin)) {
         free_tokens(ret, n);
@@ -415,7 +416,7 @@ char *mm_strip_last_delimiter(const char *str, mm_delimiter_t delim) {
         wchar_t rune = 0;
         size_t used = mm_utf8_decode(str + idx, length - idx, &rune);
         if (used == 0 || used > length - idx) used = 1;
-        if (!is_awk_white(rune)) trim_end = idx + used;
+        if (!is_unicode_space(rune)) trim_end = idx + used;
         idx += used;
     }
     return strndup(str, trim_end);
