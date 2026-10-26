@@ -42,6 +42,8 @@ static bool runes_equal(const wchar_t *a, const wchar_t *b, int n) {
 /* Split on runs of spaces ("> +"). Handles "\ " as literal (replaced by TAB
    first, then restored). Returns array of token strings (malloc'd wchar arrays)
    and count. */
+static void free_tokens(wchar_t **t, int n);
+
 static wchar_t **split_tokens(const wchar_t *s, int n, int *outcount) {
     /* Replace "\ " with TAB marker, then split on spaces. */
     wchar_t *buf = malloc((size_t)(n + 1) * sizeof(wchar_t));
@@ -62,13 +64,24 @@ static wchar_t **split_tokens(const wchar_t *s, int n, int *outcount) {
         if ((is_space || i == m) && start >= 0) {
             int len = i - start;
             wchar_t *t = malloc((size_t)(len + 1) * sizeof(wchar_t));
-            if (!t) { free(buf); *outcount = 0; return NULL; }
+            if (!t) {
+                free(buf);
+                free_tokens(toks, cnt);
+                *outcount = 0;
+                return NULL;
+            }
             for (int j = 0; j < len; j++) t[j] = buf[start + j] == 0x09 ? ' ' : buf[start + j];
             t[len] = 0;
             if (cnt == cap) {
                 int ncap = cap * 2;
                 wchar_t **nt = realloc(toks, (size_t)ncap * sizeof(wchar_t *));
-                if (!nt) { free(t); free(buf); *outcount = 0; return NULL; }
+                if (!nt) {
+                    free(t);
+                    free(buf);
+                    free_tokens(toks, cnt);
+                    *outcount = 0;
+                    return NULL;
+                }
                 toks = nt; cap = ncap;
             }
             toks[cnt++] = t;
