@@ -351,12 +351,30 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                         return NULL;
                     }
                 }
+                int decoded_count = 0;
+                bool decoded_ok = true;
                 for (int k = 0; k < nout; k++) {
                     mchars_init(&stk_text[k], outs[k]);
-                    mchars_decode(&stk_text[k]);
+                    decoded_count++;
+                    if (!mchars_decode(&stk_text[k])) {
+                        decoded_ok = false;
+                        break;
+                    }
                     toks[k].text.runes = stk_text[k].runes;
                     toks[k].text.length = stk_text[k].length;
                     toks[k].prefix_length = opl ? opl[k] : 0;
+                }
+                if (!decoded_ok) {
+                    for (int k = 0; k < decoded_count; k++) mchars_free(&stk_text[k]);
+                    for (int k = 0; k < ntok_in; k++) free(tokens[k]);
+                    free(tokens); free(tpl);
+                    for (int k = 0; k < nout; k++) free(outs[k]);
+                    free(outs); free(opl);
+                    if (heap) {
+                        free(toks);
+                        if (stk_text != stack_text) free(stk_text);
+                    }
+                    continue;
                 }
                 for (int k = 0; k < ntok_in; k++) free(tokens[k]);
                 free(tokens); free(tpl);
