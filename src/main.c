@@ -1011,6 +1011,8 @@ int main(int argc, char **argv) {
         }
     }
 
+    mm_filter_set_threads(threads);
+
     if (!filter) {
         /* Interactive mode. */
         mm_ui_t ui;
