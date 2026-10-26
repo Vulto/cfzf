@@ -1902,6 +1902,11 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     FILE *fp = popen(cmd, "r");
     if (!fp) return;
 
+    char *track_key = NULL;
+    if (ui->id_nth_spec && (ui->track || ui->track_current) &&
+        ui->results && ui->cursor >= 0 && ui->cursor < ui->nresults)
+        track_key = ui_track_key_for(ui, ui->results[ui->cursor]);
+
     char **lines = NULL;
     int n = 0, cap = 0;
     bool failed = false;
@@ -1942,6 +1947,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     (void)pclose(fp);
 
     if (failed) {
+        free(track_key);
         for (int i = 0; i < n; i++) free(lines[i]);
         free(lines);
         return;
@@ -1949,12 +1955,16 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     /* An empty command output is a valid empty result set. */
     if (!lines) {
         lines = calloc(1, sizeof(*lines));
-        if (!lines) return;
+        if (!lines) {
+            free(track_key);
+            return;
+        }
     }
 
     mm_item_t *items = calloc((size_t)(n ? n : 1), sizeof(*items));
     bool *selected = calloc((size_t)(n ? n : 1), sizeof(*selected));
     if (!items || !selected) {
+        free(track_key);
         free(items);
         free(selected);
         for (int i = 0; i < n; i++) free(lines[i]);
@@ -1972,6 +1982,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
         mchars_decode(&items[i].text);
     }
     if (failed) {
+        free(track_key);
         for (int i = 0; i < initialized; i++) mm_item_free(&items[i]);
         free(items);
         free(selected);
@@ -1996,6 +2007,8 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     ui->nselected = 0;
     if (!ui->track && !ui->track_current) ui->cursor = 0;
     ui->offset = 0;
+    free(ui->pending_track_key);
+    ui->pending_track_key = track_key;
     ui_search(ui);
 }
 
