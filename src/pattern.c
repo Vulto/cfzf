@@ -115,16 +115,16 @@ static void parse_terms_cleanup(mm_termset_t *sets, int setcnt,
 }
 
 /* parse terms from an extended query */
-static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
+static bool parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
                         const wchar_t *str, int slen,
                         mm_termset_t **out_sets, int *out_nsets) {
     int ntoks = 0;
     wchar_t **tokens = split_tokens(str, slen, &ntoks);
-    if (!tokens) { *out_sets = NULL; *out_nsets = 0; return; }
+    if (!tokens) { *out_sets = NULL; *out_nsets = 0; return false; }
 
     int setcap = 8, setcnt = 0;
     mm_termset_t *sets = malloc((size_t)setcap * sizeof(mm_termset_t));
-    if (!sets) { free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+    if (!sets) { free_tokens(tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
 
     mm_term_t *set = NULL;
     int setn = 0, setalloc = 0;
@@ -136,7 +136,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
         int tlen = (int)wcslen(text);
         /* lowerText */
         wchar_t *lower = malloc((size_t)(tlen + 1) * sizeof(wchar_t));
-        if (!lower) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+        if (!lower) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
         for (int i = 0; i < tlen; i++) lower[i] = lower_ascii(text[i]);
         lower[tlen] = 0;
 
@@ -147,7 +147,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
         bool norm = false;
         if (normalize) {
             wchar_t *nn = malloc((size_t)(tlen + 1) * sizeof(wchar_t));
-            if (!nn) { free(lower); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+            if (!nn) { free(lower); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
             for (int i = 0; i < tlen; i++) nn[i] = mm_algo_normalize_rune(lower[i]);
             nn[tlen] = 0;
             norm = runes_equal(lower, nn, tlen);
@@ -176,7 +176,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
         after_bar = false;
 
         wchar_t *tbuf = malloc((size_t)(ftlen + 1) * sizeof(wchar_t));
-        if (!tbuf) { free(owned); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+        if (!tbuf) { free(owned); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
         wmemcpy(tbuf, finaltext, (size_t)ftlen);
         tbuf[ftlen] = 0;
         int tl = ftlen;
@@ -216,7 +216,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
                 if (setcnt == setcap) {
                     int ncap = setcap * 2;
                     mm_termset_t *ns = realloc(sets, (size_t)ncap * sizeof(mm_termset_t));
-                    if (!ns) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+                    if (!ns) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
                     sets = ns; setcap = ncap;
                 }
                 sets[setcnt].terms = set; sets[setcnt].count = setn;
@@ -224,14 +224,14 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
                 set = NULL; setn = 0; setalloc = 0;
             }
             wchar_t *textRunes = malloc((size_t)(tl + 1) * sizeof(wchar_t));
-            if (!textRunes) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+            if (!textRunes) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
             wmemcpy(textRunes, tbuf, (size_t)tl);
             textRunes[tl] = 0;
             if (norm) normalize_runes(textRunes, tl);
             if (setn == setalloc) {
                 int nalloc = setalloc ? setalloc * 2 : 4;
                 mm_term_t *nt = realloc(set, (size_t)nalloc * sizeof(mm_term_t));
-                if (!nt) { free(textRunes); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+                if (!nt) { free(textRunes); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
                 set = nt; setalloc = nalloc;
             }
             set[setn].typ = typ;
@@ -250,7 +250,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
         if (setcnt == setcap) {
             int ncap = setcap * 2;
             mm_termset_t *ns = realloc(sets, (size_t)ncap * sizeof(mm_termset_t));
-            if (!ns) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return; }
+            if (!ns) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
             sets = ns; setcap = ncap;
         }
         sets[setcnt].terms = set; sets[setcnt].count = setn;
@@ -259,6 +259,7 @@ static void parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
     free_tokens(tokens, ntoks);
     *out_sets = sets;
     *out_nsets = setcnt;
+    return true;
 }
 
 mm_pattern_t *mm_pattern_build(const char *query, bool fuzzy, bool extended,
@@ -292,7 +293,11 @@ mm_pattern_t *mm_pattern_build(const char *query, bool fuzzy, bool extended,
     p->sortable = true;
 
     if (extended) {
-        parse_terms(fuzzy, case_mode, normalize, runes, qlen, &p->term_sets, &p->ntermsets);
+        if (!parse_terms(fuzzy, case_mode, normalize, runes, qlen,
+                         &p->term_sets, &p->ntermsets)) {
+            mm_pattern_free(p);
+            return NULL;
+        }
         p->sortable = false;
         for (int i = 0; i < p->ntermsets; i++) {
             for (int j = 0; j < p->term_sets[i].count; j++) {
