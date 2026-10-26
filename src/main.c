@@ -458,6 +458,29 @@ static void *walk_thread_fn(void *arg) {
     return NULL;
 }
 
+static bool mm_parse_info_style(const char *value, bool *info,
+                                  bool *inline_right) {
+    if (!value || !info || !inline_right) return false;
+    if (!strcmp(value, "hidden")) {
+        *info = false;
+        *inline_right = false;
+        return true;
+    }
+    if (!strcmp(value, "inline-right") ||
+        !strncmp(value, "inline-right:", 13)) {
+        *info = true;
+        *inline_right = true;
+        return true;
+    }
+    if (!strcmp(value, "default") || !strcmp(value, "right") ||
+        !strcmp(value, "inline") || !strncmp(value, "inline:", 7)) {
+        *info = true;
+        *inline_right = false;
+        return true;
+    }
+    return false;
+}
+
 static bool mm_parse_label_pos(const char *s, int *pos, bool *bottom) {
     char *end = NULL;
     long v;
@@ -746,18 +769,27 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-cycle")) cycle = false;
         else if (!strcmp(a, "--reverse")) reverse = true;
         else if (!strcmp(a, "--no-reverse")) reverse = false;
-        else if (!strcmp(a, "--info")) { info = true; info_inline_right = false; }
-        else if (!strcmp(a, "--no-info")) { info = false; info_inline_right = false; }
-        else if (!strncmp(a, "--info=", 7)) {
-            const char *v = a + 7;
-            if (!strcmp(v, "default")) { info = true; info_inline_right = false; }
-            else if (!strcmp(v, "inline-right")) { info = true; info_inline_right = true; }
-            else if (!strcmp(v, "hidden")) { info = false; info_inline_right = false; }
-            else {
-                fprintf(stderr, "unsupported info style: %s\n", v);
+        else if (!strcmp(a, "--info")) {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "info style required\n");
+                return 2;
+            }
+            const char *v = argv[++i];
+            if (!mm_parse_info_style(v, &info, &info_inline_right)) {
+                fprintf(stderr, "invalid info style (expected: default|right|hidden|inline[-right][:PREFIX])\n");
                 return 2;
             }
         }
+        else if (!strcmp(a, "--no-info")) { info = false; info_inline_right = false; }
+        else if (ARG_EQ("--info")) {
+            const char *v = a + 7;
+            if (!mm_parse_info_style(v, &info, &info_inline_right)) {
+                fprintf(stderr, "invalid info style (expected: default|right|hidden|inline[-right][:PREFIX])\n");
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--inline-info")) { info = true; info_inline_right = false; }
+        else if (!strcmp(a, "--no-inline-info")) { info = true; info_inline_right = false; }
         else if (!strcmp(a, "--select-1") || !strcmp(a, "-1")) select_1 = true;
         else if (!strcmp(a, "--no-select-1") || !strcmp(a, "+1")) select_1 = false;
         else if (!strcmp(a, "--exit-0") || !strcmp(a, "-0")) exit_0 = true;
