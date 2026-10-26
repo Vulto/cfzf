@@ -1500,6 +1500,22 @@ int main(int argc, char **argv) {
     int n = 0;
     int *out = mm_batch_search(&input, pat, &crit, tac, &n, NULL);
     (void)no_sort; /* handled by pat->sortable */
+    if (!out) {
+        fprintf(stderr, "fzf: failed to filter input (out of memory)\\n");
+        mm_pattern_free(pat);
+        mm_delimiter_free(&delim);
+        free(nth);
+        if (wnth != nth) free(wnth);
+        for (int i = 0; i < count; i++) free(lines[i]);
+        free(lines);
+        free(data);
+        mm_keymap_free(&keymap);
+        for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
+        free(expect_keys);
+        for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
+        free(skip_names);
+        return 2;
+    }
 
     char osep = print0 ? '\0' : '\n';
     if (print_query) { fputs(filter, stdout); fputc(osep, stdout); }
@@ -1508,10 +1524,25 @@ int main(int argc, char **argv) {
         if (accept_nth_spec) {
             char *accepted = mm_accept_nth_expand(accept_nth_spec, line, delim,
                                                 out[i]);
-            if (accepted) {
-                fputs(accepted, stdout);
-                free(accepted);
+            if (!accepted) {
+                fprintf(stderr, "fzf: failed to format accepted item (out of memory)\\n");
+                free(out);
+                mm_pattern_free(pat);
+                mm_delimiter_free(&delim);
+                free(nth);
+                if (wnth != nth) free(wnth);
+                for (int j = 0; j < count; j++) free(lines[j]);
+                free(lines);
+                free(data);
+                mm_keymap_free(&keymap);
+                for (int j = 0; j < expect_n; j++) free(expect_keys[j]);
+                free(expect_keys);
+                for (int j = 0; j < nskip; j++) free((char *)skip_names[j]);
+                free(skip_names);
+                return 2;
             }
+            fputs(accepted, stdout);
+            free(accepted);
         } else {
             fputs(line, stdout);
         }
