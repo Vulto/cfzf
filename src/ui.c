@@ -19,6 +19,8 @@
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <locale.h>
+#include <limits.h>
+#include <stdint.h>
 
 #define MM_MIN_HEIGHT 1
 
@@ -2708,16 +2710,28 @@ int mm_ui_run(mm_ui_t *ui) {
 
 /* Make room for more items in the list. */
 static bool ui_grow(mm_ui_t *ui, int need) {
-    if (ui->count + need <= ui->lines_cap) return true;
-    int ncap = ui->lines_cap ? ui->lines_cap : 1024;
-    while (ncap < ui->count + need) ncap *= 2;
-    char **nl = realloc(ui->lines, sizeof(char *) * (size_t)ncap);
+    if (need < 0 || ui->count > INT_MAX - need) return false;
+    int required = ui->count + need;
+    if (required <= ui->lines_cap) return true;
+    int ncap = ui->lines_cap > 0 ? ui->lines_cap : 1024;
+    while (ncap < required) {
+        if (ncap > INT_MAX / 2) {
+            ncap = required;
+            break;
+        }
+        ncap *= 2;
+    }
+    if ((size_t)ncap > SIZE_MAX / sizeof(char *) ||
+        (size_t)ncap > SIZE_MAX / sizeof(mm_item_t) ||
+        (size_t)ncap > SIZE_MAX / sizeof(bool))
+        return false;
+    char **nl = realloc(ui->lines, sizeof(*nl) * (size_t)ncap);
     if (!nl) return false;
     ui->lines = nl;
-    mm_item_t *ni = realloc(ui->items, sizeof(mm_item_t) * (size_t)ncap);
+    mm_item_t *ni = realloc(ui->items, sizeof(*ni) * (size_t)ncap);
     if (!ni) return false;
     ui->items = ni;
-    bool *nsel = realloc(ui->selected, sizeof(bool) * (size_t)ncap);
+    bool *nsel = realloc(ui->selected, sizeof(*nsel) * (size_t)ncap);
     if (!nsel) return false;
     ui->selected = nsel;
     ui->lines_cap = ncap;
@@ -2753,9 +2767,20 @@ bool mm_ui_read_items(mm_ui_t *ui, int ttyin) {
             break;
         }
         if (n == 0) { ui->input_done = true; finished = true; break; }
-        if (ui->pending_len + (size_t)n + 1 > ui->pending_cap) {
+        if ((size_t)n > SIZE_MAX - ui->pending_len - 1) {
+            ui->input_done = true;
+            break;
+        }
+        size_t required = ui->pending_len + (size_t)n + 1;
+        if (required > ui->pending_cap) {
             size_t ncap = ui->pending_cap ? ui->pending_cap : 65536;
-            while (ncap < ui->pending_len + (size_t)n + 1) ncap *= 2;
+            while (ncap < required) {
+                if (ncap > SIZE_MAX / 2) {
+                    ncap = required;
+                    break;
+                }
+                ncap *= 2;
+            }
             char *np = realloc(ui->pending, ncap);
             if (!np) { ui->input_done = true; break; }
             ui->pending = np;
