@@ -116,6 +116,8 @@ check "delim-regex-zero-width" --filter=ba --delimiter='a*' --nth=2
 check "accept-nth-regex-delimiter" --filter=alpha --delimiter='[:_]' --accept-nth=2
 check "accept-nth-literal-trailing-delimiter" --filter=alpha --delimiter=: --accept-nth=2
 check "accept-nth-ranges" --filter=alpha --delimiter=: --accept-nth=1,2
+check "accept-nth-range-expression" --filter=alpha --delimiter=: --accept-nth=1..2
+check "accept-nth-range-template" --filter=alpha --delimiter=: --accept-nth='Fields: {1..2}'
 check "accept-nth-template" --filter=alpha --delimiter=: --accept-nth='Index: {n}, 1st: {1}, 2nd: {2}'
 
 # Output control.
