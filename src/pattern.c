@@ -324,7 +324,7 @@ bool mm_pattern_is_empty(const mm_pattern_t *p) {
 static mm_match_t run_term(const mm_term_t *t, const mm_text_t *text, bool forward, bool with_pos) {
     switch (t->typ) {
     case TERM_FUZZY:
-        return mm_fuzzy_match_v2(text, t->text, t->tlen, t->case_sensitive, t->normalize, forward, with_pos);
+        return mm_fuzzy_match(text, t->text, t->tlen, t->case_sensitive, t->normalize, forward, with_pos);
     case TERM_EXACT:
         return mm_exact_match_naive(text, t->text, t->tlen, t->case_sensitive, t->normalize, forward, with_pos);
     case TERM_EXACT_BOUNDARY:
