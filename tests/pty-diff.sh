@@ -81,6 +81,7 @@ run_case() {
 run_case 'initial'      'sleep 400'            "$WORK/items.txt"
 run_case 'track-current-item' 'sleep 250\nsend date\nsleep 200\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --track
 run_case 'track-toggle-action' 'sleep 250\nsend date\nsleep 200\nkey ctrl-t\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --bind=ctrl-t:toggle-track
+run_case 'track-toggle-disable-action' 'sleep 250\nsend date\nsleep 200\nkey ctrl-t\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --track --bind=ctrl-t:toggle-track
 run_case 'positional-query' 'sleep 350' "$WORK/items.txt" an
 run_case 'positional-query-after-options' 'sleep 350' "$WORK/items.txt" -- an
 run_case 'positional-query-leading-dash' 'sleep 350' "$WORK/items.txt" -- -an
