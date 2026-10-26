@@ -273,7 +273,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-111 | `toggle-raw` | src/bind.c, src/ui.c | - | implemented |
 | ACT-112 | `toggle-search` | src/bind.c, src/ui.c | - | implemented |
 | ACT-113 | `toggle-sort` | src/bind.c, src/ui.c | - | implemented |
-| ACT-114 | `toggle-track` | src/bind.c, src/ui.c | tests/pty-diff.sh:track-toggle-action | implemented but unverified |
+| ACT-114 | `toggle-track` | src/bind.c, src/ui.c | tests/pty-diff.sh:track-toggle-action, tests/pty-diff.sh:track-toggle-disable-action | implemented but unverified |
 | ACT-115 | `toggle-track-current` | src/bind.c, src/ui.c | - | implemented |
 | ACT-116 | `toggle-up` | src/bind.c, src/ui.c | - | implemented |
 | ACT-117 | `toggle-wrap` | src/bind.c, src/ui.c | - | implemented |
