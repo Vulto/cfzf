@@ -134,6 +134,7 @@ typedef struct {
     bool         raw;         /* --raw: do not process ANSI escapes */
     bool         no_unicode; /* --no-unicode: use the ASCII glyphs */
     bool         phony;      /* --phony: do not filter with the query */
+    bool         search_enabled; /* --disabled / enable-search action state */
     bool         wrap;       /* --wrap: wrap the long items */
     bool         wrap_word;  /* --wrap=word: break the lines at the spaces */
     const char  *wrap_sign;  /* --wrap-sign: the marker of a wrapped line */
