@@ -706,14 +706,14 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--history")) history_spec = a + 10;
         else if (!strcmp(a, "--history")) { if (i+1<argc) history_spec = argv[++i]; }
         else if (ARG_EQ("--history-size")) {
-            if (!parse_cli_nonnegative("--history-size", a + 15, &history_size)) return 2;
+            if (!parse_cli_positive("--history-size", a + 15, &history_size)) return 2;
         }
         else if (!strcmp(a, "--history-size")) {
             if (i + 1 >= argc) {
-                (void)parse_cli_nonnegative("--history-size", NULL, &history_size);
+                (void)parse_cli_positive("--history-size", NULL, &history_size);
                 return 2;
             }
-            if (!parse_cli_nonnegative("--history-size", argv[++i], &history_size)) return 2;
+            if (!parse_cli_positive("--history-size", argv[++i], &history_size)) return 2;
         }
         else if (ARG_EQ("--pointer")) { const char *v = a + 10; if (*v == '\0') { fprintf(stderr, "pointer sign required\n"); return 2; } pointer_spec = v; }
         else if (!strcmp(a, "--pointer")) { if (i+1<argc) { const char *v = argv[++i]; if (*v == '\0') { fprintf(stderr, "pointer sign required\n"); return 2; } pointer_spec = v; } else { fprintf(stderr, "pointer sign required\n"); return 2; } }
