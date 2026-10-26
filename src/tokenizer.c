@@ -342,9 +342,18 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim,
     } else {
         size_t delimiter_len = (size_t)delim.slen;
         if (delimiter_len == 0) {
-            /* Empty literal delimiters cannot advance; treat the input as one token. */
-            if (*text && !append_token(&tokens, &n, &cap, text, strlen(text)))
-                return NULL;
+            /* strings.SplitAfter(text, "") splits at UTF-8 rune boundaries. */
+            size_t length = strlen(text), offset = 0;
+            while (offset < length) {
+                wchar_t rune;
+                size_t used = mm_utf8_decode(text + offset, length - offset, &rune);
+                if (used == 0 || used > length - offset) used = 1;
+                if (!append_token(&tokens, &n, &cap, text + offset, used)) {
+                    free_tokens(tokens, n);
+                    return NULL;
+                }
+                offset += used;
+            }
         } else {
             const char *p = text;
             for (;;) {
