@@ -390,7 +390,11 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(a, "--no-gap")) gap = 0;
         else if (ARG_EQ("--gap-line")) gap_line = a + 11;
-        else if (!strcmp(a, "--gap-line")) { if (i+1<argc) gap_line = argv[++i]; }
+        else if (!strcmp(a, "--gap-line")) {
+            gap_line = NULL;
+            if (i + 1 < argc && argv[i + 1][0] != '-' && argv[i + 1][0] != '+')
+                gap_line = argv[++i];
+        }
         else if (!strcmp(a, "--no-gap-line")) gap_line = "";
         else if (!strcmp(a, "--phony")) phony = true;
         else if (!strcmp(a, "--no-phony")) phony = false;
