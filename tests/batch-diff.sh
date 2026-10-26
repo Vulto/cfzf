@@ -83,7 +83,7 @@ check_defaults() {
     irc=$?
     if [ "$rrc" = "$irc" ] && cmp -s "$WORK/ref.out" "$WORK/impl.out" && cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
         pass=$((pass + 1))
-        [ -n "\${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
+        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
     else
         fail=$((fail + 1))
         printf 'FAIL %s (exit ref=%s impl=%s)\n' "$desc" "$rrc" "$irc"
@@ -105,7 +105,7 @@ check_defaults_file() {
     irc=$?
     if [ "$rrc" = "$irc" ] && cmp -s "$WORK/ref.out" "$WORK/impl.out" && cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
         pass=$((pass + 1))
-        [ -n "\${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
+        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
     else
         fail=$((fail + 1))
         printf 'FAIL %s (exit ref=%s impl=%s)\n' "$desc" "$rrc" "$irc"
