@@ -23,6 +23,7 @@ typedef struct {
     /* Search configuration */
     mm_sort_criteria_t crit;
     mm_delimiter_t    delim;
+    const char       *accept_nth_spec; /* --accept-nth output expression */
     mm_range_t       *nth;
     int              nth_n;
     bool             length_from_transform;
