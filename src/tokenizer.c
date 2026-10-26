@@ -296,23 +296,62 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim,
     char **tokens = NULL;
     if (delim.is_regex && delim.rx) {
         regex_t *rx = (regex_t *)delim.rx;
-        size_t begin = 0, text_len = strlen(text);
+        const size_t text_len = strlen(text);
+        size_t token_begin = 0, search = 0, last_end = 0;
+        bool last_match_nonempty = false;
         regmatch_t match[1];
-        while (begin < text_len &&
-               regexec(rx, text + begin, 1, match,
-                       begin == 0 ? 0 : REG_NOTBOL) == 0) {
-            if (match[0].rm_eo < 0) break;
-            size_t end = begin + (size_t)match[0].rm_eo;
-            if (end < begin || end > text_len ||
-                !append_token(&tokens, &n, &cap, text + begin, end - begin)) {
+        for (;;) {
+            int rc = regexec(rx, text + search, 1, match,
+                             search == 0 ? 0 : REG_NOTBOL);
+            if (rc == REG_NOMATCH) break;
+            if (rc != 0 || match[0].rm_so < 0 || match[0].rm_eo < 0) {
                 free_tokens(tokens, n);
                 return NULL;
             }
-            if (end == begin) break;
-            begin = end;
+            size_t match_start = search + (size_t)match[0].rm_so;
+            size_t match_end = search + (size_t)match[0].rm_eo;
+            if (match_start < search || match_end < match_start ||
+                match_end > text_len) {
+                free_tokens(tokens, n);
+                return NULL;
+            }
+            bool empty_match = match_start == match_end;
+            if (empty_match && last_match_nonempty &&
+                match_start == last_end) {
+                if (match_start == text_len) break;
+                wchar_t rune;
+                size_t used = mm_utf8_decode(text + match_start,
+                                             text_len - match_start, &rune);
+                search = match_start + (used && used <= text_len - match_start
+                                        ? used : 1);
+                last_match_nonempty = false;
+                continue;
+            }
+            if (!append_token(&tokens, &n, &cap, text + token_begin,
+                              match_end - token_begin)) {
+                free_tokens(tokens, n);
+                return NULL;
+            }
+            token_begin = match_end;
+            last_end = match_end;
+            last_match_nonempty = !empty_match;
+            if (match_end == text_len) {
+                if (empty_match) break;
+                break;
+            }
+            if (empty_match) {
+                wchar_t rune;
+                size_t used = mm_utf8_decode(text + match_end,
+                                             text_len - match_end, &rune);
+                search = match_end + (used && used <= text_len - match_end
+                                      ? used : 1);
+            } else {
+                search = match_end;
+            }
         }
-        if (begin < text_len &&
-            !append_token(&tokens, &n, &cap, text + begin, text_len - begin)) {
+        if (token_begin < text_len &&
+            !append_token(&tokens, &n, &cap, text + token_begin,
+                          text_len - token_begin)) {
             free_tokens(tokens, n);
             return NULL;
         }
