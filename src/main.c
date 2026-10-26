@@ -1278,7 +1278,7 @@ int main(int argc, char **argv) {
         /* The horizontal scrolling of the preview and the multi-line items
            are not implemented; the options are accepted like the reference
            does. */
-        (void)no_hscroll;
+        ui.no_hscroll = no_hscroll;
         (void)no_multi_line;
         (void)no_tty_default;
         /* Options parsed above but not yet wired to the UI struct.
