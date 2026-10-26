@@ -21,6 +21,7 @@ CORPUS="$WORK/corpus.txt"
         printf 'apple\nbanana\nCherry\ncherry\ndate\nelderberry\nfig\ngrape\n'
         printf 'src/main.c\nsrc/util.c\nlib/foo.c\nREADME.md\ndocs/PLAN.md\n'
         printf 'a:b:c\nx:y:z\nfoo:bar:baz\n'
+        printf 'alpha:beta:\n'
         printf 'hello world\nhello there\nworld hello\n'
         printf 'naïve\nrésumé\nüber\n日本語テキスト\n'
         printf 'a b  c\n  leading\ntrailing  \ntab\there\n'
@@ -110,6 +111,7 @@ check "with-nth=2.."   --filter=b --with-nth=2..
 check "delim-colon"    --filter=b --delimiter=: --nth=2
 check "delim-attach"   --filter=b -d: --nth=2
 check "delim-regex"    --filter=b --delimiter='[:_]' --nth=2
+check "accept-nth-regex-delimiter" --filter=alpha --delimiter='[:_]' --accept-nth=2
 
 # Output control.
 check "print-query"    --filter=a --print-query
