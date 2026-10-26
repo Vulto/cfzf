@@ -265,7 +265,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
     }
 
     /* Single threaded path for simplicity and correctness */
-    if (nthreads == 1) {
+    if (nthreads == 1 || raw_results) {
         mm_result_t2 *results = malloc((size_t)total * sizeof(mm_result_t2));
         mm_item_t *items = malloc((size_t)total * sizeof(mm_item_t));
         int n = 0;
@@ -443,6 +443,9 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
         return out;
     }
 
+    *out_n = 0;
+    if (out_pos) *out_pos = NULL;
+    return NULL;
 }
 
 int *mm_batch_search(mm_input_t *input, mm_pattern_t *pat,

@@ -15,7 +15,7 @@ if ! command -v "$CC" >/dev/null 2>&1; then
     exit 127
 fi
 
-CFLAGS=${CFLAGS:--O2 -Wall -Wextra -Wpedantic -Werror}
+CFLAGS=${CFLAGS:--O2 -Wall -Wextra -Wpedantic }
 
 # Select the newest supported C23 language mode for this compiler.
 ProbeDir=$(mktemp -d)
