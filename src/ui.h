@@ -24,6 +24,7 @@ typedef struct {
     mm_sort_criteria_t crit;
     mm_delimiter_t    delim;
     const char       *accept_nth_spec; /* --accept-nth output expression */
+    const char       *id_nth_spec; /* --id-nth identity expression */
     mm_range_t       *nth;
     int              nth_n;
     bool             length_from_transform;
@@ -61,6 +62,7 @@ typedef struct {
     int         *results;   /* indices into items, in display order */
     int          nresults;
     int          cursor;
+    char        *pending_track_key; /* identity captured before reload */
     int          offset;    /* first visible row */
     char        *query_buf; /* current query text */
     size_t       query_len, query_cap;
