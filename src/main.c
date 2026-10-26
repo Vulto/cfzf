@@ -40,15 +40,15 @@ static bool parse_nonnegative_int(const char *s, int *out) {
 static bool parse_cli_signed(const char *option, const char *value,
                                 int *out) {
     if (!value || !*value) {
-        fprintf(stderr, "invalid %s value: %s\\n", option,
+        fprintf(stderr, "invalid %s value: %s\n", option,
                 value ? value : "");
         return false;
     }
     char *end = NULL;
     long parsed = strtol(value, &end, 10);
-    if (end == value || *end != '\\0' ||
+    if (end == value || *end != '\0' ||
         parsed < INT_MIN || parsed > INT_MAX) {
-        fprintf(stderr, "invalid %s value: %s\\n", option, value);
+        fprintf(stderr, "invalid %s value: %s\n", option, value);
         return false;
     }
     *out = (int)parsed;
