@@ -104,11 +104,19 @@ def main() -> int:
                     reference = reference.strip()
                     if not reference:
                         continue
-                    test_path = ROOT / reference
+                    test_file, separator, case_id = reference.partition(":")
+                    test_path = ROOT / test_file
                     if not test_path.is_file():
                         errors.append(
-                            f"line {entry['line']}: referenced test does not exist: {reference}"
+                            f"line {entry['line']}: referenced test does not exist: {test_file}"
                         )
+                        continue
+                    if separator:
+                        test_source = test_path.read_text(encoding="utf-8")
+                        if not case_id or case_id not in test_source:
+                            errors.append(
+                                f"line {entry['line']}: referenced test case does not exist: {reference}"
+                            )
 
     print("")
     print(f"Inventory rows present: {total_rows}")
