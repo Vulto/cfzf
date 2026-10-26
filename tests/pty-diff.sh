@@ -139,6 +139,24 @@ send Y
 sleep 200
 key enter
 sleep 200' "$WORK/items.txt"
+run_case 'query-kill-before-cursor' 'sleep 250
+send apple banana
+sleep 100
+key home
+key alt-right
+key ctrl-u
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt"
+run_case 'query-kill-after-cursor' 'sleep 250
+send apple banana
+sleep 100
+key home
+key alt-right
+key ctrl-k
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt"
 run_case 'no-match'     'sleep 350
 send zzzz
 sleep 250'                                        "$WORK/items.txt"
