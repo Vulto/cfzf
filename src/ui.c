@@ -1880,9 +1880,12 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
         while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
             line[--len] = 0;
         if (n == cap) {
+            if (cap > INT_MAX / 2) {
+                failed = true;
+                break;
+            }
             int new_cap = cap ? cap * 2 : 64;
-            if (new_cap < cap ||
-                (size_t)new_cap > SIZE_MAX / sizeof(*lines)) {
+            if ((size_t)new_cap > SIZE_MAX / sizeof(*lines)) {
                 failed = true;
                 break;
             }
