@@ -147,6 +147,9 @@ check "extended-off"   --filter=ch --no-extended
 check "extended-on"    --filter=ch --extended
 check "smart-case"     --filter=CH
 check "ignore-case"    --filter=CH --ignore-case
+check "info-inline" --filter=a --info=inline
+check "info-right" --filter=a --info=right
+check "info-inline-prefix" --filter=a --info=inline:prefix
 check "ansi-filter" --ansi --filter=red
 check "ansi-filter-visible-text" --ansi --filter=apple
 check "ansi-nth-visible-text" --ansi --filter=apple --nth=2 --delimiter=' '
@@ -268,6 +271,8 @@ check_invalid_option() {
 }
 check_invalid_option "threads-invalid" 'invalid --threads value' --filter=a --threads=bad
 check_invalid_option "sort-invalid" 'invalid --sort value' --filter=a --sort=bad
+check_invalid_option "info-missing" 'info style required' --filter=a --info
+check_invalid_option "info-invalid" 'invalid info style' --filter=a --info=unsupported
 check_invalid_option "unknown-plus-option" "unknown option: +z" --filter=a +z
 check_invalid_option "algo-invalid" "invalid algorithm" --filter=a --algo=v3
 check_invalid_option "algo-missing" "--algo requires a value" --filter=a --algo
