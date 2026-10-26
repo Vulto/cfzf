@@ -702,8 +702,18 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--prompt")) { if (i+1<argc) prompt = argv[++i]; }
         else if (ARG_EQ("--header")) header = a + 9;
         else if (!strcmp(a, "--header")) { if (i+1<argc) header = argv[++i]; }
-        else if (ARG_EQ("--header-lines")) header_lines = atoi(a + 15);
-        else if (!strcmp(a, "--header-lines")) { if (i+1<argc) header_lines = atoi(argv[++i]); }
+        else if (ARG_EQ("--header-lines")) {
+            if (!parse_thread_count(a + 15, &header_lines)) {
+                fprintf(stderr, "invalid --header-lines value: %s\\n", a + 15);
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--header-lines")) {
+            if (i + 1 >= argc || !parse_thread_count(argv[++i], &header_lines)) {
+                fprintf(stderr, "invalid --header-lines value\\n");
+                return 2;
+            }
+        }
         else if (!strcmp(a, "--ansi")) ansi = true;
         else if (!strcmp(a, "--no-ansi")) ansi = false;
         else if (ARG_EQ("--algo")) { const char *al = a + 7; if (strcmp(al, "v1") && strcmp(al, "v2")) { fprintf(stderr, "invalid algorithm: %s\n", al); return 2; } }
