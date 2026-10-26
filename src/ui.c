@@ -1087,7 +1087,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
            display area. Computed from the current item's match position so
            that the match stays visible with hscroll_off columns of margin. */
         int hscroll = 0;
-        if (ui->hscroll_off > 0 && cur && matched && matched->npos > 0 &&
+        if (!ui->no_hscroll && ui->hscroll_off > 0 && cur && matched && matched->npos > 0 &&
             !ui->wrap && text_limit > 0) {
             size_t len = strlen(text);
             size_t i = 0;
@@ -2501,7 +2501,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui->header = ui->header ? NULL : "> ";
         break;
     case MM_ACT_TOGGLE_HSCROLL:
-        ui->hscroll_off = ui->hscroll_off ? 0 : 1;
+        ui->no_hscroll = !ui->no_hscroll;
         break;
     case MM_ACT_TOGGLE_PREVIEW:
         if (ui->preview) {
