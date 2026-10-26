@@ -1869,38 +1869,94 @@ static void ui_print_item(mm_window_t *win, mm_ui_t *ui, const char *text,
 static void ui_reload(mm_ui_t *ui, const char *cmd) {
     FILE *fp = popen(cmd, "r");
     if (!fp) return;
+
     char **lines = NULL;
     int n = 0, cap = 0;
+    bool failed = false;
     char *line = NULL;
     size_t lcap = 0;
     ssize_t len;
     while ((len = getline(&line, &lcap, fp)) != -1) {
-        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) line[--len] = 0;
-        if (n == cap) { cap = cap ? cap * 2 : 64; lines = realloc(lines, (size_t)cap * sizeof(char *)); }
-        if (!lines) break;
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
+            line[--len] = 0;
+        if (n == cap) {
+            int new_cap = cap ? cap * 2 : 64;
+            if (new_cap < cap ||
+                (size_t)new_cap > SIZE_MAX / sizeof(*lines)) {
+                failed = true;
+                break;
+            }
+            char **grown = realloc(lines, (size_t)new_cap * sizeof(*lines));
+            if (!grown) {
+                failed = true;
+                break;
+            }
+            lines = grown;
+            cap = new_cap;
+        }
         lines[n] = malloc((size_t)len + 1);
-        if (!lines[n]) break;
+        if (!lines[n]) {
+            failed = true;
+            break;
+        }
         memcpy(lines[n], line, (size_t)len + 1);
         n++;
     }
+    if (ferror(fp)) failed = true;
     free(line);
-    pclose(fp);
-    if (!lines) return;
-    /* Replace the items with the new list. */
-    for (int i = 0; i < ui->count; i++) free(ui->lines[i]);
-    free(ui->lines);
-    ui->lines = lines;
-    ui->count = n;
-    /* The item array has to grow with the list. */
-    mm_item_t *items = realloc(ui->items, (size_t)(n ? n : 1) * sizeof(mm_item_t));
-    if (!items) return;
-    ui->items = items;
-    for (int i = 0; i < n; i++) {
-        mm_item_init(&ui->items[i], lines[i], i);
-        mchars_decode(&ui->items[i].text);
+    (void)pclose(fp);
+
+    if (failed) {
+        for (int i = 0; i < n; i++) free(lines[i]);
+        free(lines);
+        return;
     }
+    /* An empty command output is a valid empty result set. */
+    if (!lines) {
+        lines = calloc(1, sizeof(*lines));
+        if (!lines) return;
+    }
+
+    mm_item_t *items = calloc((size_t)(n ? n : 1), sizeof(*items));
+    bool *selected = calloc((size_t)(n ? n : 1), sizeof(*selected));
+    if (!items || !selected) {
+        free(items);
+        free(selected);
+        for (int i = 0; i < n; i++) free(lines[i]);
+        free(lines);
+        return;
+    }
+    int initialized = 0;
+    for (int i = 0; i < n; i++) {
+        if (!mm_item_init(&items[i], lines[i], i)) {
+            failed = true;
+            break;
+        }
+        initialized++;
+        mchars_decode(&items[i].text);
+    }
+    if (failed) {
+        for (int i = 0; i < initialized; i++) mm_item_free(&items[i]);
+        free(items);
+        free(selected);
+        for (int i = 0; i < n; i++) free(lines[i]);
+        free(lines);
+        return;
+    }
+
+    /* Commit the replacement only after every new item is ready.  Keep the
+       old result indices until ui_search has used them for --track. */
+    for (int i = 0; i < ui->count; i++) {
+        mm_item_free(&ui->items[i]);
+        free(ui->lines[i]);
+    }
+    free(ui->items);
+    free(ui->lines);
     free(ui->selected);
-    ui->selected = calloc((size_t)(n ? n : 1), sizeof(bool));
+    ui->lines = lines;
+    ui->items = items;
+    ui->selected = selected;
+    ui->count = n;
     ui->nselected = 0;
     if (!ui->track && !ui->track_current) ui->cursor = 0;
     ui->offset = 0;
