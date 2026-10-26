@@ -101,6 +101,33 @@ send banana
 sleep 200
 key bspace
 sleep 200'                                        "$WORK/items.txt"
+run_case 'query-cursor-insert' 'sleep 250
+send banana
+sleep 100
+key home
+key right
+send X
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt"
+run_case 'query-cursor-delete' 'sleep 250
+send banana
+sleep 100
+key home
+key right
+key delete
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt"
+run_case 'query-cursor-backspace' 'sleep 250
+send banana
+sleep 100
+key home
+key right
+key bspace
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt"
 run_case 'no-match'     'sleep 350
 send zzzz
 sleep 250'                                        "$WORK/items.txt"
