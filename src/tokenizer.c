@@ -384,7 +384,8 @@ char **mm_transform(char **tokens, int ntokens, int *tok_prefix,
                     const mm_range_t *ranges, int nranges,
                     int **prefix_lengths, int *outn) {
     if (!prefix_lengths || !outn || nranges < 0 ||
-        (nranges > 0 && !ranges) || ntokens < 0) return NULL;
+        (nranges > 0 && !ranges) || ntokens < 0 ||
+        (ntokens > 0 && !tokens)) return NULL;
     *prefix_lengths = NULL;
     *outn = 0;
     if (nranges == 0) return NULL;
@@ -457,41 +458,4 @@ fail:
     free(out);
     free(prefix);
     return NULL;
-}
-    for (int idx = 0; idx < nranges; idx++) {
-        mm_range_t r = ranges[idx];
-        int minIdx = 0;
-        char *merged = NULL;
-        if (r.begin == r.end) {
-            int i = r.begin;
-            if (i == MM_RANGE_ELLIPSIS) {
-                size_t tot = 0;
-                for (int k = 0; k < ntokens; k++) tot += strlen(tokens[k]);
-                merged = malloc(tot + 1);
-                merged[0] = 0;
-                for (int k = 0; k < ntokens; k++) strcat(merged, tokens[k]);
-            } else {
-                if (i < 0) i += ntokens + 1;
-                if (i >= 1 && i <= ntokens) { minIdx = i - 1; merged = strdup(tokens[i - 1]); }
-            }
-        } else {
-            int begin, end;
-            if (r.begin == MM_RANGE_ELLIPSIS) { begin = 1; end = r.end; if (end < 0) end += ntokens + 1; }
-            else if (r.end == MM_RANGE_ELLIPSIS) { begin = r.begin; end = ntokens; if (begin < 0) begin += ntokens + 1; }
-            else { begin = r.begin; end = r.end; if (begin < 0) begin += ntokens + 1; if (end < 0) end += ntokens + 1; }
-            minIdx = max_i(0, begin - 1);
-            size_t tot = 0;
-            for (int i = begin; i <= end; i++) if (i >= 1 && i <= ntokens) tot += strlen(tokens[i - 1]);
-            merged = malloc(tot + 1);
-            merged[0] = 0;
-            for (int i = begin; i <= end; i++) if (i >= 1 && i <= ntokens) strcat(merged, tokens[i - 1]);
-        }
-        if (!merged) merged = strdup("");
-        out[idx] = merged;
-        pl[idx] = (minIdx < ntokens && tok_prefix) ? tok_prefix[minIdx] : 0;
-    }
-    (void)min_i;
-    *outn = nranges;
-    *prefix_lengths = pl;
-    return out;
 }
