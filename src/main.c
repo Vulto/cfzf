@@ -363,7 +363,26 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--extended") || !strcmp(a, "-x")) extended = true;
         else if (!strcmp(a, "--no-extended") || !strcmp(a, "+x")) extended = false;
         else if (!strcmp(a, "--no-sort") || !strcmp(a, "+s")) no_sort = true;
-        else if (!strcmp(a, "--sort")) no_sort = false;
+        else if (ARG_EQ("--sort")) {
+            int sort_value;
+            if (!parse_cli_nonnegative("--sort", a + 7, &sort_value)) return 2;
+            no_sort = sort_value == 0;
+        }
+        else if (ARG_EQ("-s")) {
+            int sort_value;
+            if (!parse_cli_nonnegative("-s", a + 3, &sort_value)) return 2;
+            no_sort = sort_value == 0;
+        }
+        else if (!strcmp(a, "--sort") || !strcmp(a, "-s")) {
+            no_sort = false;
+            if (i + 1 < argc && argv[i + 1][0] >= '0' &&
+                argv[i + 1][0] <= '9') {
+                int sort_value;
+                if (!parse_cli_nonnegative("--sort", argv[++i], &sort_value))
+                    return 2;
+                no_sort = sort_value == 0;
+            }
+        }
         else if (!strcmp(a, "--tac")) tac = true;
         else if (!strcmp(a, "--no-tac")) tac = false;
         else if (!strcmp(a, "--print-query")) print_query = true;
