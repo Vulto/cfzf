@@ -342,7 +342,11 @@ int main(int argc, char **argv) {
             if (!parse_cli_nonnegative("--multi-max", a + 12, &multi_max)) return 2;
         }
         else if (!strcmp(a, "--multi-max")) {
-            if (i + 1 >= argc || !parse_cli_nonnegative("--multi-max", argv[++i], &multi_max)) return 2;
+            if (i + 1 >= argc) {
+                (void)parse_cli_nonnegative("--multi-max", NULL, &multi_max);
+                return 2;
+            }
+            if (!parse_cli_nonnegative("--multi-max", argv[++i], &multi_max)) return 2;
         }
         else if (!strcmp(a, "--cycle")) cycle = true;
         else if (!strcmp(a, "--no-cycle")) cycle = false;
@@ -457,13 +461,21 @@ int main(int argc, char **argv) {
             if (!parse_cli_nonnegative("--scroll-off", a + 13, &scroll_off)) return 2;
         }
         else if (!strcmp(a, "--scroll-off")) {
-            if (i + 1 >= argc || !parse_cli_nonnegative("--scroll-off", argv[++i], &scroll_off)) return 2;
+            if (i + 1 >= argc) {
+                (void)parse_cli_nonnegative("--scroll-off", NULL, &scroll_off);
+                return 2;
+            }
+            if (!parse_cli_nonnegative("--scroll-off", argv[++i], &scroll_off)) return 2;
         }
         else if (ARG_EQ("--hscroll-off")) {
             if (!parse_cli_nonnegative("--hscroll-off", a + 14, &hscroll_off)) return 2;
         }
         else if (!strcmp(a, "--hscroll-off")) {
-            if (i + 1 >= argc || !parse_cli_nonnegative("--hscroll-off", argv[++i], &hscroll_off)) return 2;
+            if (i + 1 >= argc) {
+                (void)parse_cli_nonnegative("--hscroll-off", NULL, &hscroll_off);
+                return 2;
+            }
+            if (!parse_cli_nonnegative("--hscroll-off", argv[++i], &hscroll_off)) return 2;
         }
         else if (ARG_EQ("--separator")) separator_spec = a + 12;
         else if (!strcmp(a, "--separator")) { if (i+1<argc) separator_spec = argv[++i]; }
@@ -477,7 +489,11 @@ int main(int argc, char **argv) {
             if (!parse_cli_positive("--tabstop", a + 10, &tabstop)) return 2;
         }
         else if (!strcmp(a, "--tabstop")) {
-            if (i + 1 >= argc || !parse_cli_positive("--tabstop", argv[++i], &tabstop)) return 2;
+            if (i + 1 >= argc) {
+                (void)parse_cli_positive("--tabstop", NULL, &tabstop);
+                return 2;
+            }
+            if (!parse_cli_positive("--tabstop", argv[++i], &tabstop)) return 2;
         }
         else if (!strcmp(a, "--no-input")) no_input = true;
         else if (!strcmp(a, "--no-hscroll")) no_hscroll = true;
@@ -693,7 +709,11 @@ int main(int argc, char **argv) {
             if (!parse_cli_nonnegative("--history-size", a + 15, &history_size)) return 2;
         }
         else if (!strcmp(a, "--history-size")) {
-            if (i + 1 >= argc || !parse_cli_nonnegative("--history-size", argv[++i], &history_size)) return 2;
+            if (i + 1 >= argc) {
+                (void)parse_cli_nonnegative("--history-size", NULL, &history_size);
+                return 2;
+            }
+            if (!parse_cli_nonnegative("--history-size", argv[++i], &history_size)) return 2;
         }
         else if (ARG_EQ("--pointer")) { const char *v = a + 10; if (*v == '\0') { fprintf(stderr, "pointer sign required\n"); return 2; } pointer_spec = v; }
         else if (!strcmp(a, "--pointer")) { if (i+1<argc) { const char *v = argv[++i]; if (*v == '\0') { fprintf(stderr, "pointer sign required\n"); return 2; } pointer_spec = v; } else { fprintf(stderr, "pointer sign required\n"); return 2; } }
