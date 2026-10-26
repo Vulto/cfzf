@@ -2287,6 +2287,50 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_PRINT_QUERY:
         ui->print_query = true;
         break;
+    case MM_ACT_BACKWARD_CHAR:
+        if (ui->query_pos > 0) {
+            ui->query_pos--;
+            while (ui->query_pos > 0 &&
+                   ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
+                ui->query_pos--;
+        }
+        break;
+    case MM_ACT_FORWARD_CHAR:
+        if ((size_t)ui->query_pos < ui->query_len) {
+            ui->query_pos++;
+            while ((size_t)ui->query_pos < ui->query_len &&
+                   ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
+                ui->query_pos++;
+        }
+        break;
+    case MM_ACT_BEGINNING_OF_LINE:
+        ui->query_pos = 0;
+        break;
+    case MM_ACT_END_OF_LINE:
+        ui->query_pos = (int)ui->query_len;
+        break;
+    case MM_ACT_BACKWARD_WORD:
+        while (ui->query_pos > 0 &&
+               ui->query_buf[ui->query_pos - 1] == ' ')
+            ui->query_pos--;
+        while (ui->query_pos > 0 &&
+               ui->query_buf[ui->query_pos - 1] != ' ')
+            ui->query_pos--;
+        while (ui->query_pos > 0 &&
+               ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
+            ui->query_pos--;
+        break;
+    case MM_ACT_FORWARD_WORD:
+        while ((size_t)ui->query_pos < ui->query_len &&
+               ui->query_buf[ui->query_pos] != ' ')
+            ui->query_pos++;
+        while ((size_t)ui->query_pos < ui->query_len &&
+               ui->query_buf[ui->query_pos] == ' ')
+            ui->query_pos++;
+        while ((size_t)ui->query_pos < ui->query_len &&
+               ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
+            ui->query_pos++;
+        break;
     case MM_ACT_BACKWARD_DELETE_CHAR:
         query_backspace(ui);
         ui_search(ui);
