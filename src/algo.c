@@ -39,7 +39,7 @@ static int16_t bonusMatrix[charNumber + 1][charNumber + 1];
 
 static int rune_in_set(wchar_t c, const char *set) {
     /* Compare ASCII bytes only to ASCII code points. Comparing the low byte
-       of a Unicode rune misclassifies characters such as U+012F (į) as '/'. */
+       misclassifies symbols such as U+20A0 (₠) as the 0xA0 whitespace byte. */
     if (c >= 0 && c < 0x80) {
         for (const char *p = set; *p; p++)
             if ((unsigned char)*p == (unsigned char)c) return 1;
