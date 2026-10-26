@@ -40,7 +40,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-011 | `--border-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:border-label-pos-left, tests/pty-diff.sh:border-label-pos-right, tests/pty-diff.sh:border-label-pos-bottom | implemented but unverified |
 | OPT-012 | `--color` | src/color.c, src/ui.c | tests/pty-diff.sh | verified |
 | OPT-013 | `--cycle` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
-| OPT-014 | `--delimiter` | src/tokenizer.c, src/main.c | tests/batch-diff.sh:delimiter-missing, tests/batch-diff.sh:delim-empty-rune-split | implemented but unverified |
+| OPT-014 | `--delimiter` | src/tokenizer.c, src/main.c | tests/batch-diff.sh:delimiter-missing, tests/batch-diff.sh:delim-empty-rune-split, tests/batch-diff.sh:delim-regex-zero-width | implemented but unverified |
 | OPT-015 | `--disabled` | src/ui.c, src/main.c | tests/batch-diff.sh:disabled-filter, tests/batch-diff.sh:disabled-nomatch, tests/pty-diff.sh:disabled-toggle-search | implemented but unverified |
 | OPT-016 | `\-\-ellipsis` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-017 | `--exact` | src/pattern.c | tests/batch-diff.sh | verified |
