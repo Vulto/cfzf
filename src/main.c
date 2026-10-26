@@ -1671,8 +1671,8 @@ int main(int argc, char **argv) {
         for (int i = 0; i < count; i++) free(ansi_lines[i]);
         free(ansi_lines);
     }
-    free(nth);
     if (wnth != nth) free(wnth);
+    free(nth);
     for (int i = 0; i < count; i++) free(lines[i]);
     free(lines);
     free(data);
