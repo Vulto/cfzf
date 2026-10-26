@@ -419,11 +419,14 @@ char **mm_transform(char **tokens, int ntokens, int *tok_prefix,
             begin = 1;
             end = ntokens;
         }
-        if (range.begin == MM_RANGE_ELLIPSIS) {
-            if (tok_prefix && ntokens > 0) prefix[idx] = tok_prefix[0];
-        } else if (begin >= 1 && begin <= ntokens && tok_prefix) {
-            prefix[idx] = tok_prefix[(int)begin - 1];
+        int64_t prefix_index = 0;
+        if (range.begin == range.end && range.begin != MM_RANGE_ELLIPSIS) {
+            if (begin >= 1 && begin <= ntokens) prefix_index = begin - 1;
+        } else if (begin > 1) {
+            prefix_index = begin - 1;
         }
+        if (tok_prefix && prefix_index < ntokens)
+            prefix[idx] = tok_prefix[(int)prefix_index];
 
         int64_t first = begin < 1 ? 1 : begin;
         int64_t last = end > ntokens ? ntokens : end;
