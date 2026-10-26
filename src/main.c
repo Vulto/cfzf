@@ -444,7 +444,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-print0")) print0 = false;
         else if (!strcmp(a, "--sync")) { /* batch is inherently sync */ }
         else if (!strcmp(a, "--multi") || !strcmp(a, "-m")) multi = true;
-        else if (!strcmp(a, "--no-multi")) multi = false;
+        else if (!strcmp(a, "--no-multi") || !strcmp(a, "+m")) multi = false;
         else if (ARG_EQ("--multi-max")) {
             if (!parse_cli_nonnegative("--multi-max", a + 12, &multi_max)) return 2;
         }
@@ -524,7 +524,7 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(a, "--no-gap-line")) gap_line = "";
         else if (!strcmp(a, "--phony")) phony = true;
-        else if (!strcmp(a, "--no-phony")) phony = false;
+        else if (!strcmp(a, "--no-phony") || !strcmp(a, "--enabled")) phony = false;
         else if (ARG_EQ("--footer")) footer_spec = a + 9;
         else if (ARG_EQ("--padding")) padding = atoi(a + 10);
         else if (ARG_EQ("--margin")) margin = atoi(a + 9);
@@ -580,7 +580,8 @@ int main(int argc, char **argv) {
             if (*v == '\0') { fprintf(stderr, "minimum height required: HEIGHT[+]\n"); return 2; }
             min_height = atoi(v);
         }
-        else if (!strcmp(a, "--no-color")) no_color = true;
+        else if (!strcmp(a, "--no-color") || !strcmp(a, "+c")) no_color = true;
+        else if (!strcmp(a, "--no-256") || !strcmp(a, "+2")) { /* UI palette option */ }
         else if (ARG_EQ("--height")) {
             const char *v = a + 9;
             if (*v == '\0') { fprintf(stderr, "height required: [~][-]HEIGHT[%%]\n"); return 2; }
