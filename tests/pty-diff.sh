@@ -79,6 +79,7 @@ run_case() {
 }
 
 run_case 'initial'      'sleep 400'            "$WORK/items.txt"
+run_case 'track-current-item' 'sleep 250\nkey down\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --track
 run_case 'positional-query' 'sleep 350' "$WORK/items.txt" an
 run_case 'positional-query-after-options' 'sleep 350' "$WORK/items.txt" -- an
 run_case 'positional-query-leading-dash' 'sleep 350' "$WORK/items.txt" -- -an
