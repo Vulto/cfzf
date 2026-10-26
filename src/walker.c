@@ -4,6 +4,8 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -70,7 +72,12 @@ bool mm_walker_parse(const char *spec, mm_walker_opts_t *opts) {
 
 static bool plist_push(mm_pathlist_t *pl, char *path) {
     if (pl->n == pl->cap) {
+        if (pl->cap > INT_MAX / 2) { pl->failed = true; return false; }
         int cap = pl->cap ? pl->cap * 2 : 64;
+        if ((size_t)cap > SIZE_MAX / sizeof(char *)) {
+            pl->failed = true;
+            return false;
+        }
         char **items = realloc(pl->items, (size_t)cap * sizeof(char *));
         if (!items) { pl->failed = true; return false; }
         pl->items = items;
@@ -255,6 +262,11 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
         if (excluded) continue;
 
         if (n == cap) {
+            if (cap > INT_MAX / 2 || (size_t)(cap ? cap * 2 : 64) > SIZE_MAX / sizeof(*ents)) {
+                if (pl) pl->failed = true;
+                closedir(d);
+                goto done;
+            }
             int ncap = cap ? cap * 2 : 64;
             mm_walk_entry_t *ne = realloc(ents, (size_t)ncap * sizeof(*ne));
             if (!ne) { if (pl) pl->failed = true; closedir(d); goto done; }
@@ -315,7 +327,7 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
     }
     closedir(d);
 
-    qsort(ents, (size_t)n, sizeof(*ents), walk_entry_cmp);
+    if (n > 1) qsort(ents, (size_t)n, sizeof(*ents), walk_entry_cmp);
 
     for (int i = 0; i < n; i++) {
         if (stream && stream->failed) break;
