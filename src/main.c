@@ -889,7 +889,7 @@ int main(int argc, char **argv) {
         mm_range_t *id_ranges = NULL;
         int id_range_count = 0;
         if (!mm_parse_ranges(id_nth_spec, &id_ranges, &id_range_count)) {
-            fprintf(stderr, "invalid --id-nth: %s\\n", id_nth_spec);
+            fprintf(stderr, "invalid --id-nth: %s\n", id_nth_spec);
             free(id_ranges);
             return 2;
         }
