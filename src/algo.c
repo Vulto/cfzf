@@ -345,35 +345,76 @@ static _Thread_local wchar_t *g_T;
 static _Thread_local size_t   g_cap_n, g_cap_m, g_cap_hc;
 
 static bool match_ws_reserve(int n, int m) {
-    if (n > 0 && (size_t)n > g_cap_n) {
+    if (n <= 0 || m <= 0) return false;
+
+    size_t needN = (size_t)n;
+    size_t needM = (size_t)m;
+    size_t needHc;
+    if (needN > SIZE_MAX / needM) return false;
+    needHc = needN * needM;
+    if (needN > SIZE_MAX / sizeof(*g_H0) ||
+        needN > SIZE_MAX / sizeof(*g_T) ||
+        needM > SIZE_MAX / sizeof(*g_F) ||
+        needHc > SIZE_MAX / sizeof(*g_H))
+        return false;
+
+    /* Grow geometrically: interactive searches often increase their maximum
+       line/query length gradually. Avoid reallocating the entire workspace
+       for every small increase. Allocate replacement groups transactionally,
+       so allocation failure leaves the old workspace valid. */
+    if (needN > g_cap_n) {
+        size_t capN = g_cap_n ? g_cap_n : 64;
+        while (capN < needN) {
+            if (capN > SIZE_MAX / 2) { capN = needN; break; }
+            capN *= 2;
+        }
+        if (capN > SIZE_MAX / sizeof(*g_H0) ||
+            capN > SIZE_MAX / sizeof(*g_T))
+            return false;
+
+        int16_t *newH0 = malloc(capN * sizeof(*newH0));
+        int16_t *newC0 = malloc(capN * sizeof(*newC0));
+        int16_t *newB = malloc(capN * sizeof(*newB));
+        wchar_t *newT = malloc(capN * sizeof(*newT));
+        if (!newH0 || !newC0 || !newB || !newT) {
+            free(newH0); free(newC0); free(newB); free(newT);
+            return false;
+        }
         free(g_H0); free(g_C0); free(g_B); free(g_T);
-        g_H0 = calloc((size_t)n, sizeof(int16_t));
-        g_C0 = calloc((size_t)n, sizeof(int16_t));
-        g_B  = calloc((size_t)n, sizeof(int16_t));
-        g_T  = calloc((size_t)n, sizeof(wchar_t));
-        g_cap_n = (size_t)n;
-        if (!g_H0 || !g_C0 || !g_B || !g_T) {
-            free(g_H0); free(g_C0); free(g_B); free(g_T);
-            g_H0 = g_C0 = g_B = NULL; g_T = NULL; g_cap_n = 0;
-            return false;
-        }
+        g_H0 = newH0; g_C0 = newC0; g_B = newB; g_T = newT;
+        g_cap_n = capN;
     }
-    if (m > 0 && (size_t)(n * m) > g_cap_hc) {
-        free(g_H); free(g_C);
-        g_H = calloc((size_t)n * (size_t)m, sizeof(int16_t));
-        g_C = calloc((size_t)n * (size_t)m, sizeof(int16_t));
-        g_cap_hc = (size_t)n * (size_t)m;
-        if (!g_H || !g_C) {
-            free(g_H); free(g_C);
-            g_H = g_C = NULL; g_cap_hc = 0;
-            return false;
+
+    if (needM > g_cap_m) {
+        size_t capM = g_cap_m ? g_cap_m : 32;
+        while (capM < needM) {
+            if (capM > SIZE_MAX / 2) { capM = needM; break; }
+            capM *= 2;
         }
-    }
-    if (m > 0 && (size_t)m > g_cap_m) {
+        if (capM > SIZE_MAX / sizeof(*g_F)) return false;
+        int *newF = malloc(capM * sizeof(*newF));
+        if (!newF) return false;
         free(g_F);
-        g_F = calloc((size_t)m, sizeof(int));
-        g_cap_m = (size_t)m;
-        if (!g_F) { g_F = NULL; g_cap_m = 0; return false; }
+        g_F = newF;
+        g_cap_m = capM;
+    }
+
+    if (needHc > g_cap_hc) {
+        size_t capHc = g_cap_hc ? g_cap_hc : 2048;
+        while (capHc < needHc) {
+            if (capHc > SIZE_MAX / 2) { capHc = needHc; break; }
+            capHc *= 2;
+        }
+        if (capHc > SIZE_MAX / sizeof(*g_H)) return false;
+        int16_t *newH = malloc(capHc * sizeof(*newH));
+        int16_t *newC = malloc(capHc * sizeof(*newC));
+        if (!newH || !newC) {
+            free(newH); free(newC);
+            return false;
+        }
+        free(g_H); free(g_C);
+        g_H = newH; g_C = newC;
+        g_cap_hc = capHc;
     }
     return true;
 }
