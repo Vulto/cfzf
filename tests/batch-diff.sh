@@ -137,6 +137,9 @@ check "unsupported-no" --filter=a --no
 check "unsupported-oneline" --filter=a --oneline
 check "unsupported-no-oneline" --filter=a --no-oneline
 check "style-full"     --filter=a --style=full
+check "header-lines-one" --filter=a --header-lines=1
+check "header-lines-two" --filter=a --header-lines=2
+check "header-lines-zero" --filter=a --header-lines=0
 
 check_invalid_option() {
     desc=$1
