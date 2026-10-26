@@ -129,6 +129,8 @@ static void ui_exec_event(mm_ui_t *ui, const char *name);
 static void ui_search(mm_ui_t *ui) {
     const char *prev_query = ui->query_buf;
     int prev_nresults = ui->nresults;
+    int tracked_item = (ui->track && ui->results && ui->cursor >= 0 &&
+                        ui->cursor < ui->nresults) ? ui->results[ui->cursor] : -1;
 
     if (ui->phony) {
         /* The query does not filter the items: every item is a result, in
@@ -146,7 +148,13 @@ static void ui_search(mm_ui_t *ui) {
         mm_match_pos_free(ui->match_pos, ui->match_pos_n);
         ui->match_pos = NULL;
         ui->match_pos_n = 0;
-        if (ui->cursor >= ui->nresults) ui->cursor = ui->nresults ? ui->nresults - 1 : 0;
+        bool restored = false;
+        if (tracked_item >= 0) {
+            for (int i = 0; i < ui->nresults; i++) {
+                if (ui->results[i] == tracked_item) { ui->cursor = i; restored = true; break; }
+            }
+        }
+        if (!restored && ui->cursor >= ui->nresults) ui->cursor = ui->nresults ? ui->nresults - 1 : 0;
         if (ui->offset > ui->cursor) ui->offset = ui->cursor;
         /* Trigger events. */
         if (strcmp(prev_query, ui->query_buf) != 0)
@@ -185,7 +193,13 @@ static void ui_search(mm_ui_t *ui) {
         ui->search_results = res ? malloc((size_t)(n > 0 ? n : 1) * sizeof(int)) : NULL;
         if (ui->search_results && res) memcpy(ui->search_results, res, (size_t)n * sizeof(int));
     }
-    if (ui->cursor >= n) ui->cursor = n ? n - 1 : 0;
+    bool restored = false;
+    if (tracked_item >= 0 && res) {
+        for (int i = 0; i < n; i++) {
+            if (res[i] == tracked_item) { ui->cursor = i; restored = true; break; }
+        }
+    }
+    if (!restored && ui->cursor >= n) ui->cursor = n ? n - 1 : 0;
     if (ui->offset > ui->cursor) ui->offset = ui->cursor;
     mm_pattern_free(pat);
 
