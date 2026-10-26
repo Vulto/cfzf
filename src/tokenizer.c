@@ -323,7 +323,11 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim,
     } else if (!delim.str) {
         int leading = 0;
         tokens = awk_tokenize(text, &leading, &n);
-        if (n > 0 && !tokens) return NULL;
+        if (!tokens) {
+            if (n > 0) return NULL;
+            tokens = calloc(1, sizeof(*tokens));
+            if (!tokens) return NULL;
+        }
         int *prefix = malloc((size_t)(n ? n : 1) * sizeof(*prefix));
         if (!prefix) {
             free_tokens(tokens, n);
@@ -363,6 +367,10 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim,
         }
     }
 
+    if (!tokens) {
+        tokens = calloc(1, sizeof(*tokens));
+        if (!tokens) return NULL;
+    }
     int *prefix = malloc((size_t)(n ? n : 1) * sizeof(*prefix));
     if (!prefix) {
         free_tokens(tokens, n);
