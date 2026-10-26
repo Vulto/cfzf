@@ -665,6 +665,7 @@ int main(int argc, char **argv) {
     bool end_options = false;
     bool show_help = false;
     bool show_version = false;
+    bool show_man = false;
 
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
@@ -1226,10 +1227,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--marker")) { if (i+1<argc) { const char *v = argv[++i]; if (*v == '\0') { fprintf(stderr, "marker sign required\n"); return 2; } marker_spec = v; } else { fprintf(stderr, "marker sign required\n"); return 2; } }
         else if (ARG_EQ("--with-shell")) { shell_spec = a + 13; if (shell_spec[0]=='\0') { fprintf(stderr, "shell command and flags required\n"); return 2; } }
         else if (!strcmp(a, "--with-shell")) { if (i+1<argc) { shell_spec = argv[++i]; if (!shell_spec || *shell_spec=='\0') { fprintf(stderr, "shell command and flags required\n"); return 2; } } else { fprintf(stderr, "shell command and flags required\n"); return 2; } }
-        else if (!strcmp(a, "--man")) {
-            /* Print the manual page. */
-            return print_man_page();
-        }
+        else if (!strcmp(a, "--man")) { show_man = true; show_help = false; show_version = false; }
         else if (ARG_EQ("--preview")) preview_cmd = a + 10;
         else if (!strcmp(a, "--preview")) {
             preview_cmd = required_cli_arg(argc, argv, &i, "--preview");
@@ -1367,6 +1365,7 @@ int main(int argc, char **argv) {
 
     if (show_help) { usage(stdout); return 0; }
     if (show_version) { printf("0.74 (devel)\n"); return 0; }
+    if (show_man) return print_man_page();
 
     if (accept_nth_spec && !mm_accept_nth_validate(accept_nth_spec)) return 2;
     if (id_nth_spec) {
