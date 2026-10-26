@@ -24,15 +24,14 @@ bool mm_scheme_criteria(const char *scheme, mm_sort_criteria_t *out) {
 }
 
 bool mm_parse_tiebreak(const char *str, mm_sort_criteria_t *out, const char **err) {
-    out->crit[0] = BY_SCORE;
-    out->count = 1;
-    bool has_index = false, has_chunk = false, has_length = false;
-    bool has_begin = false, has_end = false, has_pathname = false;
-
     if (!str || !out || !err) {
         if (err) *err = "invalid tiebreak arguments";
         return false;
     }
+    out->crit[0] = BY_SCORE;
+    out->count = 1;
+    bool has_index = false, has_chunk = false, has_length = false;
+    bool has_begin = false, has_end = false, has_pathname = false;
     char *dup = strdup(str);
     if (!dup) {
         *err = "out of memory";
