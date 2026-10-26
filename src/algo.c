@@ -5,6 +5,8 @@
 #include <wchar.h>
 #include <wctype.h>
 
+static int selected_fuzzy_version = 2;
+
 enum {
     scoreMatch = 16,
     scoreGapStart = -3,
@@ -94,6 +96,12 @@ static int16_t bonus_for(char_class prev, char_class cls) {
 static int16_t bonus_at(const wchar_t *text, int idx) {
     if (idx == 0) return bonusBoundaryWhite;
     return bonusMatrix[char_class_of(text[idx - 1])][char_class_of(text[idx])];
+}
+
+bool mm_algo_set_version(int version) {
+    if (version != 1 && version != 2) return false;
+    selected_fuzzy_version = version;
+    return true;
 }
 
 bool mm_algo_init(const char *scheme) {
@@ -800,6 +808,13 @@ mm_match_t mm_equal_match(const mm_text_t *text, const wchar_t *pattern, int ple
         return m;
     }
     return no_match();
+}
+
+mm_match_t mm_fuzzy_match(const mm_text_t *text, const wchar_t *pattern, int plen,
+                          bool cs, bool norm, bool forward, bool with_pos) {
+    if (selected_fuzzy_version == 1)
+        return mm_fuzzy_match_v1(text, pattern, plen, cs, norm, forward, with_pos);
+    return mm_fuzzy_match_v2(text, pattern, plen, cs, norm, forward, with_pos);
 }
 
 void mm_match_free(mm_match_t *m) {
