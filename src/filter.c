@@ -63,6 +63,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                      mm_match_pos_t **out_pos, mm_result_t2 **raw_results,
                      mm_item_t **raw_items, int *raw_count, bool *raw_ok) {
     if (raw_ok) *raw_ok = false;
+    if (out_pos) *out_pos = NULL;
     int total = input->count;
     if (total == 0) {
         *out_n = 0;
@@ -454,14 +455,22 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
         for (int i = 0; i < n; i++) out[i] = results[i].index;
         if (out_pos) {
             mm_match_pos_t *mp = calloc((size_t)(n ? n : 1), sizeof(mm_match_pos_t));
-            if (mp) {
-                for (int i = 0; i < n; i++) {
-                    mp[i].pos = results[i].pos;
-                    mp[i].npos = results[i].npos;
-                    results[i].pos = NULL;
-                }
-                *out_pos = mp;
+            if (!mp) {
+                free(out);
+                *out_n = 0;
+                for (int i = 0; i < n; i++) free(results[i].pos);
+                free(results);
+                for (int i = 0; i < total; i++) mm_item_free(&items[i]);
+                free(items);
+                free(scratch);
+                return NULL;
             }
+            for (int i = 0; i < n; i++) {
+                mp[i].pos = results[i].pos;
+                mp[i].npos = results[i].npos;
+                results[i].pos = NULL;
+            }
+            *out_pos = mp;
         }
         for (int i = 0; i < n; i++) free(results[i].pos);
         *out_n = n;
