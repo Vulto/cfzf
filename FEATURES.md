@@ -41,7 +41,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-012 | `--color` | src/color.c, src/ui.c | tests/pty-diff.sh | verified |
 | OPT-013 | `--cycle` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-014 | `--delimiter` | src/tokenizer.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:delimiter-missing | implemented but unverified |
-| OPT-015 | `--disabled` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh | verified |
+| OPT-015 | `--disabled` | src/ui.c, src/main.c | tests/batch-diff.sh:disabled-filter, tests/batch-diff.sh:disabled-nomatch, tests/pty-diff.sh:disabled-toggle-search | implemented but unverified |
 | OPT-016 | `\-\-ellipsis` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-017 | `--exact` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-018 | `--exit-0` | - | tests/batch-diff.sh | verified |
@@ -203,12 +203,12 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-038 | `deselect` | src/bind.c, src/ui.c | - | implemented |
 | ACT-039 | `deselect-all` | src/bind.c, src/ui.c | - | implemented |
 | ACT-040 | `disable-raw` | - | - | unstarted |
-| ACT-041 | `disable-search` | - | - | unstarted |
+| ACT-041 | `disable-search` | src/bind.c, src/ui.c | tests/pty-diff.sh:disable-search-action | implemented but unverified |
 | ACT-042 | `down` | src/bind.c, src/ui.c | - | implemented |
 | ACT-043 | `down-match` | src/bind.c, src/ui.c | - | implemented |
 | ACT-044 | `down-selected` | src/bind.c, src/ui.c | - | implemented |
 | ACT-045 | `enable-raw` | - | - | unstarted |
-| ACT-046 | `enable-search` | - | - | unstarted |
+| ACT-046 | `enable-search` | src/bind.c, src/ui.c | tests/pty-diff.sh:disabled-enable-search-action | implemented but unverified |
 | ACT-047 | `end-of-line` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-end-of-line | implemented but unverified |
 | ACT-048 | `exclude` | - | - | unstarted |
 | ACT-049 | `exclude-multi` | - | - | unstarted |
@@ -271,7 +271,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-109 | `toggle-preview-wrap` | src/bind.c, src/ui.c | - | implemented |
 | ACT-110 | `toggle-preview-wrap-word` | src/bind.c, src/ui.c | - | implemented |
 | ACT-111 | `toggle-raw` | src/bind.c, src/ui.c | - | implemented |
-| ACT-112 | `toggle-search` | src/bind.c, src/ui.c | - | implemented |
+| ACT-112 | `toggle-search` | src/bind.c, src/ui.c | tests/pty-diff.sh:disabled-toggle-search | implemented but unverified |
 | ACT-113 | `toggle-sort` | src/bind.c, src/ui.c | - | implemented |
 | ACT-114 | `toggle-track` | src/bind.c, src/ui.c | tests/pty-diff.sh:track-toggle-action, tests/pty-diff.sh:track-toggle-disable-action | implemented but unverified |
 | ACT-115 | `toggle-track-current` | src/bind.c, src/ui.c | tests/pty-diff.sh:toggle-track-current-action | implemented but unverified |
