@@ -97,7 +97,7 @@ static char *strip_ansi_record(const char *line) {
     while (pos < len) {
         int start = -1, end = -1;
         mm_next_ansi_escape_sequence(line + pos, len - pos, &start, &end);
-        if (start < 0 || end < start) {
+        if (start < 0 || end <= start) {
             size_t rest = len - pos;
             memcpy(out + used, line + pos, rest);
             used += rest;
