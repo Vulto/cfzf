@@ -1551,8 +1551,8 @@ int main(int argc, char **argv) {
             fprintf(stderr, "fzf: too many input records\n");
             mm_pattern_free(pat);
             mm_delimiter_free(&delim);
-            free(nth);
             if (wnth != nth) free(wnth);
+            free(nth);
             for (int i = 0; i < count; i++) free(lines[i]);
             free(lines);
             free(data);
@@ -1568,8 +1568,8 @@ int main(int argc, char **argv) {
             fprintf(stderr, "fzf: out of memory\n");
             mm_pattern_free(pat);
             mm_delimiter_free(&delim);
-            free(nth);
             if (wnth != nth) free(wnth);
+            free(nth);
             for (int i = 0; i < count; i++) free(lines[i]);
             free(lines);
             free(data);
@@ -1588,8 +1588,8 @@ int main(int argc, char **argv) {
                 free(ansi_lines);
                 mm_pattern_free(pat);
                 mm_delimiter_free(&delim);
-                free(nth);
                 if (wnth != nth) free(wnth);
+                free(nth);
                 for (int j = 0; j < count; j++) free(lines[j]);
                 free(lines);
                 free(data);
@@ -1611,8 +1611,8 @@ int main(int argc, char **argv) {
         fprintf(stderr, "fzf: failed to filter input (out of memory)\n");
         mm_pattern_free(pat);
         mm_delimiter_free(&delim);
-        free(nth);
         if (wnth != nth) free(wnth);
+        free(nth);
         if (ansi_lines) {
             for (int i = 0; i < count; i++) free(ansi_lines[i]);
             free(ansi_lines);
@@ -1640,8 +1640,8 @@ int main(int argc, char **argv) {
                 free(out);
                 mm_pattern_free(pat);
                 mm_delimiter_free(&delim);
-                free(nth);
                 if (wnth != nth) free(wnth);
+                free(nth);
                 if (ansi_lines) {
                     for (int j = 0; j < count; j++) free(ansi_lines[j]);
                     free(ansi_lines);
