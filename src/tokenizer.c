@@ -21,7 +21,7 @@ static bool mm_accept_nth_chars(const char *s) {
 
 bool mm_accept_nth_validate(const char *spec) {
     if (!spec || !*spec) {
-        fprintf(stderr, "invalid --accept-nth: empty expression\\n");
+        fprintf(stderr, "invalid --accept-nth: empty expression\n");
         return false;
     }
     if (mm_accept_nth_chars(spec)) {
@@ -30,7 +30,7 @@ bool mm_accept_nth_validate(const char *spec) {
         bool valid = mm_parse_ranges(spec, &ranges, &nranges);
         free(ranges);
         if (!valid)
-            fprintf(stderr, "invalid --accept-nth: %s\\n", spec);
+            fprintf(stderr, "invalid --accept-nth: %s\n", spec);
         return valid;
     }
     bool found = false;
@@ -55,7 +55,7 @@ bool mm_accept_nth_validate(const char *spec) {
         if (numeric) { found = true; break; }
     }
     if (!found)
-        fprintf(stderr, "invalid --accept-nth: template should include at least 1 placeholder: %s\\n", spec);
+        fprintf(stderr, "invalid --accept-nth: template should include at least 1 placeholder: %s\n", spec);
     return found;
 }
 
