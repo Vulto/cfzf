@@ -3,6 +3,7 @@
 # reference fzf. Compares stdout, stderr and exit status for a matrix of
 # options over a generated corpus.
 set -uo pipefail
+unset FZF_DEFAULT_OPTS FZF_DEFAULT_OPTS_FILE
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REF=${REF:-$("$HERE/ref.sh")}
@@ -71,6 +72,57 @@ check_file() {
         cmp -s "$WORK/ref.err" "$WORK/impl.err" || diff -u "$WORK/ref.err" "$WORK/impl.err" | head -12 || true
     fi
 }
+
+check_defaults() {
+    desc=$1; defaults=$2; shift 2
+    env FZF_DEFAULT_OPTS="$defaults" FZF_DEFAULT_OPTS_FILE= \
+        "$REF" "$@" < "$CORPUS" > "$WORK/ref.out" 2> "$WORK/ref.err"
+    rrc=$?
+    env FZF_DEFAULT_OPTS="$defaults" FZF_DEFAULT_OPTS_FILE= \
+        "$IMPL" "$@" < "$CORPUS" > "$WORK/impl.out" 2> "$WORK/impl.err"
+    irc=$?
+    if [ "$rrc" = "$irc" ] && cmp -s "$WORK/ref.out" "$WORK/impl.out" && cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
+        pass=$((pass + 1))
+        [ -n "\${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s (exit ref=%s impl=%s)\n' "$desc" "$rrc" "$irc"
+        diff -u "$WORK/ref.out" "$WORK/impl.out" | head -12 || true
+        if ! cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
+            printf 'stderr differs:\n'
+            diff -u "$WORK/ref.err" "$WORK/impl.err" | head -12 || true
+        fi
+    fi
+}
+
+check_defaults_file() {
+    desc=$1; defaults_file=$2; shift 2
+    env FZF_DEFAULT_OPTS= FZF_DEFAULT_OPTS_FILE="$defaults_file" \
+        "$REF" "$@" < "$CORPUS" > "$WORK/ref.out" 2> "$WORK/ref.err"
+    rrc=$?
+    env FZF_DEFAULT_OPTS= FZF_DEFAULT_OPTS_FILE="$defaults_file" \
+        "$IMPL" "$@" < "$CORPUS" > "$WORK/impl.out" 2> "$WORK/impl.err"
+    irc=$?
+    if [ "$rrc" = "$irc" ] && cmp -s "$WORK/ref.out" "$WORK/impl.out" && cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
+        pass=$((pass + 1))
+        [ -n "\${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s (exit ref=%s impl=%s)\n' "$desc" "$rrc" "$irc"
+        diff -u "$WORK/ref.out" "$WORK/impl.out" | head -12 || true
+        if ! cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
+            printf 'stderr differs:\n'
+            diff -u "$WORK/ref.err" "$WORK/impl.err" | head -12 || true
+        fi
+    fi
+}
+
+# Environment defaults are parsed before explicit command-line options.
+check_defaults "environment-default-options" "--no-sort" --filter=a
+check_defaults "command-line-overrides-environment" "--filter 'apple'" --filter=banana
+DEFAULTS_FILE="$WORK/default-options"
+printf '%s\n' "--no-sort # preserve input order" > "$DEFAULTS_FILE"
+check_defaults_file "options-file" "$DEFAULTS_FILE" --filter=a
 
 # Help output is part of the CLI contract.
 check "help" --help
