@@ -154,6 +154,8 @@ static void ui_search(mm_ui_t *ui) {
                 if (ui->results[i] == tracked_item) { ui->cursor = i; restored = true; break; }
             }
         }
+        if (tracked_item >= 0 && !restored && ui->track_current && !ui->track)
+            ui->track_current = false;
         if (!restored && ui->cursor >= ui->nresults) ui->cursor = ui->nresults ? ui->nresults - 1 : 0;
         if (ui->offset > ui->cursor) ui->offset = ui->cursor;
         /* Trigger events. */
@@ -199,6 +201,8 @@ static void ui_search(mm_ui_t *ui) {
             if (res[i] == tracked_item) { ui->cursor = i; restored = true; break; }
         }
     }
+    if (tracked_item >= 0 && !restored && ui->track_current && !ui->track)
+        ui->track_current = false;
     if (!restored && ui->cursor >= n) ui->cursor = n ? n - 1 : 0;
     if (ui->offset > ui->cursor) ui->offset = ui->cursor;
     mm_pattern_free(pat);
