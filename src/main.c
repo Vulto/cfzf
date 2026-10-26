@@ -1276,14 +1276,6 @@ int main(int argc, char **argv) {
         p = nl + 1;
     }
 
-    if (tail >= 0 && count > tail) {
-        /* keep last N */
-        int drop = count - tail;
-        for (int i = 0; i < drop; i++) free(lines[i]);
-        memmove(lines, lines + drop, (size_t)tail * sizeof(char *));
-        count = tail;
-    }
-
     if (header_lines > 0 && !stream_input && count > 0) {
         int h = header_lines;
         if (h > count) h = count;
@@ -1301,6 +1293,14 @@ int main(int argc, char **argv) {
         for (int i = 0; i < h; i++) free(lines[i]);
         memmove(lines, lines + h, (size_t)(count - h) * sizeof(char *));
         count -= h;
+    }
+
+    if (tail >= 0 && count > tail) {
+        /* keep last N */
+        int drop = count - tail;
+        for (int i = 0; i < drop; i++) free(lines[i]);
+        memmove(lines, lines + drop, (size_t)tail * sizeof(char *));
+        count = tail;
     }
 
     /* Apply style presets after option parsing, matching upstream fzf's
