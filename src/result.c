@@ -169,17 +169,38 @@ static mm_result_t2 *g_sort_out;
 static size_t g_sort_cap;
 
 static bool sort_reserve(int n) {
-    if ((size_t)n <= g_sort_cap) return true;
-    free(g_sort_e); free(g_sort_tmp); free(g_sort_out);
-    g_sort_e = malloc((size_t)n * sizeof(mm_sort_entry_t));
-    g_sort_tmp = malloc((size_t)n * sizeof(mm_sort_entry_t));
-    g_sort_out = malloc((size_t)n * sizeof(mm_result_t2));
-    if (!g_sort_e || !g_sort_tmp || !g_sort_out) {
-        free(g_sort_e); free(g_sort_tmp); free(g_sort_out);
-        g_sort_e = g_sort_tmp = NULL; g_sort_out = NULL; g_sort_cap = 0;
+    if (n < 0) return false;
+    size_t need = (size_t)n;
+    if (need <= g_sort_cap) return true;
+    if (need > SIZE_MAX / sizeof(mm_sort_entry_t) ||
+        need > SIZE_MAX / sizeof(mm_result_t2))
+        return false;
+
+    /* Retain spare capacity between interactive queries. Geometric growth
+       prevents a sequence of slightly larger result sets from reallocating
+       three scratch buffers on every refresh. */
+    size_t cap = g_sort_cap ? g_sort_cap : 256;
+    while (cap < need) {
+        if (cap > SIZE_MAX / 2) { cap = need; break; }
+        cap *= 2;
+    }
+    if (cap > SIZE_MAX / sizeof(mm_sort_entry_t) ||
+        cap > SIZE_MAX / sizeof(mm_result_t2))
+        return false;
+
+    mm_sort_entry_t *newE = malloc(cap * sizeof(*newE));
+    mm_sort_entry_t *newTmp = malloc(cap * sizeof(*newTmp));
+    mm_result_t2 *newOut = malloc(cap * sizeof(*newOut));
+    if (!newE || !newTmp || !newOut) {
+        free(newE); free(newTmp); free(newOut);
         return false;
     }
-    g_sort_cap = (size_t)n;
+
+    free(g_sort_e); free(g_sort_tmp); free(g_sort_out);
+    g_sort_e = newE;
+    g_sort_tmp = newTmp;
+    g_sort_out = newOut;
+    g_sort_cap = cap;
     return true;
 }
 
