@@ -278,6 +278,9 @@ check_invalid_option "sort-invalid" 'invalid --sort value' --filter=a --sort=bad
 check_invalid_option "info-missing" 'info style required' --filter=a --info
 check_invalid_option "info-invalid" 'invalid info style' --filter=a --info=unsupported
 check_invalid_option "unknown-plus-option" "unknown option: +z" --filter=a +z
+check_invalid_option "help-does-not-hide-invalid-options" "unknown option: --invalid" --help --invalid
+check_invalid_option "version-does-not-hide-invalid-options" "unknown option: --invalid" --version --invalid
+check_invalid_option "man-does-not-hide-invalid-options" "unknown option: --invalid" --man --invalid
 check_invalid_option "algo-invalid" "invalid algorithm" --filter=a --algo=v3
 check_invalid_option "algo-missing" "--algo requires a value" --filter=a --algo
 check_invalid_option "threads-negative" 'invalid --threads value' --filter=a --threads=-1
