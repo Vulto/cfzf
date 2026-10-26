@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Audit FEATURES.md without mistaking declared labels for verified parity.
 
-This tool deliberately does not produce a single completion percentage:
-feature-level verification requires scenario-level links to actual differential
-cases, and the existing inventory only names test files, not individual cases.
+This tool deliberately does not produce a single completion percentage.
+Inventory references may name a test case as `path/to/test:case-id`; those
+references are checked against the test source, while suite-only references are
+reported as less precise evidence.
 """
 from __future__ import annotations
 
@@ -62,6 +63,7 @@ def main() -> int:
     declared_verified = 0
     total_rows = 0
     missing_ids_total = 0
+    named_case_refs = 0
     for section, expected in EXPECTED.items():
         entries = rows[section]
         ids = [entry["id"] for entry in entries]
@@ -112,6 +114,7 @@ def main() -> int:
                         )
                         continue
                     if separator:
+                        named_case_refs += 1
                         test_source = test_path.read_text(encoding="utf-8")
                         if not case_id or case_id not in test_source:
                             errors.append(
@@ -122,10 +125,11 @@ def main() -> int:
     print(f"Inventory rows present: {total_rows}")
     print(f"Declared verified rows (not independently audited): {declared_verified}")
     print(f"Missing canonical inventory IDs: {missing_ids_total}")
+    print(f"Named test-case references: {named_case_refs}")
     print("Feature completion percentage: NOT CALCULABLE")
-    print("Reason: inventory rows currently reference test suites, not individual")
-    print("differential cases and observed outcomes; a suite passing does not prove")
-    print("every feature row marked verified.")
+    print("Reason: named test-case references establish traceability, not observed")
+    print("test outcomes. A passing suite does not prove every feature marked")
+    print("verified unless the referenced case actually runs and passes.")
     if errors:
         print("")
         print("AUDIT ERRORS:")
