@@ -380,12 +380,15 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(a, "--gap")) {
             gap = 1;
-            if (i + 1 < argc) {
+            if (i + 1 < argc && argv[i + 1][0] >= '0' &&
+                argv[i + 1][0] <= '9') {
                 int value;
-                if (parse_nonnegative_int(argv[i + 1], &value)) {
-                    gap = value;
-                    i++;
+                if (!parse_nonnegative_int(argv[i + 1], &value)) {
+                    fprintf(stderr, "invalid --gap value: %s\n", argv[i + 1]);
+                    return 2;
                 }
+                gap = value;
+                i++;
             }
         }
         else if (!strcmp(a, "--no-gap")) gap = 0;
