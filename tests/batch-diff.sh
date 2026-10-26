@@ -75,6 +75,7 @@ check_file() {
 # Help output is part of the CLI contract.
 check "help" --help
 check "short-help" -h
+check "version" --version
 
 # Basic filtering.
 for q in apple a e '' AN 'ch' 'a b' 'z' '1' '2'; do
