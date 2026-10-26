@@ -191,6 +191,9 @@ check_invalid_option "filter-missing" '--filter requires a value' --filter
 check_invalid_option "query-missing" '--query requires a value' --query
 check_invalid_option "nth-missing" '--nth requires a value' --nth
 check_invalid_option "delimiter-missing" '--delimiter requires a value' --delimiter
+check_invalid_option "scheme-missing" '--scheme requires a value' --filter=a --scheme
+check_invalid_option "tiebreak-missing" '--tiebreak requires a value' --filter=a --tiebreak
+check_invalid_option "with-nth-missing" '--with-nth requires a value' --filter=a --with-nth
 check_invalid_option "tail-missing" 'invalid --tail value' --filter=a --tail
 check_invalid_option "tail-zero" 'invalid --tail value' --filter=a --tail=0
 
