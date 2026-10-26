@@ -24,6 +24,7 @@ CORPUS="$WORK/corpus.txt"
         printf 'hello world\nhello there\nworld hello\n'
         printf 'naïve\nrésumé\nüber\n日本語テキスト\n'
         printf 'a b  c\n  leading\ntrailing  \ntab\there\n'
+        printf 'left　wide right\nleft nbsp right\n'
         printf 'ABC\nabc\nAbC\naBc\n'
         printf 'foo bar baz\nfoo_bar_baz\nfoo-bar-baz\n'
         printf '123\n456\n789\n'
@@ -102,6 +103,7 @@ check "scheme=history" --filter=a --scheme=history
 # Field selection.
 check "nth=1"          --filter=a --nth=1
 check "nth=2"          --filter=b --nth=2
+check "nth-unicode-space" --filter=wide --nth=2
 check "nth=1..2"       --filter=a --nth=1..2
 check "nth=..2"        --filter=a --nth=..2
 check "nth=2.."        --filter=b --nth=2..
