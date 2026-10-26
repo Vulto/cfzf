@@ -65,6 +65,7 @@ def main() -> int:
     missing_ids_total = 0
     named_case_refs = 0
     suite_only_refs = 0
+    verified_without_case_refs = 0
     for section, expected in EXPECTED.items():
         entries = rows[section]
         ids = [entry["id"] for entry in entries]
@@ -94,6 +95,7 @@ def main() -> int:
         # A status is not considered evidenced merely because a test is referenced.
         # Named case references improve traceability but do not establish outcomes.
         for entry in entries:
+            has_named_case_ref = False
             cells = entry["cells"]
             if len(cells) < 5:
                 errors.append(f"line {entry['line']}: expected 5 table columns")
@@ -114,6 +116,7 @@ def main() -> int:
                         )
                         continue
                     if separator:
+                        has_named_case_ref = True
                         named_case_refs += 1
                         test_source = test_path.read_text(encoding="utf-8")
                         if not case_id or case_id not in test_source:
@@ -122,6 +125,8 @@ def main() -> int:
                             )
                     else:
                         suite_only_refs += 1
+            if entry["status"] == "verified" and not has_named_case_ref:
+                verified_without_case_refs += 1
 
     print("")
     print(f"Inventory rows present: {total_rows}")
@@ -129,6 +134,7 @@ def main() -> int:
     print(f"Missing canonical inventory IDs: {missing_ids_total}")
     print(f"Named test-case references: {named_case_refs}")
     print(f"Suite-only references: {suite_only_refs}")
+    print(f"Verified rows lacking named cases: {verified_without_case_refs}")
     print("Feature completion percentage: NOT CALCULABLE")
     print("Reason: named test-case references establish traceability, not observed")
     print("test outcomes. A passing suite does not prove every feature marked")
