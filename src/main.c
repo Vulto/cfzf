@@ -1550,7 +1550,7 @@ int main(int argc, char **argv) {
     char **search_lines = lines;
     if (ansi && count > 0) {
         if ((size_t)count > SIZE_MAX / sizeof(*ansi_lines)) {
-            fprintf(stderr, "fzf: too many input records\\n");
+            fprintf(stderr, "fzf: too many input records\n");
             mm_pattern_free(pat);
             mm_delimiter_free(&delim);
             free(nth);
@@ -1567,7 +1567,7 @@ int main(int argc, char **argv) {
         }
         ansi_lines = calloc((size_t)count, sizeof(*ansi_lines));
         if (!ansi_lines) {
-            fprintf(stderr, "fzf: out of memory\\n");
+            fprintf(stderr, "fzf: out of memory\n");
             mm_pattern_free(pat);
             mm_delimiter_free(&delim);
             free(nth);
@@ -1585,7 +1585,7 @@ int main(int argc, char **argv) {
         for (int i = 0; i < count; i++) {
             ansi_lines[i] = strip_ansi_record(lines[i]);
             if (!ansi_lines[i]) {
-                fprintf(stderr, "fzf: out of memory\\n");
+                fprintf(stderr, "fzf: out of memory\n");
                 for (int j = 0; j < i; j++) free(ansi_lines[j]);
                 free(ansi_lines);
                 mm_pattern_free(pat);
@@ -1614,7 +1614,7 @@ int main(int argc, char **argv) {
     int *out = mm_batch_search(&input, pat, &crit, tac, &n, NULL);
     (void)no_sort; /* handled by pat->sortable */
     if (!out) {
-        fprintf(stderr, "fzf: failed to filter input (out of memory)\\n");
+        fprintf(stderr, "fzf: failed to filter input (out of memory)\n");
         mm_pattern_free(pat);
         mm_delimiter_free(&delim);
         free(nth);
@@ -1642,7 +1642,7 @@ int main(int argc, char **argv) {
             char *accepted = mm_accept_nth_expand(accept_nth_spec, line, delim,
                                                 out[i]);
             if (!accepted) {
-                fprintf(stderr, "fzf: failed to format accepted item (out of memory)\\n");
+                fprintf(stderr, "fzf: failed to format accepted item (out of memory)\n");
                 free(out);
                 mm_pattern_free(pat);
                 mm_delimiter_free(&delim);
