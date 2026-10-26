@@ -72,7 +72,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-043 | `--height` | src/ui.c, src/terminal.c | tests/pty-diff.sh | verified |
 | OPT-044 | `--highlight-line` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-045 | `\-\-history` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
-| OPT-046 | `\-\-history\-size` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-size-invalid | implemented but unverified |
+| OPT-046 | `\-\-history\-size` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-size-invalid, tests/batch-diff.sh:history-size-zero | implemented but unverified |
 | OPT-047 | `--hscroll-off` | src/ui.c, src/main.c | tests/batch-diff.sh:hscroll-off-negative | implemented but unverified |
 | OPT-048 | `--id-nth` | - | - | unstarted |
 | OPT-049 | `--ignore-case` | src/pattern.c | tests/batch-diff.sh | verified |
