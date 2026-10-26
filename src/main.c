@@ -587,8 +587,6 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(a, "--track")) track = true;
         else if (!strcmp(a, "--no-track")) track = false;
-        else if (!strcmp(a, "--disabled")) phony = true;
-        else if (!strcmp(a, "--no-disabled")) phony = false;
         else if (!strcmp(a, "--phony")) phony = true;
         else if (!strcmp(a, "--no-phony")) phony = false;
         else if (!strcmp(a, "--ambidouble")) ambidouble = true;
