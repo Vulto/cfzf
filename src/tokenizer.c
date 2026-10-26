@@ -180,8 +180,19 @@ static char **awk_tokenize(const char *input, int *prefix_length, int *outn) {
         bool white = is_awk_white(r);
         switch (state) {
         case 0:
-            if (white) prefix++;
-            else { state = 1; begin = idx; end = idx + 1; }
+            if (white) {
+                if (prefix == INT_MAX) {
+                    free_tokens(ret, n);
+                    *prefix_length = 0;
+                    *outn = 0;
+                    return NULL;
+                }
+                prefix++;
+            } else {
+                state = 1;
+                begin = idx;
+                end = idx + 1;
+            }
             break;
         case 1:
             end = idx + 1;
@@ -320,8 +331,14 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim,
         }
         int length = leading;
         for (int i = 0; i < n; i++) {
+            int token_length = mm_utf8_count(tokens[i]);
+            if (token_length < 0 || token_length > INT_MAX - length) {
+                free(prefix);
+                free_tokens(tokens, n);
+                return NULL;
+            }
             prefix[i] = length;
-            length += mm_utf8_count(tokens[i]);
+            length += token_length;
         }
         *prefix_lengths = prefix;
         *outn = n;
