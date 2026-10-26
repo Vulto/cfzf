@@ -11,7 +11,11 @@
 #include <stdint.h>
 
 static bool parse_range_int(const char *s, size_t len, int *out) {
-    if (!s || len == 0) return false;
+    if (!s || !out || len == 0) return false;
+    size_t digit = (s[0] == '-' || s[0] == '+') ? 1u : 0u;
+    if (digit == len) return false;
+    for (size_t i = digit; i < len; i++)
+        if (s[i] < '0' || s[i] > '9') return false;
     char stack[64];
     char *buf = stack;
     if (len >= sizeof(stack)) {
