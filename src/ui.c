@@ -243,6 +243,21 @@ static int ui_str_width(const char *s) {
     return w;
 }
 
+static int ui_query_cursor_width(const mm_ui_t *ui) {
+    size_t pos = (size_t)ui->query_pos;
+    if (pos > ui->query_len) pos = ui->query_len;
+    int width = 0;
+    size_t i = 0;
+    while (i < pos) {
+        wchar_t cp;
+        size_t used = mm_utf8_decode(ui->query_buf + i, pos - i, &cp);
+        if (used == 0) used = 1;
+        width += mm_runewidth(cp);
+        i += used;
+    }
+    return width;
+}
+
 static void ui_draw_border_box(mm_window_t *win,
                                 const mm_border_glyphs_t *g,
                                 mm_color_t color, int left, int right,
@@ -860,10 +875,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     }
     ui_clear_to_eol(promptwin, list_w, used, MM_COL_DEFAULT);
     /* Keep the terminal cursor aligned with the UTF-8 query insertion point. */
-    char saved = ui->query_buf[ui->query_pos];
-    ui->query_buf[ui->query_pos] = '\0';
-    int query_cursor_width = ui_str_width(ui->query_buf);
-    ui->query_buf[ui->query_pos] = saved;
+    int query_cursor_width = ui_query_cursor_width(ui);
     mm_window_move(promptwin, prompt_row,
                    area_x + content_x + ui_str_width(pr) + query_cursor_width);
 
@@ -1497,10 +1509,11 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         ui_draw_preview(ui, r, listwin, pv_x, pv_y, pv_w, pv_h);
     }
 
-    /* Leave the terminal cursor at the end of the query. */
+    /* Leave the terminal cursor at the query insertion point. */
     const char *pr2 = ui->prompt ? ui->prompt : "> ";
     mm_renderer_move(r, prompt_row,
-                     area_x + content_x + ui_str_width(pr2) + ui_str_width(ui->query_buf));
+                     area_x + content_x + ui_str_width(pr2) +
+                     ui_query_cursor_width(ui));
 
     mm_renderer_flush(r);
 }
