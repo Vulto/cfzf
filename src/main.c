@@ -1,6 +1,4 @@
-/* main.c - fzf C23 rewrite entry point. Currently implements the batch
-   --filter front-end; the interactive TUI follows in src/terminal.c.
-   This is the first slice of the C23 fzf core; interactive TUI follows. */
+/* main.c - fzf-compatible command-line entry point for the C23 rewrite. */
 #include "algo.h"
 #include "pattern.h"
 #include "result.h"
