@@ -40,6 +40,11 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim, int **prefix_lengths,
    TrimRight whitespace). Returns a newly malloc'd string. */
 char *mm_strip_last_delimiter(const char *str, mm_delimiter_t delim);
 
+/* Validate and expand fzf --accept-nth field expressions/templates. */
+bool mm_accept_nth_validate(const char *spec);
+char *mm_accept_nth_expand(const char *spec, const char *line,
+                           mm_delimiter_t delim, int index);
+
 /* Transform tokens according to withNth ranges, producing new token strings
    (malloc'd) and their output prefix lengths. Caller frees. */
 char **mm_transform(char **tokens, int ntokens, int *tok_prefix, const mm_range_t *ranges,
