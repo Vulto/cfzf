@@ -145,7 +145,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-116 | `--tabstop` | src/ui.c, src/main.c | - | implemented |
 | OPT-117 | `--tac` | src/result.c | tests/batch-diff.sh | verified |
 | OPT-118 | `--tail` | src/main.c | tests/batch-diff.sh | verified |
-| OPT-119 | `--threads` | - | - | unstarted |
+| OPT-119 | `--threads` | src/main.c, src/filter.c | tests/thread-diff.sh | implemented but unverified |
 | OPT-120 | `--tiebreak` | src/result.c | tests/batch-diff.sh | verified |
 | OPT-121 | `--tmux` | - | - | unstarted |
 | OPT-122 | `--track` | - | - | unstarted |
