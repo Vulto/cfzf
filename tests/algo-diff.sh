@@ -21,7 +21,7 @@ CORPUS="$WORK/corpus.txt"
     printf 'src/main.c\nsrc/util.c\nlib/foo.c\nREADME.md\n'
     printf 'abc\nabd\nabe\nxyz\n'
     printf 'val\nvalue\nvalues\noval\n'
-    printf 'ax\nįx\nfoo/ix\nfooįx\nfoo/x\nx\n'
+    printf 'ax\nįx\n₠x\nfoo/ix\nfooįx\nfoo₠x\nfoo/x\nx\n'
     printf 'a\nab\nabc\nabcd\nabcde\n'
 } > "$CORPUS"
 
