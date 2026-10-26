@@ -280,6 +280,7 @@ static bool parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
 mm_pattern_t *mm_pattern_build(const char *query, bool fuzzy, bool extended,
                                mm_case_t case_mode, bool normalize, bool forward,
                                bool with_pos) {
+    if (!query) return NULL;
     int qlen = 0;
     wchar_t *runes = decode(query, &qlen);
     if (!runes) return NULL;
@@ -433,9 +434,11 @@ static mm_match_t run_term_tokens(const mm_term_t *t, const mm_token_t *tokens, 
 
 bool mm_pattern_match_tokens(const mm_pattern_t *p, const mm_token_t *tokens, int ntokens,
                              int *score, int **pos, int *npos) {
-    *score = 0;
     if (pos) *pos = NULL;
     if (npos) *npos = 0;
+    if (!score) return false;
+    *score = 0;
+    if (!p || ntokens < 0 || (ntokens > 0 && !tokens)) return false;
 
     if (mm_pattern_is_empty(p)) return true;
 
@@ -531,6 +534,12 @@ bool mm_pattern_match_tokens(const mm_pattern_t *p, const mm_token_t *tokens, in
 
 bool mm_pattern_match(const mm_pattern_t *p, const mm_text_t *text, int *score,
                       int **pos, int *npos) {
+    if (!text) {
+        if (score) *score = 0;
+        if (pos) *pos = NULL;
+        if (npos) *npos = 0;
+        return false;
+    }
     mm_token_t tok = { *text, 0 };
     return mm_pattern_match_tokens(p, &tok, 1, score, pos, npos);
 }
