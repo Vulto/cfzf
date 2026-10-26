@@ -167,8 +167,9 @@ int mm_result_cmp(const void *a, const void *b) {
         if (l < rr) return -1;
         if (l > rr) return 1;
     }
-    bool le = (x->index <= y->index);
-    return (le != g_tac) ? -1 : 1;
+    if (x->index == y->index) return 0;
+    if (g_tac) return x->index > y->index ? -1 : 1;
+    return x->index < y->index ? -1 : 1;
 }
 
 /* The comparator looks at points[3] .. points[0] in that order, so the whole
