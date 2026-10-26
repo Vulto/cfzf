@@ -62,7 +62,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-033 | `--graph` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-034 | `--gutter` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-035 | `--gutter-raw` | src/main.c | tests/pty-diff.sh | verified |
-| OPT-036 | `--header` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
+| OPT-036 | `--header` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:no-header, tests/batch-diff.sh:header-missing | implemented but unverified |
 | OPT-037 | `--header-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-038 | `--header-first` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-039 | `--header-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
