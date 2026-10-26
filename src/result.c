@@ -90,6 +90,13 @@ void mm_result_set_bounds(mm_result_t2 *r, mm_item_t *item, int score,
     for (int i = 0; i < MM_MAX_CRITERIA; i++) r->points[i] = 0;
 
     int numChars = item->text.length;
+    int trimLength = -1;
+    for (int idx = 0; idx < crit->count; idx++) {
+        if (crit->crit[idx] == BY_LENGTH || crit->crit[idx] == BY_END) {
+            trimLength = mm_item_trim_length(item);
+            break;
+        }
+    }
     for (int idx = 0; idx < crit->count; idx++) {
         uint16_t val = 0xFFFF;
         switch (crit->crit[idx]) {
@@ -105,7 +112,7 @@ void mm_result_set_bounds(mm_result_t2 *r, mm_item_t *item, int score,
             }
             break;
         case BY_LENGTH:
-            val = mm_item_trim_length(item);
+            val = (uint16_t)trimLength;
             break;
         case BY_PATHNAME:
             if (valid) {
@@ -129,8 +136,7 @@ void mm_result_set_bounds(mm_result_t2 *r, mm_item_t *item, int score,
                 if (crit->crit[idx] == BY_BEGIN) {
                     val = (uint16_t)(min_end - whitePrefixLen);
                 } else {
-                    int tl = mm_item_trim_length(item);
-                    val = (uint16_t)(0xFFFF - (int)(0xFFFF * (max_end - whitePrefixLen) / (tl + 1)));
+                    val = (uint16_t)(0xFFFF - (int)(0xFFFF * (max_end - whitePrefixLen) / (trimLength + 1)));
                 }
             }
             break;
