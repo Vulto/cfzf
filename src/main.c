@@ -68,8 +68,11 @@ static const char *required_cli_arg(int argc, char **argv, int *index,
 static int print_man_page(void) {
     const char *candidates[] = {
         "fzf.1",
+        "cfzf.1",
         "/usr/local/share/man/man1/fzf.1",
         "/usr/share/man/man1/fzf.1",
+        "/usr/local/share/man/man1/cfzf.1",
+        "/usr/share/man/man1/cfzf.1",
         NULL
     };
     for (int i = 0; candidates[i]; i++) {
