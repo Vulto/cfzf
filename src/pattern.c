@@ -377,7 +377,11 @@ static mm_match_t run_term_tokens(const mm_term_t *t, const mm_token_t *tokens, 
                     for (int k = 0; k < m.npos; k++) m.pos[k] += tokens[i].prefix_length;
                 } else {
                     int span = m.result.end - m.result.start;
-                    m.pos = malloc((size_t)span * sizeof(int));
+                    m.pos = span > 0 ? malloc((size_t)span * sizeof(int)) : NULL;
+                    if (span > 0 && !m.pos) {
+                        mm_match_free(&m);
+                        return best;
+                    }
                     for (int k = 0; k < span; k++)
                         m.pos[k] = m.result.start + k + tokens[i].prefix_length;
                     m.npos = span;
