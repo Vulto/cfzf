@@ -381,7 +381,7 @@ char **mm_tokenize(const char *text, mm_delimiter_t delim,
     for (int i = 0; i < n; i++) {
         prefix[i] = length;
         int token_length = mm_utf8_count(tokens[i]);
-        if (token_length > INT_MAX - length) {
+        if (token_length < 0 || token_length > INT_MAX - length) {
             free(prefix);
             free_tokens(tokens, n);
             return NULL;
