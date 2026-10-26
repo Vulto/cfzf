@@ -195,6 +195,12 @@ check_invalid_option "delimiter-missing" '--delimiter requires a value' --delimi
 check_invalid_option "scheme-missing" '--scheme requires a value' --filter=a --scheme
 check_invalid_option "tiebreak-missing" '--tiebreak requires a value' --filter=a --tiebreak
 check_invalid_option "with-nth-missing" '--with-nth requires a value' --filter=a --with-nth
+check_invalid_option "ghost-missing" '--ghost requires a value' --filter=a --ghost
+check_invalid_option "marker-multi-line-missing" '--marker-multi-line requires a value' --filter=a --marker-multi-line
+check_invalid_option "history-missing" '--history requires a value' --filter=a --history
+check_invalid_option "preview-missing" '--preview requires a value' --filter=a --preview
+check_invalid_option "preview-window-missing" '--preview-window requires a value' --filter=a --preview-window
+check_invalid_option "prompt-missing" '--prompt requires a value' --filter=a --prompt
 check_invalid_option "tail-missing" 'invalid --tail value' --filter=a --tail
 check_invalid_option "tail-zero" 'invalid --tail value' --filter=a --tail=0
 
