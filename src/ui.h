@@ -151,7 +151,8 @@ typedef struct {
     const char  *jump_labels;    /* --jump-labels */
     const char  *marker_multi_line; /* --marker-multi-line */
     int          threads;        /* --threads */
-    bool         track;          /* --track */
+    bool         track;          /* --track: global cursor tracking */
+    bool         track_current;  /* one-shot tracking of the current item */
     bool         ambidouble;     /* --ambidouble */
     bool         filepath_word;  /* --filepath-word */
     bool         header_first;   /* --header-first */
