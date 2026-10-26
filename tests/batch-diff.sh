@@ -238,6 +238,17 @@ check_invalid_option "margin-missing" '--margin requires a value' --filter=a --m
 check_invalid_option "padding-missing" '--padding requires a value' --filter=a --padding
 check_invalid_option "walker-root-missing" '--walker-root requires a value' --filter=a --walker-root
 
+# Input record boundaries.
+EMPTY="$WORK/empty.txt"
+: > "$EMPTY"
+check_file "empty-input" "$EMPTY" --filter=a
+NO_FINAL_NL="$WORK/no-final-newline.txt"
+printf 'alpha\nbeta' > "$NO_FINAL_NL"
+check_file "no-final-newline" "$NO_FINAL_NL" --filter=a
+CRLF="$WORK/crlf.txt"
+printf 'alpha\r\nbeta\r\n' > "$CRLF"
+check_file "crlf-input" "$CRLF" --filter=a
+
 # Exercise stdin reading and output at an exact 4 MiB boundary.
 BOUNDARY="$WORK/exact-4mib.txt"
 head -c 4194303 /dev/zero | tr '\\000' 'x' > "$BOUNDARY"
