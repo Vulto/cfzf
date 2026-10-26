@@ -9,6 +9,7 @@
 #include "history.h"
 #include "color.h"
 #include "tokenizer.h"
+#include "ansi.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,6 +82,36 @@ static int print_man_page(void) {
     fprintf(stderr,
             "fzf: manual page not found; see fzf(1) in the documentation\n");
     return 1;
+}
+
+/* Remove terminal control sequences from a record for --ansi matching.
+   The original record is retained separately for output, matching fzf's
+   distinction between searchable text and the line returned to the caller. */
+static char *strip_ansi_record(const char *line) {
+    if (!line) return NULL;
+    size_t len = strlen(line);
+    char *out = malloc(len + 1);
+    if (!out) return NULL;
+
+    size_t pos = 0, used = 0;
+    while (pos < len) {
+        int start = -1, end = -1;
+        mm_next_ansi_escape_sequence(line + pos, len - pos, &start, &end);
+        if (start < 0 || end < start) {
+            size_t rest = len - pos;
+            memcpy(out + used, line + pos, rest);
+            used += rest;
+            break;
+        }
+        size_t plain = (size_t)start;
+        if (plain) {
+            memcpy(out + used, line + pos, plain);
+            used += plain;
+        }
+        pos += (size_t)end;
+    }
+    out[used] = '\0';
+    return out;
 }
 
 static char *read_all_stdin(size_t *outlen) {
@@ -1515,7 +1546,66 @@ int main(int argc, char **argv) {
 
     bool length_from_transform = false;
     if (!nth_spec && with_nth_spec) length_from_transform = true;
-    mm_input_t input = { lines, count, NULL, 0, delim, nth, nth_n, length_from_transform };
+    char **ansi_lines = NULL;
+    char **search_lines = lines;
+    if (ansi && count > 0) {
+        if ((size_t)count > SIZE_MAX / sizeof(*ansi_lines)) {
+            fprintf(stderr, "fzf: too many input records\\n");
+            mm_pattern_free(pat);
+            mm_delimiter_free(&delim);
+            free(nth);
+            if (wnth != nth) free(wnth);
+            for (int i = 0; i < count; i++) free(lines[i]);
+            free(lines);
+            free(data);
+            mm_keymap_free(&keymap);
+            for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
+            free(expect_keys);
+            for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
+            free(skip_names);
+            return 2;
+        }
+        ansi_lines = calloc((size_t)count, sizeof(*ansi_lines));
+        if (!ansi_lines) {
+            fprintf(stderr, "fzf: out of memory\\n");
+            mm_pattern_free(pat);
+            mm_delimiter_free(&delim);
+            free(nth);
+            if (wnth != nth) free(wnth);
+            for (int i = 0; i < count; i++) free(lines[i]);
+            free(lines);
+            free(data);
+            mm_keymap_free(&keymap);
+            for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
+            free(expect_keys);
+            for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
+            free(skip_names);
+            return 2;
+        }
+        for (int i = 0; i < count; i++) {
+            ansi_lines[i] = strip_ansi_record(lines[i]);
+            if (!ansi_lines[i]) {
+                fprintf(stderr, "fzf: out of memory\\n");
+                for (int j = 0; j < i; j++) free(ansi_lines[j]);
+                free(ansi_lines);
+                mm_pattern_free(pat);
+                mm_delimiter_free(&delim);
+                free(nth);
+                if (wnth != nth) free(wnth);
+                for (int j = 0; j < count; j++) free(lines[j]);
+                free(lines);
+                free(data);
+                mm_keymap_free(&keymap);
+                for (int j = 0; j < expect_n; j++) free(expect_keys[j]);
+                free(expect_keys);
+                for (int j = 0; j < nskip; j++) free((char *)skip_names[j]);
+                free(skip_names);
+                return 2;
+            }
+        }
+        search_lines = ansi_lines;
+    }
+    mm_input_t input = { search_lines, count, NULL, 0, delim, nth, nth_n, length_from_transform };
     int n = 0;
     int *out = mm_batch_search(&input, pat, &crit, tac, &n, NULL);
     (void)no_sort; /* handled by pat->sortable */
@@ -1525,6 +1615,10 @@ int main(int argc, char **argv) {
         mm_delimiter_free(&delim);
         free(nth);
         if (wnth != nth) free(wnth);
+        if (ansi_lines) {
+            for (int i = 0; i < count; i++) free(ansi_lines[i]);
+            free(ansi_lines);
+        }
         for (int i = 0; i < count; i++) free(lines[i]);
         free(lines);
         free(data);
@@ -1571,6 +1665,10 @@ int main(int argc, char **argv) {
     mm_pattern_free(pat);
     mm_delimiter_free(&delim);
     free(out);
+    if (ansi_lines) {
+        for (int i = 0; i < count; i++) free(ansi_lines[i]);
+        free(ansi_lines);
+    }
     free(nth);
     if (wnth != nth) free(wnth);
     for (int i = 0; i < count; i++) free(lines[i]);
