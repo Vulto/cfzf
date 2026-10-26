@@ -40,7 +40,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-011 | `--border-label-pos` | - | - | unstarted |
 | OPT-012 | `--color` | src/color.c, src/ui.c | tests/pty-diff.sh | verified |
 | OPT-013 | `--cycle` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
-| OPT-014 | `--delimiter` | src/tokenizer.c | tests/batch-diff.sh | verified |
+| OPT-014 | `--delimiter` | src/tokenizer.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:delimiter-missing | implemented but unverified |
 | OPT-015 | `--disabled` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh | verified |
 | OPT-016 | `\-\-ellipsis` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-017 | `--exact` | src/pattern.c | tests/batch-diff.sh | verified |
@@ -48,7 +48,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-019 | `--expect` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-020 | `--extended` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-021 | `--filepath-word` | src/main.c | - | implemented |
-| OPT-022 | `--filter` | src/main.c, src/filter.c | tests/batch-diff.sh | verified |
+| OPT-022 | `--filter` | src/main.c, src/filter.c | tests/batch-diff.sh, tests/batch-diff.sh:filter-missing | implemented but unverified |
 | OPT-023 | `--fish` | src/main.c | - | implemented |
 | OPT-024 | `--footer` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-025 | `--footer-border` | - | - | unstarted |
@@ -115,7 +115,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-086 | `--no-sort` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-087 | `--no-tty-default` | src/main.c | tests/pty-diff.sh | verified |
 | OPT-088 | `--no-unicode` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
-| OPT-089 | `--nth` | src/tokenizer.c | tests/batch-diff.sh | verified |
+| OPT-089 | `--nth` | src/tokenizer.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:nth-missing | implemented but unverified |
 | OPT-090 | `--nushell` | - | - | unstarted |
 | OPT-091 | `--oneline` / `--no-oneline` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh | implemented but unverified |
@@ -130,7 +130,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-101 | `--print0` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-102 | `--print-query` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-103 | `--prompt` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
-| OPT-104 | `--query` | src/main.c | tests/batch-diff.sh | verified |
+| OPT-104 | `--query` | src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:query-missing | implemented but unverified |
 | OPT-105 | `--raw` | src/main.c | - | implemented |
 | OPT-106 | `--read0` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-107 | `--reverse` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
@@ -144,7 +144,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-115 | `\-\-sync` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-116 | `--tabstop` | src/ui.c, src/main.c | tests/batch-diff.sh:tabstop-zero | implemented but unverified |
 | OPT-117 | `--tac` | src/result.c | tests/batch-diff.sh | verified |
-| OPT-118 | `--tail` | src/main.c | tests/batch-diff.sh | verified |
+| OPT-118 | `--tail` | src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:tail-missing, tests/batch-diff.sh:no-tail | implemented but unverified |
 | OPT-119 | `--threads` | src/main.c, src/filter.c | tests/thread-diff.sh:--threads=2, tests/thread-diff.sh:--threads=4, tests/batch-diff.sh:threads-zero-default | implemented but unverified |
 | OPT-120 | `--tiebreak` | src/result.c | tests/batch-diff.sh | verified |
 | OPT-121 | `--tmux` | - | - | unstarted |
