@@ -104,6 +104,8 @@ check "case-sensitive" --filter=CH --case-sensitive
 # Ordering.
 check "tac"            --filter=a --tac
 check "no-sort"        --filter=a +s
+check "sort-zero-short-alias" --filter=a -s 0
+check "sort-zero-equals" --filter=a --sort=0
 check "sort"           --filter=a --sort
 check "tiebreak=length"  --filter=a --tiebreak=length
 check "tiebreak=begin"   --filter=a --tiebreak=begin
@@ -120,6 +122,8 @@ check "scheme=history" --filter=a --scheme=history
 # Field selection.
 check "nth=1"          --filter=a --nth=1
 check "nth=2"          --filter=b --nth=2
+check "nth-short-alias" --filter=b -n 2
+check "nth-short-equals" --filter=b -n=2
 check "nth=1..2"       --filter=a --nth=1..2
 check "nth=..2"        --filter=a --nth=..2
 check "nth=2.."        --filter=b --nth=2..
