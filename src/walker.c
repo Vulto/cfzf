@@ -41,6 +41,7 @@ typedef struct {
 } mm_walk_stream_t;
 
 void mm_walker_default(mm_walker_opts_t *opts) {
+    if (!opts) return;
     opts->file = true;
     opts->dir = false;
     opts->follow = true;
@@ -51,6 +52,7 @@ void mm_walker_default(mm_walker_opts_t *opts) {
 }
 
 bool mm_walker_parse(const char *spec, mm_walker_opts_t *opts) {
+    if (!opts) return false;
     opts->file = opts->dir = opts->follow = opts->hidden = false;
     opts->skip = NULL;
     opts->nskip = 0;
@@ -383,6 +385,9 @@ static void root_absolute(const char *root, char *out, size_t cap) {
 
 bool mm_walk(const char *root, const mm_walker_opts_t *opts,
              char ***out_paths, int *out_n) {
+    if (!root || !*root || !opts || !out_paths || !out_n) return false;
+    *out_paths = NULL;
+    *out_n = 0;
     mm_pathlist_t pl = {0};
     char root_abs[4096];
     root_absolute(root, root_abs, sizeof(root_abs));
@@ -398,6 +403,11 @@ bool mm_walk(const char *root, const mm_walker_opts_t *opts,
 }
 
 void mm_walk_stream(int fd, const char *root, const mm_walker_opts_t *opts) {
+    if (fd < 0) return;
+    if (!root || !*root || !opts) {
+        close(fd);
+        return;
+    }
     char root_abs[4096];
     char buffer[MM_WALK_STREAM_BUFFER_SIZE];
     mm_walk_stream_t stream = {
