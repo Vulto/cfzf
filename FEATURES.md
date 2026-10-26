@@ -148,7 +148,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-119 | `--threads` | src/main.c, src/filter.c | tests/thread-diff.sh:--threads=2, tests/thread-diff.sh:--threads=4, tests/batch-diff.sh:threads-zero-default | implemented but unverified |
 | OPT-120 | `--tiebreak` | src/result.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:tiebreak-missing | implemented but unverified |
 | OPT-121 | `--tmux` | - | - | unstarted |
-| OPT-122 | `--track` | - | - | unstarted |
+| OPT-122 | `--track` | src/ui.c, src/main.c | tests/pty-diff.sh:track-current-item | implemented but unverified |
 | OPT-123 | `\-\-walker` | src/walker.c, src/main.c | tests/pty-diff.sh, tests/walker-diff.sh, tests/batch-diff.sh:walker-missing | implemented but unverified |
 | OPT-124 | `\-\-walker\-root` | src/walker.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
 | OPT-125 | `\-\-walker\-skip` | src/walker.c, src/main.c | tests/pty-diff.sh, tests/walker-diff.sh, tests/batch-diff.sh:walker-skip-missing | implemented but unverified |
