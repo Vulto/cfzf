@@ -2618,6 +2618,30 @@ int mm_ui_run(mm_ui_t *ui) {
                 }
             }
             break;
+        case MM_EV_CTRL_LEFT:
+        case MM_EV_ALT_LEFT:
+            while (ui->query_pos > 0 &&
+                   ui->query_buf[ui->query_pos - 1] == ' ')
+                ui->query_pos--;
+            while (ui->query_pos > 0 &&
+                   ui->query_buf[ui->query_pos - 1] != ' ')
+                ui->query_pos--;
+            while (ui->query_pos > 0 &&
+                   ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
+                ui->query_pos--;
+            break;
+        case MM_EV_CTRL_RIGHT:
+        case MM_EV_ALT_RIGHT:
+            while ((size_t)ui->query_pos < ui->query_len &&
+                   ui->query_buf[ui->query_pos] != ' ')
+                ui->query_pos++;
+            while ((size_t)ui->query_pos < ui->query_len &&
+                   ui->query_buf[ui->query_pos] == ' ')
+                ui->query_pos++;
+            while ((size_t)ui->query_pos < ui->query_len &&
+                   ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
+                ui->query_pos++;
+            break;
         case MM_EV_LEFT:
         case MM_EV_CTRL_B:
             if (ui->query_pos > 0) {
@@ -2643,6 +2667,26 @@ int mm_ui_run(mm_ui_t *ui) {
         case MM_EV_END:
         case MM_EV_CTRL_E:
             ui->query_pos = (int)ui->query_len;
+            break;
+        case MM_EV_CTRL_BACKSPACE:
+        case MM_EV_ALT_BACKSPACE:
+            while (ui->query_pos > 0 &&
+                   ui->query_buf[ui->query_pos - 1] == ' ')
+                query_backspace(ui);
+            while (ui->query_pos > 0 &&
+                   ui->query_buf[ui->query_pos - 1] != ' ')
+                query_backspace(ui);
+            ui_search(ui);
+            break;
+        case MM_EV_CTRL_DELETE:
+        case MM_EV_ALT_DELETE:
+            while ((size_t)ui->query_pos < ui->query_len &&
+                   ui->query_buf[ui->query_pos] == ' ')
+                query_delete(ui);
+            while ((size_t)ui->query_pos < ui->query_len &&
+                   ui->query_buf[ui->query_pos] != ' ')
+                query_delete(ui);
+            ui_search(ui);
             break;
         case MM_EV_BACKSPACE:
         case MM_EV_CTRL_H:
