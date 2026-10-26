@@ -36,6 +36,22 @@ static bool parse_nonnegative_int(const char *s, int *out) {
     return true;
 }
 
+static bool parse_cli_nonnegative(const char *option, const char *value,
+                                  int *out) {
+    if (parse_nonnegative_int(value, out)) return true;
+    fprintf(stderr, "invalid %s value: %s\\n", option,
+            value ? value : "");
+    return false;
+}
+
+static bool parse_cli_positive(const char *option, const char *value,
+                               int *out) {
+    if (parse_nonnegative_int(value, out) && *out > 0) return true;
+    fprintf(stderr, "invalid %s value: %s\\n", option,
+            value ? value : "");
+    return false;
+}
+
 /* Print the manual page.  The page is looked up next to the executable and
    in the usual man directories; when it cannot be found a short summary is
    printed instead. */
@@ -322,8 +338,12 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--sync")) { /* batch is inherently sync */ }
         else if (!strcmp(a, "--multi") || !strcmp(a, "-m")) multi = true;
         else if (!strcmp(a, "--no-multi")) multi = false;
-        else if (ARG_EQ("--multi-max")) multi_max = atoi(a + 12);
-        else if (!strcmp(a, "--multi-max")) { if (i+1<argc) multi_max = atoi(argv[++i]); }
+        else if (ARG_EQ("--multi-max")) {
+            if (!parse_cli_nonnegative("--multi-max", a + 12, &multi_max)) return 2;
+        }
+        else if (!strcmp(a, "--multi-max")) {
+            if (i + 1 >= argc || !parse_cli_nonnegative("--multi-max", argv[++i], &multi_max)) return 2;
+        }
         else if (!strcmp(a, "--cycle")) cycle = true;
         else if (!strcmp(a, "--no-cycle")) cycle = false;
         else if (!strcmp(a, "--reverse")) reverse = true;
@@ -351,17 +371,29 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--walker-skip")) walker_skip = a + 14;
         else if (!strcmp(a, "--walker-skip")) { if (i+1<argc) walker_skip = argv[++i]; }
         else if (!strcmp(a, "--no-bold")) no_bold = true;
-        else if (ARG_EQ("--gap")) gap = atoi(a + 6);
-        else if (!strcmp(a, "--gap")) { if (i+1<argc) gap = atoi(argv[++i]); }
+        else if (ARG_EQ("--gap")) {
+            if (!parse_cli_nonnegative("--gap", a + 6, &gap)) return 2;
+        }
+        else if (!strcmp(a, "--gap")) {
+            if (i + 1 >= argc || !parse_cli_nonnegative("--gap", argv[++i], &gap)) return 2;
+        }
         else if (ARG_EQ("--gap-line")) gap_line = a + 11;
         else if (!strcmp(a, "--gap-line")) { if (i+1<argc) gap_line = argv[++i]; }
         else if (!strcmp(a, "--phony")) phony = true;
         else if (!strcmp(a, "--no-phony")) phony = false;
         else if (ARG_EQ("--footer")) footer_spec = a + 9;
-        else if (ARG_EQ("--padding")) padding = atoi(a + 10);
-        else if (ARG_EQ("--margin")) margin = atoi(a + 9);
-        else if (!strcmp(a, "--margin")) { if (i+1<argc) margin = atoi(argv[++i]); }
-        else if (!strcmp(a, "--padding")) { if (i+1<argc) padding = atoi(argv[++i]); }
+        else if (ARG_EQ("--padding")) {
+            if (!parse_cli_nonnegative("--padding", a + 10, &padding)) return 2;
+        }
+        else if (ARG_EQ("--margin")) {
+            if (!parse_cli_nonnegative("--margin", a + 9, &margin)) return 2;
+        }
+        else if (!strcmp(a, "--margin")) {
+            if (i + 1 >= argc || !parse_cli_nonnegative("--margin", argv[++i], &margin)) return 2;
+        }
+        else if (!strcmp(a, "--padding")) {
+            if (i + 1 >= argc || !parse_cli_nonnegative("--padding", argv[++i], &padding)) return 2;
+        }
         else if (ARG_EQ("--gutter")) gutter_spec = a + 9;
         else if (!strcmp(a, "--gutter")) { if (i+1<argc) gutter_spec = argv[++i]; }
         else if (ARG_EQ("--gutter-raw")) gutter_raw_spec = a + 13;
@@ -420,10 +452,18 @@ int main(int argc, char **argv) {
             if (*v == '\0' || *v == '-') { fprintf(stderr, "height required: [~][-]HEIGHT[%%]\n"); return 2; }
             height_spec = v;
         }
-        else if (ARG_EQ("--scroll-off")) scroll_off = atoi(a + 13);
-        else if (!strcmp(a, "--scroll-off")) { if (i+1<argc) scroll_off = atoi(argv[++i]); }
-        else if (ARG_EQ("--hscroll-off")) hscroll_off = atoi(a + 14);
-        else if (!strcmp(a, "--hscroll-off")) { if (i+1<argc) hscroll_off = atoi(argv[++i]); }
+        else if (ARG_EQ("--scroll-off")) {
+            if (!parse_cli_nonnegative("--scroll-off", a + 13, &scroll_off)) return 2;
+        }
+        else if (!strcmp(a, "--scroll-off")) {
+            if (i + 1 >= argc || !parse_cli_nonnegative("--scroll-off", argv[++i], &scroll_off)) return 2;
+        }
+        else if (ARG_EQ("--hscroll-off")) {
+            if (!parse_cli_nonnegative("--hscroll-off", a + 14, &hscroll_off)) return 2;
+        }
+        else if (!strcmp(a, "--hscroll-off")) {
+            if (i + 1 >= argc || !parse_cli_nonnegative("--hscroll-off", argv[++i], &hscroll_off)) return 2;
+        }
         else if (ARG_EQ("--separator")) separator_spec = a + 12;
         else if (!strcmp(a, "--separator")) { if (i+1<argc) separator_spec = argv[++i]; }
         else if (ARG_EQ("--accept-nth")) accept_nth = atoi(a + 13);
@@ -432,8 +472,12 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--scrollbar")) no_scrollbar = false;
         else if (!strcmp(a, "--no-clear")) no_clear = true;
         else if (!strcmp(a, "--no-separator")) { /* separator defaults to empty */ }
-        else if (ARG_EQ("--tabstop")) tabstop = atoi(a + 10);
-        else if (!strcmp(a, "--tabstop")) { if (i+1<argc) tabstop = atoi(argv[++i]); }
+        else if (ARG_EQ("--tabstop")) {
+            if (!parse_cli_positive("--tabstop", a + 10, &tabstop)) return 2;
+        }
+        else if (!strcmp(a, "--tabstop")) {
+            if (i + 1 >= argc || !parse_cli_positive("--tabstop", argv[++i], &tabstop)) return 2;
+        }
         else if (!strcmp(a, "--no-input")) no_input = true;
         else if (!strcmp(a, "--no-hscroll")) no_hscroll = true;
         else if (!strcmp(a, "--no-multi-line")) no_multi_line = true;
@@ -646,8 +690,12 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--nushell")) { printf("# nushell integration\n"); return 0; }
         else if (ARG_EQ("--history")) history_spec = a + 10;
         else if (!strcmp(a, "--history")) { if (i+1<argc) history_spec = argv[++i]; }
-        else if (ARG_EQ("--history-size")) history_size = atoi(a + 15);
-        else if (!strcmp(a, "--history-size")) { if (i+1<argc) history_size = atoi(argv[++i]); }
+        else if (ARG_EQ("--history-size")) {
+            if (!parse_cli_nonnegative("--history-size", a + 15, &history_size)) return 2;
+        }
+        else if (!strcmp(a, "--history-size")) {
+            if (i + 1 >= argc || !parse_cli_nonnegative("--history-size", argv[++i], &history_size)) return 2;
+        }
         else if (ARG_EQ("--pointer")) { const char *v = a + 10; if (*v == '\0') { fprintf(stderr, "pointer sign required\n"); return 2; } pointer_spec = v; }
         else if (!strcmp(a, "--pointer")) { if (i+1<argc) { const char *v = argv[++i]; if (*v == '\0') { fprintf(stderr, "pointer sign required\n"); return 2; } pointer_spec = v; } else { fprintf(stderr, "pointer sign required\n"); return 2; } }
         else if (ARG_EQ("--marker")) { const char *v = a + 9; if (*v == '\0') { fprintf(stderr, "marker sign required\n"); return 2; } marker_spec = v; }
