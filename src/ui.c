@@ -2071,6 +2071,20 @@ static int ui_nav_step(const mm_ui_t *ui, int up) {
     return step;
 }
 
+static bool ui_print_item(mm_ui_t *ui, FILE *out, int item, char sep) {
+    if (ui->accept_nth_spec) {
+        char *accepted = mm_accept_nth_expand(ui->accept_nth_spec,
+                                              ui->lines[item], ui->delim, item);
+        if (!accepted) return false;
+        fputs(accepted, out);
+        free(accepted);
+    } else {
+        fputs(ui->lines[item], out);
+    }
+    fputc(sep, out);
+    return !ferror(out);
+}
+
 static bool ui_print_selection(mm_ui_t *ui, FILE *out) {
     char sep = ui->print0 ? '\0' : '\n';
     if (ui->nselected > 0 && ui->sel_order) {
@@ -2078,16 +2092,13 @@ static bool ui_print_selection(mm_ui_t *ui, FILE *out) {
         for (int i = 0; i < ui->sel_order_n; i++) {
             int item = ui->sel_order[i];
             if (item < 0 || item >= ui->count) continue;
-            fputs(ui->lines[item], out);
-            fputc(sep, out);
+            if (!ui_print_item(ui, out, item, sep)) return false;
         }
         return true;
     } else if (ui->nresults > 0) {
         /* Nothing is selected: the current item is printed. */
         int item_idx = ui->results[ui->cursor];
-        fputs(ui->lines[item_idx], out);
-        fputc(sep, out);
-        return true;
+        return ui_print_item(ui, out, item_idx, sep);
     }
     return false;
 }
