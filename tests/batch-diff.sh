@@ -221,5 +221,6 @@ check "phony-filter"    --phony --filter=an
 check "phony-nomatch"   --phony --filter=zzz
 check "disabled-filter" --disabled --filter=an
 check "disabled-nomatch" --disabled --filter=zzz
+check "no-disabled-filter" --no-disabled --filter=an
 printf '\n%d/%d batch cases matched\n' "$pass" "$((pass + fail))"
 [ "$fail" -eq 0 ]
