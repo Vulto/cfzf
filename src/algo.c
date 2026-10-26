@@ -38,8 +38,12 @@ static char_class asciiCharClasses[128];
 static int16_t bonusMatrix[charNumber + 1][charNumber + 1];
 
 static int rune_in_set(wchar_t c, const char *set) {
-    for (const char *p = set; *p; p++)
-        if ((unsigned char)*p == (unsigned char)c) return 1;
+    /* Compare ASCII bytes only to ASCII code points. Comparing the low byte
+       of a Unicode rune misclassifies characters such as U+012F (į) as '/'. */
+    if (c >= 0 && c < 0x80) {
+        for (const char *p = set; *p; p++)
+            if ((unsigned char)*p == (unsigned char)c) return 1;
+    }
     for (const char *p = set; *p; p++) {
         if ((unsigned char)*p >= 0x80) {
             wchar_t cp; size_t used = mm_utf8_decode(p, strlen(p), &cp);
