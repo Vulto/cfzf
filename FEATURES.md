@@ -115,7 +115,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-086 | `--no-sort` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-087 | `--no-tty-default` | src/main.c | tests/pty-diff.sh | verified |
 | OPT-088 | `--no-unicode` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
-| OPT-089 | `--nth` | src/tokenizer.c, src/main.c | tests/batch-diff.sh:nth-missing, tests/batch-diff.sh:nth-empty-range, tests/batch-diff.sh:nth-empty-component, tests/batch-diff.sh:nth-trailing-comma, tests/batch-diff.sh:nth-overflow, tests/batch-diff.sh:nth-range-overflow, tests/batch-diff.sh:nth-unicode-space | implemented but unverified |
+| OPT-089 | `--nth` | src/tokenizer.c, src/main.c | tests/batch-diff.sh:nth-missing, tests/batch-diff.sh:nth-empty-range, tests/batch-diff.sh:nth-empty-component, tests/batch-diff.sh:nth-trailing-comma, tests/batch-diff.sh:nth-overflow, tests/batch-diff.sh:nth-range-overflow | implemented but unverified |
 | OPT-090 | `--nushell` | - | - | unstarted |
 | OPT-091 | `--oneline` / `--no-oneline` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh | implemented but unverified |
