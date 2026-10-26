@@ -53,7 +53,7 @@ run() {
 for q in f ff oob foob a abc to oo val x; do
     run "fuzzy q=$q" --filter="$q"
 done
-for q in f ff oob foob a abc to oo val; do
+for q in f ff oob foob a abc to oo val x; do
     run "algo=v1 q=$q" --algo=v1 --filter="$q"
     run "algo=v2 q=$q" --algo=v2 --filter="$q"
 done
