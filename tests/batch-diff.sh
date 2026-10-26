@@ -195,6 +195,12 @@ check_invalid_option "header-missing" '--header requires a value' --filter=a --h
 check_invalid_option "filter-missing" '--filter requires a value' --filter
 check_invalid_option "query-missing" '--query requires a value' --query
 check_invalid_option "nth-missing" '--nth requires a value' --nth
+check_invalid_option "nth-empty-range" 'invalid --nth' --filter=a --nth=
+check_invalid_option "nth-empty-component" 'invalid --nth' --filter=a --nth=1,,2
+check_invalid_option "nth-trailing-comma" 'invalid --nth' --filter=a --nth=1,
+check_invalid_option "nth-overflow" 'invalid --nth' --filter=a --nth=999999999999999999999999
+check_invalid_option "nth-range-overflow" 'invalid --nth' --filter=a --nth=1..999999999999999999999999
+check_invalid_option "with-nth-empty-component" 'invalid --with-nth' --filter=a --with-nth=1,,2
 check_invalid_option "delimiter-missing" '--delimiter requires a value' --delimiter
 check_invalid_option "scheme-missing" '--scheme requires a value' --filter=a --scheme
 check_invalid_option "tiebreak-missing" '--tiebreak requires a value' --filter=a --tiebreak
