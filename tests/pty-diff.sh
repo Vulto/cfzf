@@ -515,6 +515,9 @@ run_case 'phony'          'sleep 350
 send zzz
 sleep 300'                                        "$WORK/items.txt" --phony
 run_case 'disabled'       'sleep 350
+run_case 'disabled-toggle-search' 'sleep 300\nsend an\nsleep 200\nkey ctrl-s\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --disabled --bind=ctrl-s:toggle-search
+run_case 'disabled-enable-search-action' 'sleep 300\nsend an\nsleep 200\nkey ctrl-s\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --disabled --bind=ctrl-s:enable-search
+run_case 'disable-search-action' 'sleep 300\nsend an\nsleep 200\nkey ctrl-s\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --bind=ctrl-s:disable-search
 send zzz
 sleep 300'                                        "$WORK/items.txt" --disabled
 run_long_case 'gap-3-long'          --gap=3
