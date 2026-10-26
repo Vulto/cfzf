@@ -1060,8 +1060,21 @@ int main(int argc, char **argv) {
                     goto fail;
                 }
                 size_t total = 1;
-                for (int i = 0; i < npaths; i++) total += strlen(paths[i]) + 1;
-                data = malloc(total);
+                bool size_overflow = false;
+                for (int i = 0; i < npaths; i++) {
+                    size_t path_len = strlen(paths[i]);
+                    if (path_len > SIZE_MAX - total - 1) {
+                        size_overflow = true;
+                        break;
+                    }
+                    total += path_len + 1;
+                }
+                data = size_overflow ? NULL : malloc(total);
+                if (!data) {
+                    mm_walk_free(paths, npaths);
+                    fprintf(stderr, "fzf: input too large or out of memory\n");
+                    goto fail;
+                }
                 size_t o = 0;
                 for (int i = 0; i < npaths; i++) {
                     size_t l = strlen(paths[i]);
