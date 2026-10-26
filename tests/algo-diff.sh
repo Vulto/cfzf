@@ -21,6 +21,7 @@ CORPUS="$WORK/corpus.txt"
     printf 'src/main.c\nsrc/util.c\nlib/foo.c\nREADME.md\n'
     printf 'abc\nabd\nabe\nxyz\n'
     printf 'val\nvalue\nvalues\noval\n'
+    printf 'ax\nįx\nfoo/ix\nfooįx\nfoo/x\nx\n'
     printf 'a\nab\nabc\nabcd\nabcde\n'
 } > "$CORPUS"
 
@@ -49,7 +50,7 @@ run() {
     fi
 }
 
-for q in f ff oob foob a abc to oo val; do
+for q in f ff oob foob a abc to oo val x; do
     run "fuzzy q=$q" --filter="$q"
 done
 for q in f ff oob foob a abc to oo val; do
