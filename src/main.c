@@ -26,7 +26,7 @@ static void usage(FILE *out) {
     fprintf(out, "usage: fzf [OPTIONS]\n");
 }
 
-static bool parse_thread_count(const char *s, int *out) {
+static bool parse_nonnegative_int(const char *s, int *out) {
     if (!s || !*s) return false;
     char *end = NULL;
     long value = strtol(s, &end, 10);
@@ -455,13 +455,13 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--marker-multi-line")) { if (i+1<argc) marker_multi_line = argv[++i]; }
         else if (!strcmp(a, "--no-marker-multi-line")) marker_multi_line = NULL;
         else if (ARG_EQ("--threads")) {
-            if (!parse_thread_count(a + 10, &threads)) {
+            if (!parse_nonnegative_int(a + 10, &threads)) {
                 fprintf(stderr, "invalid --threads value: %s\n", a + 10);
                 return 2;
             }
         }
         else if (!strcmp(a, "--threads")) {
-            if (i + 1 >= argc || !parse_thread_count(argv[++i], &threads)) {
+            if (i + 1 >= argc || !parse_nonnegative_int(argv[++i], &threads)) {
                 fprintf(stderr, "invalid --threads value\n");
                 return 2;
             }
@@ -703,13 +703,13 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--header")) header = a + 9;
         else if (!strcmp(a, "--header")) { if (i+1<argc) header = argv[++i]; }
         else if (ARG_EQ("--header-lines")) {
-            if (!parse_thread_count(a + 15, &header_lines)) {
+            if (!parse_nonnegative_int(a + 15, &header_lines)) {
                 fprintf(stderr, "invalid --header-lines value: %s\\n", a + 15);
                 return 2;
             }
         }
         else if (!strcmp(a, "--header-lines")) {
-            if (i + 1 >= argc || !parse_thread_count(argv[++i], &header_lines)) {
+            if (i + 1 >= argc || !parse_nonnegative_int(argv[++i], &header_lines)) {
                 fprintf(stderr, "invalid --header-lines value\\n");
                 return 2;
             }
