@@ -553,7 +553,10 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--raw")) { raw = true; exact = true; }
         else if (!strcmp(a, "--no-raw")) { raw = false; exact = false; }
         else if (ARG_EQ("--ghost")) ghost_spec = a + 8;
-        else if (!strcmp(a, "--ghost")) { if (i+1<argc) ghost_spec = argv[++i]; }
+        else if (!strcmp(a, "--ghost")) {
+            ghost_spec = required_cli_arg(argc, argv, &i, "--ghost");
+            if (!ghost_spec) return 2;
+        }
         else if (!strcmp(a, "--highlight-line")) highlight_line = true;
         else if (!strcmp(a, "--no-highlight-line")) highlight_line = false;
         else if (ARG_EQ("--info-command")) info_command = a + 15;
@@ -562,7 +565,10 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--jump-labels")) { const char *v = a + 14; if (*v == '\0') { fprintf(stderr, "label characters required\n"); return 2; } jump_labels = v; }
         else if (!strcmp(a, "--jump-labels")) { if (i+1<argc) { const char *v = argv[++i]; if (*v == '\0') { fprintf(stderr, "label characters required\n"); return 2; } jump_labels = v; } else { fprintf(stderr, "label characters required\n"); return 2; } }
         else if (ARG_EQ("--marker-multi-line")) marker_multi_line = a + 20;
-        else if (!strcmp(a, "--marker-multi-line")) { if (i+1<argc) marker_multi_line = argv[++i]; }
+        else if (!strcmp(a, "--marker-multi-line")) {
+            marker_multi_line = required_cli_arg(argc, argv, &i, "--marker-multi-line");
+            if (!marker_multi_line) return 2;
+        }
         else if (!strcmp(a, "--no-marker-multi-line")) marker_multi_line = NULL;
         else if (ARG_EQ("--threads")) {
             if (!parse_cli_nonnegative("--threads", a + 10, &threads)) return 2;
@@ -753,7 +759,10 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--zsh")) { printf("# zsh integration\n"); return 0; }
         else if (!strcmp(a, "--nushell")) { printf("# nushell integration\n"); return 0; }
         else if (ARG_EQ("--history")) history_spec = a + 10;
-        else if (!strcmp(a, "--history")) { if (i+1<argc) history_spec = argv[++i]; }
+        else if (!strcmp(a, "--history")) {
+            history_spec = required_cli_arg(argc, argv, &i, "--history");
+            if (!history_spec) return 2;
+        }
         else if (ARG_EQ("--history-size")) {
             if (!parse_cli_positive("--history-size", a + 15, &history_size)) return 2;
         }
@@ -775,9 +784,15 @@ int main(int argc, char **argv) {
             return print_man_page();
         }
         else if (ARG_EQ("--preview")) preview_cmd = a + 10;
-        else if (!strcmp(a, "--preview")) { if (i+1<argc) preview_cmd = argv[++i]; }
+        else if (!strcmp(a, "--preview")) {
+            preview_cmd = required_cli_arg(argc, argv, &i, "--preview");
+            if (!preview_cmd) return 2;
+        }
         else if (ARG_EQ("--preview-window")) preview_win_spec = a + 17;
-        else if (!strcmp(a, "--preview-window")) { if (i+1<argc) preview_win_spec = argv[++i]; }
+        else if (!strcmp(a, "--preview-window")) {
+            preview_win_spec = required_cli_arg(argc, argv, &i, "--preview-window");
+            if (!preview_win_spec) return 2;
+        }
         else if (!strcmp(a, "--border")) { border_shape = MM_BORDER_ROUNDED; }
         else if (ARG_EQ("--border-label")) border_label = a + 15;
         else if (!strcmp(a, "--border-label")) { if (i+1<argc) border_label = argv[++i]; }
@@ -815,7 +830,10 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--expect")) expect_spec = a + 9;
         else if (!strcmp(a, "--expect")) { if (i+1<argc) expect_spec = argv[++i]; }
         else if (ARG_EQ("--prompt")) prompt = a + 9;
-        else if (!strcmp(a, "--prompt")) { if (i+1<argc) prompt = argv[++i]; }
+        else if (!strcmp(a, "--prompt")) {
+            prompt = required_cli_arg(argc, argv, &i, "--prompt");
+            if (!prompt) return 2;
+        }
         else if (ARG_EQ("--header")) header = a + 9;
         else if (!strcmp(a, "--header")) {
             if (i + 1 >= argc) {
