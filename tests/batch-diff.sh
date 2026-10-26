@@ -27,6 +27,7 @@ CORPUS="$WORK/corpus.txt"
         printf 'a b  c\n  leading\ntrailing  \ntab\there\n'
         printf 'ABC\nabc\nAbC\naBc\n'
         printf 'foo bar baz\nfoo_bar_baz\nfoo-bar-baz\n'
+        printf '\033[31mred\033[0m apple\nplain red\n'
         printf '123\n456\n789\n'
         printf 'x\ny\nz\n'
 } > "$CORPUS"
@@ -82,6 +83,9 @@ check "extended-off"   --filter=ch --no-extended
 check "extended-on"    --filter=ch --extended
 check "smart-case"     --filter=CH
 check "ignore-case"    --filter=CH --ignore-case
+check "ansi-filter" --ansi --filter=red
+check "ansi-filter-visible-text" --ansi --filter=apple
+check "ansi-do-not-match-control-codes" --ansi --filter=31
 check "case-sensitive" --filter=CH --case-sensitive
 
 # Ordering.
