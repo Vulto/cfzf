@@ -224,14 +224,29 @@ static bool parse_terms(bool fuzzy, mm_case_t case_mode, bool normalize,
                 set = NULL; setn = 0; setalloc = 0;
             }
             wchar_t *textRunes = malloc((size_t)(tl + 1) * sizeof(wchar_t));
-            if (!textRunes) { parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
+            if (!textRunes) {
+                free(tbuf);
+                free(owned);
+                parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks);
+                *out_sets = NULL;
+                *out_nsets = 0;
+                return false;
+            }
             wmemcpy(textRunes, tbuf, (size_t)tl);
             textRunes[tl] = 0;
             if (norm) normalize_runes(textRunes, tl);
             if (setn == setalloc) {
                 int nalloc = setalloc ? setalloc * 2 : 4;
                 mm_term_t *nt = realloc(set, (size_t)nalloc * sizeof(mm_term_t));
-                if (!nt) { free(textRunes); parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks); *out_sets = NULL; *out_nsets = 0; return false; }
+                if (!nt) {
+                    free(textRunes);
+                    free(tbuf);
+                    free(owned);
+                    parse_terms_cleanup(sets, setcnt, set, setn, tokens, ntoks);
+                    *out_sets = NULL;
+                    *out_nsets = 0;
+                    return false;
+                }
                 set = nt; setalloc = nalloc;
             }
             set[setn].typ = typ;
