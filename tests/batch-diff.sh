@@ -53,6 +53,23 @@ check() {
     fi
 }
 
+check_file() {
+    desc=$1; input=$2; shift 2
+    "$REF" "$@" < "$input" > "$WORK/ref.out" 2> "$WORK/ref.err"
+    rrc=$?
+    "$IMPL" "$@" < "$input" > "$WORK/impl.out" 2> "$WORK/impl.err"
+    irc=$?
+    if [ "$rrc" = "$irc" ] && cmp -s "$WORK/ref.out" "$WORK/impl.out" && cmp -s "$WORK/ref.err" "$WORK/impl.err"; then
+        pass=$((pass + 1))
+        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\\n' "$desc"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s (exit ref=%s impl=%s)\\n' "$desc" "$rrc" "$irc"
+        cmp -s "$WORK/ref.out" "$WORK/impl.out" || printf 'stdout sizes: ref=%s impl=%s\\n' "$(wc -c < "$WORK/ref.out")" "$(wc -c < "$WORK/impl.out")"
+        cmp -s "$WORK/ref.err" "$WORK/impl.err" || diff -u "$WORK/ref.err" "$WORK/impl.err" | head -12 || true
+    fi
+}
+
 # Basic filtering.
 for q in apple a e '' AN 'ch' 'a b' 'z' '1' '2'; do
     check "filter=$q" --filter="$q"
@@ -120,6 +137,13 @@ check "unsupported-no" --filter=a --no
 check "unsupported-oneline" --filter=a --oneline
 check "unsupported-no-oneline" --filter=a --no-oneline
 check "style-full"     --filter=a --style=full
+
+# Exercise stdin reading and output at an exact 4 MiB boundary.
+BOUNDARY="$WORK/exact-4mib.txt"
+head -c 4194303 /dev/zero | tr '\\000' 'x' > "$BOUNDARY"
+printf '\\n' >> "$BOUNDARY"
+[ "$(wc -c < "$BOUNDARY")" -eq 4194304 ]
+check_file "stdin-exact-4mib-boundary" "$BOUNDARY" --filter=
 
 check "phony-filter"    --phony --filter=an
 check "phony-nomatch"   --phony --filter=zzz
