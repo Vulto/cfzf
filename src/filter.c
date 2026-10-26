@@ -62,8 +62,15 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                      const mm_sort_criteria_t *crit, bool tac, int *out_n,
                      mm_match_pos_t **out_pos, mm_result_t2 **raw_results,
                      mm_item_t **raw_items, int *raw_count, bool *raw_ok) {
-    if (raw_ok) *raw_ok = false;
+    if (out_n) *out_n = 0;
     if (out_pos) *out_pos = NULL;
+    if (raw_results) *raw_results = NULL;
+    if (raw_items) *raw_items = NULL;
+    if (raw_count) *raw_count = 0;
+    if (raw_ok) *raw_ok = false;
+    if (!input || !pat || !crit || !out_n || input->count < 0 ||
+        (input->count > 0 && !input->lines && !input->items))
+        return NULL;
     int total = input->count;
     if (total == 0) {
         *out_n = 0;
