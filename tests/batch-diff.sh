@@ -148,6 +148,12 @@ check "no-print0" --filter=a --print0 --no-print0
 check "exit-zero-short-alias-does-not-enable-read0" --filter=a -0
 check "no-exit-zero-short-alias-does-not-disable-read0" --filter=a +0
 check "no-select-one-short-alias" --filter=a +1
+check "no-select-one-option" --filter=a --select-1 --no-select-1
+check "no-exit-zero-option" --filter=a --exit-0 --no-exit-0
+check "enabled-alias" --filter=a --phony --enabled
+check "no-multi-short-alias" --filter=a +m
+check "no-color-short-alias" --filter=a +c
+check "no-256-short-alias" --filter=a +2
 check "tail=3"         --filter=a --tail=3
 check "multi"          --filter=a --multi
 check "select-1"       --filter=a --select-1
