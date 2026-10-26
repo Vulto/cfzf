@@ -140,6 +140,8 @@ check "style-full"     --filter=a --style=full
 check "header-lines-one" --filter=a --header-lines=1
 check "header-lines-two" --filter=a --header-lines=2
 check "header-lines-zero" --filter=a --header-lines=0
+check "gap-default" --gap --filter=a
+check "gap-explicit-value" --gap 2 --filter=a
 
 check_invalid_option() {
     desc=$1
