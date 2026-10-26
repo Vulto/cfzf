@@ -788,6 +788,7 @@ int main(int argc, char **argv) {
                 return 2;
             }
         }
+        else if (!strcmp(a, "--no-header-lines")) header_lines = 0;
         else if (!strcmp(a, "--ansi")) ansi = true;
         else if (!strcmp(a, "--no-ansi")) ansi = false;
         else if (ARG_EQ("--algo")) { const char *al = a + 7; if (strcmp(al, "v1") && strcmp(al, "v2")) { fprintf(stderr, "invalid algorithm: %s\n", al); return 2; } }
