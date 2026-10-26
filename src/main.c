@@ -382,18 +382,10 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--phony")) phony = true;
         else if (!strcmp(a, "--no-phony")) phony = false;
         else if (ARG_EQ("--footer")) footer_spec = a + 9;
-        else if (ARG_EQ("--padding")) {
-            if (!parse_cli_nonnegative("--padding", a + 10, &padding)) return 2;
-        }
-        else if (ARG_EQ("--margin")) {
-            if (!parse_cli_nonnegative("--margin", a + 9, &margin)) return 2;
-        }
-        else if (!strcmp(a, "--margin")) {
-            if (i + 1 >= argc || !parse_cli_nonnegative("--margin", argv[++i], &margin)) return 2;
-        }
-        else if (!strcmp(a, "--padding")) {
-            if (i + 1 >= argc || !parse_cli_nonnegative("--padding", argv[++i], &padding)) return 2;
-        }
+        else if (ARG_EQ("--padding")) padding = atoi(a + 10);
+        else if (ARG_EQ("--margin")) margin = atoi(a + 9);
+        else if (!strcmp(a, "--margin")) { if (i+1<argc) margin = atoi(argv[++i]); }
+        else if (!strcmp(a, "--padding")) { if (i+1<argc) padding = atoi(argv[++i]); }
         else if (ARG_EQ("--gutter")) gutter_spec = a + 9;
         else if (!strcmp(a, "--gutter")) { if (i+1<argc) gutter_spec = argv[++i]; }
         else if (ARG_EQ("--gutter-raw")) gutter_raw_spec = a + 13;
