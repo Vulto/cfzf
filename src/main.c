@@ -178,6 +178,7 @@ int main(int argc, char **argv) {
     mm_case_t case_mode = CASE_SMART;
     const char *nth_spec = NULL;
     const char *with_nth_spec = NULL;
+    const char *id_nth_spec = NULL;
     const char *delim_str = NULL;
     bool read0 = false;
     bool print0 = false;
@@ -746,8 +747,12 @@ int main(int argc, char **argv) {
     else if (ARG_EQ("--style")) style_spec = a + 8;
     else if (!strcmp(a, "--nushell")) { /* shell integration option */ }
     else if (!strcmp(a, "--zsh")) { /* shell integration option */ }
-    else if (ARG_EQ("--id-nth")) { /* accepted for compatibility */ if (i+1<argc && a[strlen(a)]=='=' && !strchr(a+8,'=')) {} }
-    else if (!strcmp(a, "--id-nth")) { if (i+1<argc) i++; }
+    else if (ARG_EQ("--id-nth")) id_nth_spec = a + 9;
+    else if (!strcmp(a, "--id-nth")) {
+        id_nth_spec = required_cli_arg(argc, argv, &i, "--id-nth");
+        if (!id_nth_spec) return 2;
+    }
+    else if (!strcmp(a, "--no-id-nth")) id_nth_spec = NULL;
     else if (ARG_EQ("--freeze-left")) { /* accepted */ }
     else if (!strcmp(a, "--freeze-left")) { if (i+1<argc) i++; }
     else if (ARG_EQ("--freeze-right")) { /* accepted */ }
@@ -880,6 +885,16 @@ int main(int argc, char **argv) {
     }
 
     if (accept_nth_spec && !mm_accept_nth_validate(accept_nth_spec)) return 2;
+    if (id_nth_spec) {
+        mm_range_t *id_ranges = NULL;
+        int id_range_count = 0;
+        if (!mm_parse_ranges(id_nth_spec, &id_ranges, &id_range_count)) {
+            fprintf(stderr, "invalid --id-nth: %s\\n", id_nth_spec);
+            free(id_ranges);
+            return 2;
+        }
+        free(id_ranges);
+    }
 
     /* Key bindings and expected keys are parsed before the input is read so
        that a parse error does not leak the input buffer. */
@@ -1203,6 +1218,7 @@ int main(int argc, char **argv) {
         memset(&ui, 0, sizeof(ui));
         ui.crit = crit;
         ui.accept_nth_spec = accept_nth_spec;
+        ui.id_nth_spec = id_nth_spec;
         if (!mm_delimiter_init(&ui.delim, delim_str)) {
             fprintf(stderr, "fzf: out of memory\n");
             return 2;
