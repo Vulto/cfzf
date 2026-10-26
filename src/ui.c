@@ -1902,7 +1902,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     free(ui->selected);
     ui->selected = calloc((size_t)(n ? n : 1), sizeof(bool));
     ui->nselected = 0;
-    ui->cursor = 0;
+    if (!ui->track && !ui->track_current) ui->cursor = 0;
     ui->offset = 0;
     ui_search(ui);
 }
