@@ -21,6 +21,7 @@
 #include <sys/types.h>
 #include <pthread.h>
 #include <signal.h>
+#include <ctype.h>
 
 static void usage(FILE *out) {
     static const char text[] = "fzf is an interactive filter program for any kind of list.\n\nIt implements a \"fuzzy\" matching algorithm, so you can quickly type in patterns\nwith omitted characters and still get the results you want.\n\nProject URL: https://github.com/junegunn/fzf\nAuthor: Junegunn Choi <junegunn.c@gmail.com>\n\n* See man page for more information: fzf --man\n\nUsage: fzf [options]\n\n  SEARCH\n    -e, --exact              Enable exact-match\n    +x, --no-extended        Disable extended-search mode\n    -i, --ignore-case        Case-insensitive match\n    +i, --no-ignore-case     Case-sensitive match\n        --smart-case         Smart-case match (default)\n    --scheme=SCHEME          Scoring scheme [default|path|history]\n    -n, --nth=N[,..]         Comma-separated list of field index expressions\n                             for limiting search scope. Each can be a non-zero\n                             integer or a range expression ([BEGIN]..[END]).\n    --with-nth=N[,..]        Transform the presentation of each line using\n                             field index expressions\n    --accept-nth=N[,..]      Define which fields to print on accept\n    -d, --delimiter=STR      Field delimiter regex (default: AWK-style)\n    +s, --no-sort            Do not sort the result\n    --literal                Do not normalize latin script letters\n    --tail=NUM               Maximum number of items to keep in memory\n    --disabled               Do not perform search\n    --tiebreak=CRI[,..]      Comma-separated list of sort criteria to apply\n                             when the scores are tied\n                             [length|chunk|pathname|begin|end|index] (default: length)\n\n  INPUT/OUTPUT\n    --read0                  Read input delimited by ASCII NUL characters\n    --print0                 Print output delimited by ASCII NUL characters\n    --ansi                   Enable processing of ANSI color codes\n    --sync                   Synchronous search for multi-staged filtering\n\n  GLOBAL STYLE\n    --style=PRESET           Apply a style preset [default|minimal|full[:BORDER_STYLE]\n    --color=COLSPEC          Base scheme (dark|light|base16|bw) and/or custom colors\n    --no-color               Disable colors\n    --no-bold                Do not use bold text\n\n  DISPLAY MODE\n    --height=[~][-]HEIGHT[%] Display fzf window below the cursor with the given\n                             height instead of using fullscreen.\n                             A negative value is calculated as the terminal height\n                             minus the given value.\n                             If prefixed with '~', fzf will determine the height\n                             according to the input size.\n    --min-height=HEIGHT[+]   Minimum height when --height is given as a percentage.\n                             Add '+' to automatically increase the value\n                             according to the other layout options (default: 10+).\n    --popup[=OPTS]           Start fzf in a floating pane (requires tmux 3.3+ or Zellij 0.44+)\n                             [center|top|bottom|left|right][,SIZE[%]][,SIZE[%]]\n                             [,border-native] (default: center,50%)\n    --tmux[=OPTS]            Alias for --popup\n\n  LAYOUT\n    --layout=LAYOUT          Choose layout: [default|reverse|reverse-list]\n    --margin=MARGIN          Screen margin (TRBL | TB,RL | T,RL,B | T,R,B,L)\n    --padding=PADDING        Padding inside border (TRBL | TB,RL | T,RL,B | T,R,B,L)\n    --border[=STYLE]         Draw border around the finder\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|none] (default: rounded)\n    --border-label=LABEL     Label to print on the border\n    --border-label-pos=COL   Position of the border label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  LIST SECTION\n    -m, --multi[=MAX]        Enable multi-select with tab/shift-tab\n    --highlight-line         Highlight the whole current line\n    --cycle                  Enable cyclic scroll\n    --wrap[=MODE]            Enable line wrap (char|word, default: char)\n    --wrap-sign=STR          Indicator for wrapped lines\n    --no-multi-line          Disable multi-line display of items when using --read0\n    --raw                    Enable raw mode (show non-matching items)\n    --track                  Track the current selection when the result is updated\n    --id-nth=N[,..]          Define item identity fields for cross-reload operations\n    --tac                    Reverse the order of the input\n    --gap[=N]                Render empty lines between each item\n    --gap-line[=STR]         Draw horizontal line on each gap using the string\n                             (default: '┈' or '-')\n    --freeze-left=N          Number of fields to freeze on the left\n    --freeze-right=N         Number of fields to freeze on the right\n    --keep-right             Keep the right end of the line visible on overflow\n    --scroll-off=LINES       Number of screen lines to keep above or below when\n                             scrolling to the top or to the bottom (default: 0)\n    --no-hscroll             Disable horizontal scroll\n    --hscroll-off=COLS       Number of screen columns to keep to the right of the\n                             highlighted substring (default: 10)\n    --jump-labels=CHARS      Label characters for jump mode\n    --gutter=CHAR            Character used for the gutter column (default: '▌')\n    --gutter-raw=CHAR        Character used for the gutter column in raw mode (default: '▖')\n    --pointer=STR            Pointer to the current line (default: '▌' or '>')\n    --marker=STR             Multi-select marker (default: '┃' or '>')\n    --marker-multi-line=STR  Multi-select marker for multi-line entries;\n                             3 elements for top, middle, and bottom (default: '╻┃╹')\n    --ellipsis=STR           Ellipsis to show when line is truncated (default: '··')\n    --tabstop=SPACES         Number of spaces for a tab character (default: 8)\n    --scrollbar[=C1[C2]]     Scrollbar character(s)\n                             (each for list section and preview window)\n    --no-scrollbar           Hide scrollbar\n    --list-border[=STYLE]    Draw border around the list section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|none] (default: rounded)\n    --list-label=LABEL       Label to print on the list border\n    --list-label-pos=COL     Position of the list label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  INPUT SECTION\n    --no-input               Disable and hide the input section\n    --prompt=STR             Input prompt (default: '> ')\n    --info=STYLE             Finder info style\n                             [default|right|hidden|inline[-right][:PREFIX]]\n    --info-command=COMMAND   Command to generate info line\n    --separator=STR          Draw horizontal separator on info line using the string\n                             (default: '─' or '-')\n    --no-separator           Hide info line separator\n    --ghost=TEXT             Ghost text to display when the input is empty\n    --filepath-word          Make word-wise movements respect path separators\n    --input-border[=STYLE]   Draw border around the input section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|none] (default: rounded)\n    --input-label=LABEL      Label to print on the input border\n    --input-label-pos=COL    Position of the input label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  PREVIEW WINDOW\n    --preview=COMMAND        Command to preview highlighted line ({})\n    --preview-window=OPT     Preview window layout (default: right:50%)\n                             [up|down|left|right|next][,SIZE[%]]\n                             [,[no]wrap[-word]][,[no]cycle][,[no]follow][,[no]info]\n                             [,[no]hidden][,border-STYLE]\n                             [,+SCROLL[OFFSETS][/DENOM]][,~HEADER_LINES]\n                             [,default][,<SIZE_THRESHOLD(ALTERNATIVE_LAYOUT)]\n    --preview-border[=STYLE] Short for --preview-window=border-STYLE\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|none] (default: rounded)\n    --preview-label=LABEL\n    --preview-label-pos=N    Same as --border-label and --border-label-pos,\n                             but for preview window\n    --preview-wrap-sign=STR  Indicator for wrapped lines in the preview window\n\n  HEADER\n    --header=STR             String to print as header\n    --header-lines=N         The first N lines of the input are treated as header\n    --header-first           Print header before the prompt line\n    --header-border[=STYLE]  Draw border around the header section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|inline|none] (default: rounded)\n    --header-lines-border[=STYLE]\n                             Display header from --header-lines with a separate border.\n                             Pass 'none' to still separate it but without a border.\n                             Pass 'inline' to embed it inside the list frame.\n    --header-label=LABEL     Label to print on the header border\n    --header-label-pos=COL   Position of the header label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  FOOTER\n    --footer=STR             String to print as footer\n    --footer-border[=STYLE]  Draw border around the footer section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|inline|none] (default: line)\n    --footer-label=LABEL     Label to print on the footer border\n    --footer-label-pos=COL   Position of the footer label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  SCRIPTING\n    -q, --query=STR          Start the finder with the given query\n    -1, --select-1           Automatically select the only match\n    -0, --exit-0             Exit immediately when there's no match\n    -f, --filter=STR         Print matches for the initial query and exit\n    --print-query            Print query as the first line\n    --expect=KEYS            Comma-separated list of keys to complete fzf\n\n  KEY/EVENT BINDING\n    --bind=BINDINGS          Custom key/event bindings\n\n  ADVANCED\n    --with-shell=STR         Shell command and flags to start child processes with\n    --listen[=[ADDR:]PORT]   Start HTTP server to receive actions via TCP\n                             (To allow remote process execution, use --listen-unsafe)\n    --listen=SOCKET_PATH     Start HTTP server to receive actions via Unix domain socket\n                             (Path should end with .sock)\n\n  DIRECTORY TRAVERSAL        (Only used when $FZF_DEFAULT_COMMAND is not set)\n    --walker=OPTS            [file][,dir][,follow][,hidden] (default: file,follow,hidden)\n    --walker-root=DIR [...]  List of directories to walk (default: .)\n    --walker-skip=DIRS       Comma-separated list of directory names to skip\n                             (default: .git,node_modules)\n\n  HISTORY\n    --history=FILE           File to store fzf search history (*not* shell command history)\n    --history-size=N         Maximum number of entries to keep in the file (default: 1000)\n\n  SHELL INTEGRATION\n    --bash                   Print script to set up Bash shell integration\n    --zsh                    Print script to set up Zsh shell integration\n    --fish                   Print script to set up Fish shell integration\n    --nushell                Print script to set up Nushell integration\n\n  HELP\n    --version                Display version information and exit\n    --help                   Show this message\n    --man                    Show man page\n\n  ENVIRONMENT VARIABLES\n    FZF_DEFAULT_COMMAND      Default command to use when input is tty\n    FZF_DEFAULT_OPTS         Default options (e.g. '--layout=reverse --info=inline')\n    FZF_DEFAULT_OPTS_FILE    Location of the file to read default options from\n    FZF_API_KEY              X-API-Key header for HTTP server (--listen)\n\n";
@@ -175,6 +176,271 @@ static char *read_all_stdin(size_t *outlen) {
 }
 
 typedef struct {
+    char **items;
+    size_t count;
+    size_t capacity;
+} mm_cli_words_t;
+
+static char **mm_cli_default_words;
+static size_t mm_cli_default_word_count;
+static char **mm_cli_expanded_argv;
+
+static void mm_cli_defaults_cleanup(void) {
+    for (size_t i = 0; i < mm_cli_default_word_count; i++)
+        free(mm_cli_default_words[i]);
+    free(mm_cli_default_words);
+    free(mm_cli_expanded_argv);
+    mm_cli_default_words = NULL;
+    mm_cli_default_word_count = 0;
+    mm_cli_expanded_argv = NULL;
+}
+
+static void mm_cli_words_free(mm_cli_words_t *words) {
+    if (!words) return;
+    for (size_t i = 0; i < words->count; i++) free(words->items[i]);
+    free(words->items);
+    memset(words, 0, sizeof(*words));
+}
+
+static bool mm_cli_words_push(mm_cli_words_t *words, char *word) {
+    if (words->count == words->capacity) {
+        size_t next = words->capacity ? words->capacity * 2 : 8;
+        if (next < words->capacity || next > SIZE_MAX / sizeof(*words->items))
+            return false;
+        char **grown = realloc(words->items, next * sizeof(*words->items));
+        if (!grown) return false;
+        words->items = grown;
+        words->capacity = next;
+    }
+    words->items[words->count++] = word;
+    return true;
+}
+
+static bool mm_cli_word_append(char **word, size_t *length, size_t *capacity,
+                               char ch) {
+    if (*length == *capacity) {
+        size_t next = *capacity ? *capacity * 2 : 32;
+        if (next < *capacity || next > SIZE_MAX - 1) return false;
+        char *grown = realloc(*word, next);
+        if (!grown) return false;
+        *word = grown;
+        *capacity = next;
+    }
+    (*word)[(*length)++] = ch;
+    return true;
+}
+
+/* Parse the quoting and escaping used by fzf's default-option strings.
+   Shell expansion is intentionally not performed. */
+static bool mm_parse_shell_words(const char *input, mm_cli_words_t *words,
+                                 const char **error) {
+    char *word = NULL;
+    size_t length = 0, capacity = 0;
+    char quote = 0;
+    bool escaped = false, in_word = false, comment = false;
+
+    if (error) *error = NULL;
+    if (!input || !words) return false;
+    for (size_t i = 0;; i++) {
+        char ch = input[i];
+        if (comment) {
+            if (ch == '\0') break;
+            if (ch == '\n') comment = false;
+            else continue;
+        }
+        if (escaped) {
+            if (ch == '\0') {
+                if (error) *error = "trailing escape";
+                goto fail;
+            }
+            if (!mm_cli_word_append(&word, &length, &capacity, ch))
+                goto oom;
+            escaped = false;
+            in_word = true;
+            continue;
+        }
+        if (quote == '\'') {
+            if (ch == '\0') {
+                if (error) *error = "unclosed single quote";
+                goto fail;
+            }
+            if (ch == '\'') quote = 0;
+            else if (!mm_cli_word_append(&word, &length, &capacity, ch))
+                goto oom;
+            in_word = true;
+            continue;
+        }
+        if (quote == '"') {
+            if (ch == '\0') {
+                if (error) *error = "unclosed double quote";
+                goto fail;
+            }
+            if (ch == '"') quote = 0;
+            else if (ch == '\\') escaped = true;
+            else if (!mm_cli_word_append(&word, &length, &capacity, ch))
+                goto oom;
+            in_word = true;
+            continue;
+        }
+        if (ch == '\0' || isspace((unsigned char)ch)) {
+            if (in_word) {
+                if (!word) {
+                    word = malloc(1);
+                    if (!word) goto oom;
+                }
+                word[length] = '\0';
+                if (!mm_cli_words_push(words, word)) goto oom;
+                word = NULL;
+                length = capacity = 0;
+                in_word = false;
+            }
+            if (ch == '\0') break;
+            continue;
+        }
+        if (ch == '#' && !in_word) {
+            comment = true;
+            continue;
+        }
+        if (ch == '\\') {
+            escaped = true;
+            in_word = true;
+            continue;
+        }
+        if (ch == '\'' || ch == '"') {
+            quote = ch;
+            in_word = true;
+            continue;
+        }
+        if (!mm_cli_word_append(&word, &length, &capacity, ch)) goto oom;
+        in_word = true;
+    }
+    free(word);
+    return true;
+
+oom:
+    if (error) *error = "out of memory";
+fail:
+    free(word);
+    return false;
+}
+
+static char *mm_read_text_file(const char *path, const char **error) {
+    FILE *file = fopen(path, "rb");
+    if (!file) {
+        if (error) *error = "cannot open options file";
+        return NULL;
+    }
+    size_t capacity = 4096, length = 0;
+    char *text = malloc(capacity);
+    if (!text) {
+        fclose(file);
+        if (error) *error = "out of memory";
+        return NULL;
+    }
+    for (;;) {
+        if (capacity - length < 4097) {
+            if (capacity > SIZE_MAX / 2) {
+                free(text);
+                fclose(file);
+                if (error) *error = "options file too large";
+                return NULL;
+            }
+            size_t next_capacity = capacity * 2;
+            char *grown = realloc(text, next_capacity);
+            if (!grown) {
+                free(text);
+                fclose(file);
+                if (error) *error = "out of memory";
+                return NULL;
+            }
+            text = grown;
+            capacity = next_capacity;
+        }
+        size_t n = fread(text + length, 1, 4096, file);
+        length += n;
+        if (n < 4096) {
+            if (ferror(file)) {
+                free(text);
+                fclose(file);
+                if (error) *error = "failed reading options file";
+                return NULL;
+            }
+            break;
+        }
+    }
+    fclose(file);
+    text[length] = '\0';
+    return text;
+}
+
+static bool mm_expand_default_options(int *argc, char ***argv) {
+    mm_cli_words_t words = {0};
+    const char *error = NULL;
+    const char *path = getenv("FZF_DEFAULT_OPTS_FILE");
+    if (path && *path) {
+        char *contents = mm_read_text_file(path, &error);
+        if (!contents) {
+            fprintf(stderr, "fzf: $FZF_DEFAULT_OPTS_FILE (%s): %s\n",
+                    path, error ? error : "read failed");
+            return false;
+        }
+        bool ok = mm_parse_shell_words(contents, &words, &error);
+        free(contents);
+        if (!ok) {
+            fprintf(stderr, "fzf: %s: %s\n", path,
+                    error ? error : "invalid options");
+            mm_cli_words_free(&words);
+            return false;
+        }
+    }
+
+    const char *environment = getenv("FZF_DEFAULT_OPTS");
+    if (environment && *environment &&
+        !mm_parse_shell_words(environment, &words, &error)) {
+        fprintf(stderr, "fzf: $FZF_DEFAULT_OPTS: %s\n",
+                error ? error : "invalid options");
+        mm_cli_words_free(&words);
+        return false;
+    }
+    if (words.count == 0) {
+        mm_cli_words_free(&words);
+        return true;
+    }
+    if (words.count > (size_t)(INT_MAX - *argc) ||
+        words.count + (size_t)*argc > SIZE_MAX / sizeof(char *) - 1) {
+        fprintf(stderr, "fzf: too many default options\n");
+        mm_cli_words_free(&words);
+        return false;
+    }
+
+    size_t new_argc = words.count + (size_t)*argc;
+    char **expanded = malloc((new_argc + 1) * sizeof(*expanded));
+    if (!expanded) {
+        fprintf(stderr, "fzf: out of memory\n");
+        mm_cli_words_free(&words);
+        return false;
+    }
+    expanded[0] = (*argv)[0];
+    for (size_t i = 0; i < words.count; i++)
+        expanded[i + 1] = words.items[i];
+    for (int i = 1; i < *argc; i++)
+        expanded[words.count + (size_t)i] = (*argv)[i];
+    expanded[new_argc] = NULL;
+
+    mm_cli_default_words = words.items;
+    mm_cli_default_word_count = words.count;
+    mm_cli_expanded_argv = expanded;
+    if (atexit(mm_cli_defaults_cleanup) != 0) {
+        mm_cli_defaults_cleanup();
+        fprintf(stderr, "fzf: failed to register option cleanup\n");
+        return false;
+    }
+    *argc = (int)new_argc;
+    *argv = expanded;
+    return true;
+}
+
+typedef struct {
     int fd;
     char *root;
     mm_walker_opts_t opts;
@@ -216,6 +482,7 @@ static bool mm_parse_label_pos(const char *s, int *pos, bool *bottom) {
 
 int main(int argc, char **argv) {
     setlocale(LC_ALL, "");
+    if (!mm_expand_default_options(&argc, &argv)) return 2;
     if (!mm_algo_init("default")) { fprintf(stderr, "algo init failed\n"); return 2; }
 
     const char *filter = NULL;
