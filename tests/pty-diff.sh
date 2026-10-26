@@ -23,6 +23,7 @@ while [ $i -lt 20 ]; do printf 'item%02d\n' "$i" >> "$WORK/many.txt"; i=$((i+1))
 # Long items for the list wrapping.
 printf 'x%.0s' $(seq 1 80) > "$WORK/long.txt"
 printf '\nshort\n' >> "$WORK/long.txt"
+printf 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxneedle\n' > "$WORK/scroll.txt"
 printf '日本語テキスト\n日本語\n' > "$WORK/unicode.txt"
 
 pass=0
@@ -79,6 +80,9 @@ run_case() {
 }
 
 run_case 'initial'      'sleep 400'            "$WORK/items.txt"
+run_case 'hscroll-match-visible' 'sleep 250\nsend needle\nsleep 250' "$WORK/scroll.txt"
+run_case 'no-hscroll-match-visible' 'sleep 250\nsend needle\nsleep 250' "$WORK/scroll.txt" --no-hscroll
+run_case 'toggle-hscroll-action' 'sleep 250\nsend needle\nsleep 200\nkey ctrl-h\nsleep 250' "$WORK/scroll.txt" --bind=ctrl-h:toggle-hscroll
 run_case 'track-current-item' 'sleep 250\nsend date\nsleep 200\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --track
 run_case 'track-toggle-action' 'sleep 250\nsend date\nsleep 200\nkey ctrl-t\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --bind=ctrl-t:toggle-track
 run_case 'track-toggle-disable-action' 'sleep 250\nsend date\nsleep 200\nkey ctrl-t\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --track --bind=ctrl-t:toggle-track
