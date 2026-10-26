@@ -75,6 +75,8 @@ static const struct { const char *name; mm_action_t action; } action_table[] = {
     { "toggle-preview-wrap", MM_ACT_TOGGLE_PREVIEW_WRAP },
     { "toggle-preview-wrap-word", MM_ACT_TOGGLE_PREVIEW_WRAP_WORD },
     { "toggle-raw", MM_ACT_TOGGLE_RAW },
+    { "disable-search", MM_ACT_DISABLE_SEARCH },
+    { "enable-search", MM_ACT_ENABLE_SEARCH },
     { "toggle-search", MM_ACT_TOGGLE_SEARCH },
     { "toggle-sort", MM_ACT_TOGGLE_SORT },
     { "toggle-track", MM_ACT_TOGGLE_TRACK },
