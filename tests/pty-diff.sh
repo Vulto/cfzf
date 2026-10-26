@@ -218,6 +218,31 @@ send X
 sleep 150
 key enter
 sleep 200' "$WORK/items.txt" --bind=ctrl-x:forward-word
+run_case 'bind-kill-line' 'sleep 250
+send apple banana
+sleep 100
+key home
+key alt-right
+key ctrl-x
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:kill-line
+run_case 'bind-kill-word' 'sleep 250
+send apple banana
+sleep 100
+key home
+key alt-right
+key ctrl-x
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:kill-word
+run_case 'bind-backward-kill-word' 'sleep 250
+send apple banana
+sleep 100
+key ctrl-x
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind=ctrl-x:backward-kill-word
 run_case 'no-match'     'sleep 350
 send zzzz
 sleep 250'                                        "$WORK/items.txt"
