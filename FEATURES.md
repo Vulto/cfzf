@@ -74,7 +74,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-045 | `\-\-history` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-missing, tests/batch-diff.sh:no-history | implemented but unverified |
 | OPT-046 | `\-\-history\-size` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-size-invalid, tests/batch-diff.sh:history-size-zero | implemented but unverified |
 | OPT-047 | `--hscroll-off` | src/ui.c, src/main.c | tests/batch-diff.sh:hscroll-off-negative | implemented but unverified |
-| OPT-048 | `--id-nth` | src/main.c, src/ui.c, src/ui.h, src/tokenizer.c | tests/batch-diff.sh:id-nth-missing, tests/batch-diff.sh:id-nth-invalid, tests/pty-diff.sh:id-nth-reload-track | implemented but unverified |
+| OPT-048 | `--id-nth` | src/main.c, src/ui.c, src/ui.h, src/tokenizer.c | tests/batch-diff.sh:id-nth-missing, tests/batch-diff.sh:id-nth-invalid, tests/pty-diff.sh:id-nth-reload-track, tests/pty-diff.sh:id-nth-reload-selection | implemented but unverified |
 | OPT-049 | `--ignore-case` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-050 | `--info[=default/inline-right/hidden]` | src/main.c, src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-051 | `--info-command` | src/ui.c | tests/pty-diff.sh | verified |
