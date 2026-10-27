@@ -2406,8 +2406,9 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         if (ui->nresults > 0) {
             int item = ui->results[ui->cursor];
             ui_deselect_item(ui, item);
-            int next = ui->cursor - 1;
-            if (next >= 0) ui->cursor = next;
+            int step = ui_nav_step(ui, false);
+            int next = ui->cursor + step;
+            if (next >= 0 && next < ui->nresults) ui->cursor = next;
         }
         break;
     case MM_ACT_SELECT_DOWN:
