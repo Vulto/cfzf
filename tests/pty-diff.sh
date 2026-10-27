@@ -833,6 +833,10 @@ key ctrl-d
 sleep 200
 key enter
 sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border,wrap --bind='ctrl-d:preview-bottom'
+run_case 'preview-placeholder-space' 'sleep 350' "$WORK/space-items.txt" --preview='printf "[%s]\\n" {}' --preview-window=right,50%,border
+run_case 'preview-placeholder-raw' 'sleep 350' "$WORK/space-items.txt" --preview='printf "[%s]\\n" {r}' --preview-window=right,50%,border
+run_case 'preview-placeholder-selected-space' 'sleep 350' "$WORK/space-items.txt" --preview='printf "[%s]\\n" {+}' --preview-window=right,50%,border
+run_case 'preview-placeholder-file-space' 'sleep 350' "$WORK/space-items.txt" --preview='cat {f}' --preview-window=right,50%,border
 run_case 'preview-scroll-bottom' 'sleep 350
 key ctrl-d
 sleep 150
