@@ -996,8 +996,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-tty-default")) no_tty_default = true;
         else if (!strcmp(a, "--no-unicode")) no_unicode = true;
         else if (!strcmp(a, "--unicode")) no_unicode = false;
-        else if (!strcmp(a, "--raw")) { raw = true; exact = true; }
-        else if (!strcmp(a, "--no-raw")) { raw = false; exact = false; }
+        else if (!strcmp(a, "--raw")) { raw = true; }
+        else if (!strcmp(a, "--no-raw")) { raw = false; }
         else if (ARG_EQ("--ghost")) ghost_spec = a + 8;
         else if (!strcmp(a, "--ghost")) {
             ghost_spec = required_cli_arg(argc, argv, &i, "--ghost");
@@ -1749,8 +1749,7 @@ int main(int argc, char **argv) {
         }
         ui.extended = extended;
         ui.fuzzy = !exact;
-        /* --raw searches the items exactly, like --exact. */
-        (void)raw;
+        ui.raw = raw;
         ui.case_mode = case_mode;
         ui.tac = tac;
         ui.no_sort = no_sort;
