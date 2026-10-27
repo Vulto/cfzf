@@ -177,6 +177,10 @@ logical screen states through `tests/screen.py`.
   reference on some 200k-line batch workloads and slightly faster on others
   (see below); startup is comparable.
 
+### New interactive action work
+
+- Preview scroll actions now support top, bottom, line, page, and half-page movement for unwrapped preview output, with a matching scrollbar thumb and line indicator. PTY regression cases have been added but are not executed. Wrapped preview scrolling remains incomplete.
+
 ## Dependency blockers
 
 - GitHub Actions workflows are intentionally disabled by user instruction; no CI runs are to be triggered. No `gh`, `shellcheck`, or `sk`.
