@@ -933,6 +933,11 @@ key down
 sleep 200
 key enter
 sleep 200' "$WORK/items.txt" --header='header' --header-border --header-label=old --bind="focus:change-header-label({})"
+run_case 'event-change' 'sleep 350
+send b
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --header=before --bind='change:change-header(changed)'
 run_case 'event-one' 'sleep 350
 key enter
 sleep 200' "$WORK/items.txt" --query=banana --header=before --bind='one:change-header(single)'
