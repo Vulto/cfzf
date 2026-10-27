@@ -89,6 +89,7 @@ typedef struct {
     mm_keymap_t  keymap;     /* --bind specifications */
     mm_event_map_t events;   /* --bind event bindings */
     mm_preview_t *preview;   /* preview runner (NULL when disabled) */
+    bool         preview_hidden; /* visibility toggled without destroying command */
     mm_match_pos_t *match_pos;  /* the matched offsets of every result */
     int             match_pos_n;
     mm_preview_win_t preview_win;
