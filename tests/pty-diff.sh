@@ -837,6 +837,38 @@ sleep 300
 
 run_execute_case 'bind-execute' 'ctrl-t'
 
+# Selection and result-list placeholders must remain separate shell arguments.
+run_execute_list_case() {
+    name=$1; action=$2; placeholder=$3
+    rm -f "$WORK/exec-ref.txt" "$WORK/exec-impl.txt"
+    printf 'sleep 350
+key tab
+sleep 100
+key up
+sleep 100
+key tab
+sleep 100
+key ctrl-t
+sleep 300
+' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/space-items-multi.txt" --screen \
+        -- --multi --bind="tab:toggle,ctrl-t:$action(echo $placeholder > $WORK/exec-ref.txt)" > "$WORK/ref.txt" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/space-items-multi.txt" --screen \
+        -- --multi --bind="tab:toggle,ctrl-t:$action(echo $placeholder > $WORK/exec-impl.txt)" > "$WORK/impl.txt" 2>/dev/null
+    if cmp -s "$WORK/exec-ref.txt" "$WORK/exec-impl.txt"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        printf '  ref : %s\n' "$(cat "$WORK/exec-ref.txt" 2>/dev/null)"
+        printf '  impl: %s\n' "$(cat "$WORK/exec-impl.txt" 2>/dev/null)"
+    fi
+}
+run_execute_list_case 'execute-multi-placeholder' 'execute-multi' '{}'
+run_execute_list_case 'execute-selected-placeholder' 'execute' '{+}'
+run_execute_list_case 'execute-matched-placeholder' 'execute' '{*}'
+
 run_case 'preview-scroll-down' 'sleep 350
 key ctrl-d
 sleep 150
