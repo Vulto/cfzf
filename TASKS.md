@@ -173,6 +173,12 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - Implemented `toggle-multi-line` and single-line rendering for embedded newlines,
   preserving byte offsets for match highlighting. Added a NUL-delimited PTY case;
   differential execution is pending.
+- Implemented `bg-transform` / `bg-cancel` with nonblocking output polling,
+  process-group cancellation, and action-chain execution; fixed `become` to
+  restore the terminal before exec; added `backward-subword`, `change-nth`,
+  and seven runtime label/content actions. Dynamic action strings are copied
+  into UI-owned storage to avoid dangling pointers after temporary transform
+  maps are freed. Regression cases were added, but none have been executed.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
