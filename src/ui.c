@@ -3351,7 +3351,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui_preview_scroll(ui, ui->preview_page_size > 1 ? ui->preview_page_size : 1);
         break;
     case MM_ACT_PREVIEW_HALF_PAGE_UP:
-        ui_preview_scroll(ui, ui->preview_page_size > 2 ? ui->preview_page_size / 2 : 1);
+        ui_preview_scroll(ui, -(ui->preview_page_size > 2 ? ui->preview_page_size / 2 : 1));
         break;
     case MM_ACT_PREVIEW_HALF_PAGE_DOWN:
         ui_preview_scroll(ui, ui->preview_page_size > 2 ? ui->preview_page_size / 2 : 1);
