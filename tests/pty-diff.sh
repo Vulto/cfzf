@@ -359,6 +359,16 @@ key ctrl-s
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --bind=ctrl-s:select-down --multi
+run_case 'bind-select-current' 'sleep 350
+key ctrl-s
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind=ctrl-s:select --multi
+run_case 'bind-toggle-in' 'sleep 350
+key ctrl-t
+sleep 100
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind=ctrl-t:toggle-in --multi
 run_case 'bind-deselect-up' 'sleep 350
 key tab
 sleep 100
