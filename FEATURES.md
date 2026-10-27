@@ -210,8 +210,8 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-045 | `enable-raw` | - | - | unstarted |
 | ACT-046 | `enable-search` | src/bind.c, src/ui.c | tests/pty-diff.sh:disabled-enable-search-action | implemented but unverified |
 | ACT-047 | `end-of-line` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-end-of-line | implemented but unverified |
-| ACT-048 | `exclude` | - | - | unstarted |
-| ACT-049 | `exclude-multi` | - | - | unstarted |
+| ACT-048 | `exclude` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-exclude-current | implemented but unverified |
+| ACT-049 | `exclude-multi` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-exclude-multi-selected | implemented but unverified |
 | ACT-050 | `execute` | src/bind.c, src/ui.c | - | implemented |
 | ACT-051 | `execute-multi` | src/bind.c, src/ui.c | - | implemented |
 | ACT-052 | `execute-silent` | src/bind.c, src/ui.c | - | implemented |
