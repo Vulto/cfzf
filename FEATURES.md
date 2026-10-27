@@ -168,7 +168,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-003 | `accept-or-print-query` | src/bind.c, src/ui.c | - | implemented |
 | ACT-004 | `backward-char` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-char | implemented but unverified |
 | ACT-005 | `backward-delete-char` | src/bind.c, src/ui.c | tests/pty-diff.sh:query-cursor-backspace | implemented but unverified |
-| ACT-006 | `backward-kill-subword` | - | - | unstarted |
+| ACT-006 | `backward-kill-subword` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-kill-subword | implemented but unverified |
 | ACT-007 | `backward-kill-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-kill-word | implemented but unverified |
 | ACT-008 | `backward-subword` | - | - | unstarted |
 | ACT-009 | `backward-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-word | implemented but unverified |
@@ -217,7 +217,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-052 | `execute-silent` | src/bind.c, src/ui.c | - | implemented |
 | ACT-053 | `first` | src/bind.c, src/ui.c | - | implemented |
 | ACT-054 | `forward-char` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-forward-char | implemented but unverified |
-| ACT-055 | `forward-subword` | - | - | unstarted |
+| ACT-055 | `forward-subword` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-forward-subword | implemented but unverified |
 | ACT-056 | `forward-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-forward-word | implemented but unverified |
 | ACT-057 | `half-page-down` | src/bind.c, src/ui.c | - | implemented |
 | ACT-058 | `half-page-up` | src/bind.c, src/ui.c | - | implemented |
@@ -247,26 +247,26 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-084 | `preview-up` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-085 | `print` | src/bind.c, src/ui.c | - | implemented |
 | ACT-086 | `print-query` | src/bind.c, src/ui.c | - | implemented |
-| ACT-087 | `put` | - | - | unstarted |
-| ACT-088 | `rebind` | - | - | unstarted |
+| ACT-087 | `put` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-put-query | implemented but unverified |
+| ACT-088 | `rebind` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-unbind-rebind-key | implemented but unverified |
 | ACT-089 | `refresh-preview` | src/bind.c, src/ui.c | - | implemented |
 | ACT-090 | `reload` | src/bind.c, src/ui.c | tests/pty-diff.sh:action-reload, tests/pty-diff.sh:action-reload-empty, tests/pty-diff.sh:action-reload-track | implemented but unverified |
-| ACT-091 | `reload-sync` | - | - | unstarted |
+| ACT-091 | `reload-sync` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-reload-sync | implemented but unverified |
 | ACT-092 | `replace-query` | src/bind.c, src/ui.c | - | implemented |
-| ACT-093 | `select` | - | - | unstarted |
+| ACT-093 | `select` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-select-current | implemented but unverified |
 | ACT-094 | `select-all` | src/bind.c, src/ui.c | - | implemented |
-| ACT-095 | `show-header` | - | - | unstarted |
+| ACT-095 | `show-header` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-hide-show-header | implemented but unverified |
 | ACT-096 | `show-input` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-show-input | implemented but unverified |
-| ACT-097 | `show-preview` | - | - | unstarted |
+| ACT-097 | `show-preview` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-hide-show-preview | implemented but unverified |
 | ACT-098 | `toggle` | src/bind.c, src/ui.c | - | implemented |
 | ACT-099 | `toggle-all` | src/bind.c, src/ui.c | - | implemented |
 | ACT-101 | `toggle-down` | src/bind.c, src/ui.c | - | implemented |
 | ACT-102 | `toggle-header` | src/bind.c, src/ui.c | - | implemented |
 | ACT-103 | `toggle-hscroll` | src/bind.c, src/ui.c | tests/pty-diff.sh:toggle-hscroll-action | implemented but unverified |
-| ACT-104 | `toggle-in` | - | - | unstarted |
+| ACT-104 | `toggle-in` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-toggle-in | implemented but unverified |
 | ACT-105 | `toggle-input` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-toggle-input | implemented but unverified |
 | ACT-106 | `toggle-multi-line` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-toggle-multi-line | implemented but unverified |
-| ACT-107 | `toggle-out` | - | - | unstarted |
+| ACT-107 | `toggle-out` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-toggle-out | implemented but unverified |
 | ACT-108 | `toggle-preview` | src/bind.c, src/ui.c | - | implemented |
 | ACT-109 | `toggle-preview-wrap` | src/bind.c, src/ui.c | - | implemented |
 | ACT-110 | `toggle-preview-wrap-word` | src/bind.c, src/ui.c | - | implemented |
