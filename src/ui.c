@@ -8,6 +8,7 @@
 #include "util.h"
 
 #include <errno.h>
+#include <ctype.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -2362,6 +2363,94 @@ static void ui_run_command(mm_ui_t *ui, const char *cmd, bool silent) {
     }
 }
 
+/* Run transform(command), parse its stdout as a normal fzf action chain, and
+   execute the resulting actions in order. The command's output is bounded only
+   by available memory, and a failed child or malformed action is ignored. */
+static bool ui_transform(mm_ui_t *ui, const char *cmd) {
+    if (!cmd || !*cmd) return true;
+    char *expanded = ui_expand_command(ui, cmd);
+    if (!expanded) return true;
+
+    int fds[2];
+    if (pipe(fds) != 0) {
+        free(expanded);
+        return true;
+    }
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fds[0]);
+        if (dup2(fds[1], STDOUT_FILENO) < 0) _exit(127);
+        close(fds[1]);
+        if (ui->shell && *ui->shell)
+            execl(ui->shell, ui->shell, "-c", expanded, (char *)NULL);
+        else
+            execl("/bin/sh", "sh", "-c", expanded, (char *)NULL);
+        _exit(127);
+    }
+    free(expanded);
+    close(fds[1]);
+    if (pid < 0) {
+        close(fds[0]);
+        return true;
+    }
+
+    size_t len = 0, cap = 256;
+    char *output = malloc(cap);
+    if (!output) {
+        close(fds[0]);
+        while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+        return true;
+    }
+    for (;;) {
+        if (len + 128 + 1 > cap) {
+            if (cap > SIZE_MAX / 2) break;
+            size_t next_cap = cap * 2;
+            char *grown = realloc(output, next_cap);
+            if (!grown) break;
+            output = grown;
+            cap = next_cap;
+        }
+        ssize_t n = read(fds[0], output + len, cap - len - 1);
+        if (n > 0) { len += (size_t)n; continue; }
+        if (n < 0 && errno == EINTR) continue;
+        break;
+    }
+    close(fds[0]);
+    while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+    output[len] = '\0';
+
+    size_t first = 0;
+    while (first < len && isspace((unsigned char)output[first])) first++;
+    while (len > first && isspace((unsigned char)output[len - 1])) len--;
+    if (first > 0 && len > first) memmove(output, output + first, len - first);
+    len -= first;
+    output[len] = '\0';
+
+    bool keep_running = true;
+    if (len > 0 && len <= SIZE_MAX - 8) {
+        char *spec = malloc(len + 8);
+        if (spec) {
+            memcpy(spec, "ctrl-x:", 7);
+            memcpy(spec + 7, output, len + 1);
+            mm_keymap_t actions = {0};
+            const char *error = NULL;
+            if (mm_bind_parse(&actions, spec, false, &error)) {
+                for (int i = 0; i < actions.n; i++) {
+                    mm_binding_t action = actions.items[i];
+                    if (!ui_execute_action(ui, &action)) {
+                        keep_running = false;
+                        break;
+                    }
+                }
+            }
+            mm_keymap_free(&actions);
+            free(spec);
+        }
+    }
+    free(output);
+    return keep_running;
+}
+
 /* Preview scrolling operates on output lines and clamps to the available tail. */
 static int ui_preview_line_count(const mm_ui_t *ui) {
     const char *out = ui->preview ? mm_preview_output(ui->preview) : NULL;
@@ -2747,6 +2836,8 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_EXECUTE_SILENT:
         if (b->arg) ui_run_command(ui, b->arg, true);
         break;
+    case MM_ACT_TRANSFORM:
+        return ui_transform(ui, b->arg);
     case MM_ACT_PUT:
         if (b->arg && *b->arg) {
             query_insert(ui, b->arg, strlen(b->arg));
