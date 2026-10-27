@@ -50,4 +50,8 @@ char *mm_accept_nth_expand(const char *spec, const char *line,
 char **mm_transform(char **tokens, int ntokens, int *tok_prefix, const mm_range_t *ranges,
                     int nranges, int **prefix_lengths, int *outn);
 
+/* Transform a complete record through --with-nth ranges. Caller owns result. */
+char *mm_transform_line(const char *line, mm_delimiter_t delim,
+                        const mm_range_t *ranges, int nranges);
+
 #endif /* MMENU_TOKENIZER_H */
