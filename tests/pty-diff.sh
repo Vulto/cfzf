@@ -347,6 +347,25 @@ key down
 sleep 150
 key up
 sleep 200'                                        "$WORK/items.txt" --bind='up:up,down:down'
+run_case 'bind-jump' 'sleep 350
+key ctrl-t
+sleep 150
+key s
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --bind='ctrl-t:jump' --jump-labels=as
+run_case 'bind-jump-accept' 'sleep 350
+key ctrl-t
+sleep 150
+key s
+sleep 200' "$WORK/items.txt" --bind='ctrl-t:jump-accept' --jump-labels=as
+run_case 'event-jump-cancel' 'sleep 350
+key ctrl-t
+sleep 150
+key esc
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --header=before --bind='ctrl-t:jump,jump-cancel:change-header(cancel)' --jump-labels=as
 run_case 'bind-first-last' 'sleep 350
 key end
 sleep 150
