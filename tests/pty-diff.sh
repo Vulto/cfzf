@@ -991,6 +991,14 @@ key down
 sleep 200
 key enter
 sleep 200' "$WORK/items.txt" --header='header' --bind='focus:toggle-header'
+run_case 'event-start-load' 'sleep 350
+key enter
+sleep 200' "$WORK/items.txt" --header=before --prompt='query> ' --bind='start:change-prompt(start),load:change-header(loaded)'
+run_case 'event-result' 'sleep 350
+send b
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --header=before --bind='result:change-header(result)'
 run_case 'event-change' 'sleep 350
 send b
 sleep 200
