@@ -159,6 +159,11 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - Implemented `select` for the current item (respecting multi-select and
   its limit), plus `toggle-in` / `toggle-out` layout-aware dispatch. Added
   PTY cases for select and toggle-in; differential execution is pending.
+- Added preview scrolling actions (`preview-top`, `preview-bottom`, `preview-up`,
+  `preview-down`, page and half-page variants), a line offset, and scrollbar
+  position/line-indicator updates for unwrapped preview output. PTY cases cover
+  down, page-down, bottom and top; differential execution is pending. Wrapped
+  preview scrolling still needs a visual-line model.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
