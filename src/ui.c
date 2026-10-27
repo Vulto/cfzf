@@ -2486,7 +2486,8 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
 static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
     if (!cmd || !*cmd) return;
     if (ui->bg_transform_pid > 0) {
-        kill(ui->bg_transform_pid, SIGTERM);
+        if (kill(-ui->bg_transform_pid, SIGTERM) < 0)
+            (void)kill(ui->bg_transform_pid, SIGTERM);
         while (waitpid(ui->bg_transform_pid, NULL, 0) < 0 && errno == EINTR) {}
     }
     if (ui->bg_transform_fd >= 0) close(ui->bg_transform_fd);
@@ -2501,6 +2502,7 @@ static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
     if (pipe(fds) != 0) { free(expanded); return; }
     pid_t pid = fork();
     if (pid == 0) {
+        (void)setpgid(0, 0);
         close(fds[0]);
         if (dup2(fds[1], STDOUT_FILENO) < 0) _exit(127);
         close(fds[1]);
@@ -2511,6 +2513,7 @@ static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
     free(expanded);
     close(fds[1]);
     if (pid < 0) { close(fds[0]); return; }
+    (void)setpgid(pid, pid);
     int flags = fcntl(fds[0], F_GETFL, 0);
     if (flags >= 0) (void)fcntl(fds[0], F_SETFL, flags | O_NONBLOCK);
     ui->bg_transform_pid = pid;
@@ -2562,7 +2565,8 @@ static bool ui_bg_transform_poll(mm_ui_t *ui) {
 
 static void ui_bg_transform_cancel(mm_ui_t *ui) {
     if (ui->bg_transform_pid > 0) {
-        (void)kill(ui->bg_transform_pid, SIGTERM);
+        if (kill(-ui->bg_transform_pid, SIGTERM) < 0)
+            (void)kill(ui->bg_transform_pid, SIGTERM);
         while (waitpid(ui->bg_transform_pid, NULL, 0) < 0 && errno == EINTR) {}
     }
     ui->bg_transform_pid = 0;
