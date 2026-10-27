@@ -108,8 +108,8 @@ logical screen states through `tests/screen.py`.
   are inherited inventory claims; the current CI suite covers only the cases
   recorded in `BASELINE_EVIDENCE.md`. Some unsupported options are rejected,
   but exact CLI parity has not been certified.
-- The latest source audit finds 127 action rows: 54 marked implemented, 65
-  implemented but unverified, and 8 unstarted. IDs 060, 065, 100, 122, and 123
+- The latest source audit finds 127 action rows: 54 marked implemented, 67
+  implemented but unverified, and 6 unstarted. IDs 060, 065, 100, 122, and 123
   are absent from the inventory and need reconciliation against upstream. No
   action is marked differentially verified in `FEATURES.md`. All 13 events
   remain marked unstarted; infrastructure presence is not equivalent to event
@@ -252,3 +252,5 @@ evidence. Current evidence and its scope are recorded in `BASELINE_EVIDENCE.md`.
 - Implemented seven runtime label/content actions: `change-border-label`, `change-footer`, `change-ghost`, `change-header-label`, `change-input-label`, `change-list-label`, and `change-preview-label`. PTY differential cases were added but not executed.
 
 - Dynamic label/content actions now duplicate their arguments into UI-owned storage, preventing dangling pointers when actions are produced by `transform()` and its temporary keymap is freed. Added a PTY regression case for a transformed `change-ghost`; it has not been run.
+
+- Implemented `disable-raw` and `enable-raw`, and corrected `toggle-raw` to toggle the raw-results mode instead of ANSI parsing. Raw mode now displays unmatched items after the ranked matches while respecting exclusions. Three PTY differential cases were added but not run.
