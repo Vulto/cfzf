@@ -355,6 +355,14 @@ key tab
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --bind='tab:toggle' --multi
+run_case 'bind-unicode-rune' 'sleep 300
+key ctrl-u
+send é
+sleep 200
+key é
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --query=apple --bind='é:change-query(banana)'
 run_case 'bind-select-down' 'sleep 350
 key ctrl-s
 sleep 150
