@@ -265,7 +265,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-103 | `toggle-hscroll` | src/bind.c, src/ui.c | tests/pty-diff.sh:toggle-hscroll-action | implemented but unverified |
 | ACT-104 | `toggle-in` | - | - | unstarted |
 | ACT-105 | `toggle-input` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-toggle-input | implemented but unverified |
-| ACT-106 | `toggle-multi-line` | - | - | unstarted |
+| ACT-106 | `toggle-multi-line` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-toggle-multi-line | implemented but unverified |
 | ACT-107 | `toggle-out` | - | - | unstarted |
 | ACT-108 | `toggle-preview` | src/bind.c, src/ui.c | - | implemented |
 | ACT-109 | `toggle-preview-wrap` | src/bind.c, src/ui.c | - | implemented |
