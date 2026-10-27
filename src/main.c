@@ -1737,6 +1737,9 @@ int main(int argc, char **argv) {
         /* Interactive mode. */
         mm_ui_t ui;
         memset(&ui, 0, sizeof(ui));
+        /* A negative descriptor means all input is already available. A
+           nonnegative descriptor is installed only for asynchronous streams. */
+        ui.input_fd = -1;
         ui.crit = crit;
         ui.accept_nth_spec = accept_nth_spec;
         ui.id_nth_spec = id_nth_spec;
