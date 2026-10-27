@@ -493,6 +493,25 @@ run_preview_case 'gap-3-preview'    --gap=3 --preview 'echo hi'
 run_preview_case 'gap-line'         --gap=2 --gap-line=-
 run_preview_case 'preview-wrap'      --preview 'seq 1 30' --preview-window wrap
 run_preview_case 'preview-wrap-word' --preview 'printf "one two three four five six seven eight nine ten\\\\n"' --preview-window='right,30%,wrap-word'
+
+run_preview_word_action_case() {
+    printf 'sleep 300\nkey ctrl-t\nsleep 500\n' > "$WORK/script.txt"
+    local opts=(--preview='printf "one two three four five six seven eight nine ten"' --preview-window='right,30%,nowrap' --bind=ctrl-t:toggle-preview-wrap-word)
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --cols 40 --rows 12 -- "${opts[@]}" \
+        > "$WORK/ref.txt" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/items.txt" --screen --cols 40 --rows 12 -- "${opts[@]}" \
+        > "$WORK/impl.txt" 2>/dev/null
+    if compare "$WORK/ref.txt" "$WORK/impl.txt" 'preview-toggle-wrap-word'; then
+        pass=$((pass + 1)); printf 'PASS preview-toggle-wrap-word\n'
+    else
+        fail=$((fail + 1)); printf 'FAIL preview-toggle-wrap-word\n'
+        diff -u "$WORK/ref.txt" "$WORK/impl.txt" | head -12
+    fi
+}
+run_preview_word_action_case
+
 run_preview_case 'preview-wrap-sign' --preview 'printf "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\\n"' --preview-window='right,30%,wrap' --preview-wrap-sign='>>'
 run_preview_case 'preview-wrap-sign-wide' --preview 'printf "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\\n"' --preview-window='right,30%,wrap' --preview-wrap-sign='·· '
 run_preview_case 'preview-long'     --preview 'seq 1 100'
