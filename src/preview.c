@@ -31,6 +31,7 @@ bool mm_preview_window_parse(const char *spec, mm_preview_win_t *out) {
     out->border_left_only = false;
     out->info = true;
     out->wrap = false;
+    out->wrap_word = false;
     out->cycle = false;
 
     if (!spec || !*spec) return true;
@@ -61,9 +62,9 @@ bool mm_preview_window_parse(const char *spec, mm_preview_win_t *out) {
                 out->border_left_only = false;
             } else if (!strcmp(tok, "info")) out->info = true;
             else if (!strcmp(tok, "noinfo")) out->info = false;
-            else if (!strcmp(tok, "wrap")) out->wrap = true;
-            else if (!strcmp(tok, "nowrap")) out->wrap = false;
-            else if (!strcmp(tok, "wrap-word")) out->wrap = true;
+            else if (!strcmp(tok, "wrap")) { out->wrap = true; out->wrap_word = false; }
+            else if (!strcmp(tok, "nowrap")) { out->wrap = false; out->wrap_word = false; }
+            else if (!strcmp(tok, "wrap-word")) { out->wrap = true; out->wrap_word = true; }
             else if (!strcmp(tok, "cycle")) out->cycle = true;
             else if (!strcmp(tok, "nocycle")) out->cycle = false;
             else if (!strcmp(tok, "nohidden") || !strcmp(tok, "default")) {
