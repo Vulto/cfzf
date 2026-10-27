@@ -4086,6 +4086,7 @@ bool mm_ui_read_items(mm_ui_t *ui, int ttyin) {
 }
 
 bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
+    ui->result_events_initialized = false;
     /* No descriptor means input was collected before entering the UI.
        Streaming callers install their descriptor after initialization. */
     ui->input_fd = -1;
