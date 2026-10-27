@@ -163,7 +163,7 @@ with results tied to a specific implementation commit and pinned reference.
 
 | ID | Action | C location | Verification | Status |
 |----|--------|-----------|--------------|--------|
-| ACT-001 | `accept` | - | - | unstarted |
+| ACT-001 | `accept` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-002 | `accept-non-empty` | src/bind.c, src/ui.c | - | implemented |
 | ACT-003 | `accept-or-print-query` | src/bind.c, src/ui.c | - | implemented |
 | ACT-004 | `backward-char` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-char | implemented but unverified |
@@ -173,30 +173,30 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-008 | `backward-subword` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-subword | implemented but unverified |
 | ACT-009 | `backward-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-word | implemented but unverified |
 | ACT-010 | `become` | src/bind.c, src/ui.c, src/ui.h | tests/pty-diff.sh:bind-become-command | implemented but unverified |
-| ACT-011 | `bell` | - | - | unstarted |
+| ACT-011 | `bell` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-012 | `best` | - | - | unstarted |
 | ACT-013 | `bg-cancel` | src/bind.c, src/ui.c, src/ui.h | tests/pty-diff.sh:bind-bg-cancel | implemented but unverified |
-| ACT-014 | `cancel` | - | - | unstarted |
+| ACT-014 | `cancel` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-015 | `change-border-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-border-label | implemented but unverified |
 | ACT-016 | `change-footer` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-footer | implemented but unverified |
 | ACT-017 | `change-footer-label` | - | - | unstarted |
 | ACT-018 | `change-ghost` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-ghost | implemented but unverified |
-| ACT-019 | `change-header` | - | - | unstarted |
+| ACT-019 | `change-header` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-hide-show-header | implemented but unverified |
 | ACT-020 | `change-header-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-header-label | implemented but unverified |
 | ACT-021 | `change-header-lines` | - | - | unstarted |
 | ACT-022 | `change-input-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-input-label | implemented but unverified |
 | ACT-023 | `change-list-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-list-label | implemented but unverified |
-| ACT-024 | `change-multi` | - | - | unstarted |
+| ACT-024 | `change-multi` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-025 | `change-nth` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-nth | implemented but unverified |
-| ACT-026 | `change-pointer` | - | - | unstarted |
+| ACT-026 | `change-pointer` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-027 | `change-preview` | src/bind.c, src/ui.c | - | implemented |
 | ACT-028 | `change-preview-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-preview-label | implemented but unverified |
 | ACT-029 | `change-preview-window` | src/bind.c, src/ui.c | - | implemented |
-| ACT-030 | `change-prompt` | - | - | unstarted |
-| ACT-031 | `change-query` | - | - | unstarted |
+| ACT-030 | `change-prompt` | src/bind.c, src/ui.c | - | implemented but unverified |
+| ACT-031 | `change-query` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-transform-change-query | implemented but unverified |
 | ACT-032 | `change-with-nth` | - | - | unstarted |
 | ACT-033 | `clear-multi` | src/bind.c, src/ui.c | - | implemented |
-| ACT-034 | `clear-query` | - | - | unstarted |
+| ACT-034 | `clear-query` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-035 | `clear-screen` | src/bind.c, src/ui.c | - | implemented |
 | ACT-036 | `close` | src/bind.c, src/ui.c | - | implemented |
 | ACT-037 | `delete-char` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
