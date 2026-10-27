@@ -354,6 +354,43 @@ static void ui_search(mm_ui_t *ui) {
         }
         n = kept;
     }
+    if (ui->raw) {
+        size_t count = (size_t)(ui->count > 0 ? ui->count : 1);
+        bool *seen = calloc(count, sizeof(*seen));
+        int *raw_results = malloc(count * sizeof(*raw_results));
+        mm_match_pos_t *raw_positions = calloc(count, sizeof(*raw_positions));
+        if (seen && raw_results && raw_positions) {
+            int kept = 0;
+            for (int i = 0; i < n; i++) {
+                int item = res ? res[i] : -1;
+                if (item < 0 || item >= ui->count || seen[item] ||
+                    (ui->excluded && ui->excluded[item]))
+                    continue;
+                seen[item] = true;
+                raw_results[kept] = item;
+                if (mp) {
+                    raw_positions[kept] = mp[i];
+                    mp[i].pos = NULL;
+                    mp[i].npos = 0;
+                }
+                kept++;
+            }
+            for (int item = 0; item < ui->count; item++) {
+                if (seen[item] || (ui->excluded && ui->excluded[item])) continue;
+                raw_results[kept++] = item;
+            }
+            free(seen);
+            free(res);
+            mm_match_pos_free(mp, n);
+            res = raw_results;
+            mp = raw_positions;
+            n = kept;
+        } else {
+            free(seen);
+            free(raw_results);
+            free(raw_positions);
+        }
+    }
     free(ui->results);
     ui->results = res;
     ui->nresults = n;
@@ -3265,8 +3302,17 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             if (!ui->preview_hidden) ui_preview_restart(ui);
         }
         break;
+    case MM_ACT_DISABLE_RAW:
+        ui->raw = false;
+        ui_search(ui);
+        break;
+    case MM_ACT_ENABLE_RAW:
+        ui->raw = true;
+        ui_search(ui);
+        break;
     case MM_ACT_TOGGLE_RAW:
-        ui->ansi = !ui->ansi;
+        ui->raw = !ui->raw;
+        ui_search(ui);
         break;
     case MM_ACT_DISABLE_SEARCH:
         ui->search_enabled = false;
