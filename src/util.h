@@ -68,4 +68,7 @@ bool mm_is_ascii(const char *s);
 /* Terminal display width of a code point (0 for combining, 1 or 2 otherwise). */
 int mm_runewidth(wchar_t c);
 
+/* Quote an argument for a POSIX shell command. Caller owns the result. */
+char *mm_shell_quote(const char *s);
+
 #endif /* MMENU_UTIL_H */
