@@ -2179,6 +2179,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     ui->selected = selected;
     ui->excluded = excluded;
     ui->count = n;
+    ui->lines_cap = n;
     ui->nselected = 0;
     ui->sel_order_n = 0;
     if (selected_key_count > 0)
