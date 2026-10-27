@@ -256,7 +256,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-093 | `select` | - | - | unstarted |
 | ACT-094 | `select-all` | src/bind.c, src/ui.c | - | implemented |
 | ACT-095 | `show-header` | - | - | unstarted |
-| ACT-096 | `show-input` | - | - | unstarted |
+| ACT-096 | `show-input` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-show-input | implemented but unverified |
 | ACT-097 | `show-preview` | - | - | unstarted |
 | ACT-098 | `toggle` | src/bind.c, src/ui.c | - | implemented |
 | ACT-099 | `toggle-all` | src/bind.c, src/ui.c | - | implemented |
@@ -264,7 +264,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-102 | `toggle-header` | src/bind.c, src/ui.c | - | implemented |
 | ACT-103 | `toggle-hscroll` | src/bind.c, src/ui.c | tests/pty-diff.sh:toggle-hscroll-action | implemented but unverified |
 | ACT-104 | `toggle-in` | - | - | unstarted |
-| ACT-105 | `toggle-input` | - | - | unstarted |
+| ACT-105 | `toggle-input` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-toggle-input | implemented but unverified |
 | ACT-106 | `toggle-multi-line` | - | - | unstarted |
 | ACT-107 | `toggle-out` | - | - | unstarted |
 | ACT-108 | `toggle-preview` | src/bind.c, src/ui.c | - | implemented |
