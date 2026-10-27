@@ -771,6 +771,15 @@ key ctrl-x
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --bind='ctrl-t:unbind(ctrl-x),ctrl-x:change-query(cherry)'
+run_case 'bind-unbind-rebind-key' 'sleep 350
+key ctrl-t
+sleep 100
+key ctrl-s
+sleep 100
+key ctrl-x
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind='ctrl-t:unbind(ctrl-x),ctrl-s:rebind(ctrl-x),ctrl-x:change-query(cherry)'
 run_case 'bind-put-query' 'sleep 350
 key ctrl-p
 sleep 150
