@@ -185,6 +185,8 @@ check "nth=..2"        --filter=a --nth=..2
 check "nth=2.."        --filter=b --nth=2..
 check "with-nth=2"     --filter=b --with-nth=2
 check "with-nth=2.."   --filter=b --with-nth=2..
+check "with-nth-and-nth-first" --filter=b --with-nth=2 --nth=1
+check "with-nth-and-nth-second" --filter=b --with-nth=2 --nth=2
 check "delim-colon"    --filter=b --delimiter=: --nth=2
 check "delim-attach"   --filter=b -d: --nth=2
 check "delim-empty-rune-split" --filter=a --delimiter= --nth=2
