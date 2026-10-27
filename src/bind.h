@@ -189,6 +189,8 @@ bool mm_bind_parse(mm_keymap_t *km, const char *spec, bool replace,
    bindings to *em. Returns false on a parse error. */
 bool mm_bind_parse_full(mm_keymap_t *km, mm_event_map_t *em, const char *spec,
                         const char **err);
+/* Remove runtime key bindings named by a comma-separated key list. */
+bool mm_bind_unbind(mm_keymap_t *km, const char *keys);
 
 /* Human readable action name (for diagnostics). */
 const char *mm_action_name(mm_action_t a);
