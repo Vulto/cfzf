@@ -2486,8 +2486,8 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
 static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
     if (!cmd || !*cmd) return;
     if (ui->bg_transform_pid > 0) {
-        if (kill(-ui->bg_transform_pid, SIGTERM) < 0)
-            (void)kill(ui->bg_transform_pid, SIGTERM);
+        if (kill(-ui->bg_transform_pid, SIGKILL) < 0)
+            (void)kill(ui->bg_transform_pid, SIGKILL);
         while (waitpid(ui->bg_transform_pid, NULL, 0) < 0 && errno == EINTR) {}
     }
     if (ui->bg_transform_fd >= 0) close(ui->bg_transform_fd);
