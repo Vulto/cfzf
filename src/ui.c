@@ -265,10 +265,12 @@ static void ui_search(mm_ui_t *ui) {
         int n = ui->count;
         int *res = malloc(sizeof(int) * (size_t)(n > 0 ? n : 1));
         if (res) {
-            for (int i = 0; i < n; i++) res[i] = i;
+            int kept = 0;
+            for (int i = 0; i < n; i++)
+                if (!ui->excluded || !ui->excluded[i]) res[kept++] = i;
             free(ui->results);
             ui->results = res;
-            ui->nresults = n;
+            ui->nresults = kept;
         } else {
             ui->nresults = 0;
         }
@@ -307,6 +309,24 @@ static void ui_search(mm_ui_t *ui) {
     int n = 0;
     mm_match_pos_t *mp = NULL;
     int *res = mm_batch_search(&input, pat, &ui->crit, ui->tac, &n, &mp);
+    if (res && mp && ui->excluded) {
+        int kept = 0;
+        for (int i = 0; i < n; i++) {
+            int item = res[i];
+            if (item >= 0 && item < ui->count && ui->excluded[item]) {
+                free(mp[i].pos);
+                continue;
+            }
+            if (kept != i) {
+                res[kept] = res[i];
+                mp[kept] = mp[i];
+                mp[i].pos = NULL;
+                mp[i].npos = 0;
+            }
+            kept++;
+        }
+        n = kept;
+    }
     free(ui->results);
     ui->results = res;
     ui->nresults = n;
@@ -2148,6 +2168,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     free(ui->items);
     free(ui->lines);
     free(ui->selected);
+    free(ui->excluded);
     ui->lines = lines;
     ui->items = items;
     ui->selected = selected;
@@ -2850,6 +2871,31 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_TRANSFORM:
         return ui_transform(ui, b->arg);
+    case MM_ACT_EXCLUDE:
+    case MM_ACT_EXCLUDE_MULTI: {
+        bool multi_action = b->action == MM_ACT_EXCLUDE_MULTI;
+        bool changed = false;
+        if (multi_action && ui->multi && ui->nselected > 0) {
+            for (int i = 0; i < ui->count; i++) {
+                if (ui->selected[i] && !ui->excluded[i]) {
+                    ui->excluded[i] = true;
+                    changed = true;
+                }
+            }
+        } else if (ui->nresults > 0 && ui->cursor >= 0 &&
+                   ui->cursor < ui->nresults) {
+            int item = ui->results[ui->cursor];
+            if (item >= 0 && item < ui->count && !ui->excluded[item]) {
+                ui->excluded[item] = true;
+                changed = true;
+            }
+        }
+        if (changed) {
+            ui_search(ui);
+            if (ui->cursor >= ui->nresults) ui->cursor = ui->nresults > 0 ? ui->nresults - 1 : 0;
+        }
+        break;
+    }
     case MM_ACT_PUT:
         if (b->arg && *b->arg) {
             query_insert(ui, b->arg, strlen(b->arg));
@@ -3435,6 +3481,11 @@ static bool ui_grow(mm_ui_t *ui, int need) {
     bool *nsel = realloc(ui->selected, sizeof(*nsel) * (size_t)ncap);
     if (!nsel) return false;
     ui->selected = nsel;
+    bool *nexcluded = realloc(ui->excluded, sizeof(*nexcluded) * (size_t)ncap);
+    if (!nexcluded) return false;
+    memset(nexcluded + ui->lines_cap, 0,
+           (size_t)(ncap - ui->lines_cap) * sizeof(*nexcluded));
+    ui->excluded = nexcluded;
     ui->lines_cap = ncap;
     return true;
 }
@@ -3559,7 +3610,8 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
         }
     }
     ui->selected = calloc(alloc, sizeof(bool));
-    if (!ui->selected) return false;
+    ui->excluded = calloc(alloc, sizeof(bool));
+    if (!ui->selected || !ui->excluded) return false;
     ui->count = count;
     query_set(ui, ui->query ? ui->query : "");
     ui->cursor = 0;
