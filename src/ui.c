@@ -2327,11 +2327,14 @@ static void ui_preview_restart(mm_ui_t *ui) {
     bool allocation_failed = false;
     bool have_selection = ui->selected && ui->nselected > 0 &&
                           ui->sel_order && ui->sel_order_n > 0;
+    bool *seen = have_selection ? calloc((size_t)ui->count, sizeof(*seen)) : NULL;
+    if (have_selection && !seen) allocation_failed = true;
 
-    for (int i = 0; i < (have_selection ? ui->sel_order_n : 1); i++) {
+    for (int i = 0; !allocation_failed && i < (have_selection ? ui->sel_order_n : 1); i++) {
         int item = have_selection ? ui->sel_order[i] : idx;
         if (item < 0 || item >= ui->count) continue;
-        if (have_selection && !ui->selected[item]) continue;
+        if (have_selection && (!ui->selected[item] || seen[item])) continue;
+        if (seen) seen[item] = true;
 
         const char *line = ui->lines[item] ? ui->lines[item] : "";
         size_t line_len = strlen(line);
@@ -2367,6 +2370,7 @@ static void ui_preview_restart(mm_ui_t *ui) {
         selected_count++;
     }
 
+    free(seen);
     if (allocation_failed || selected_count == 0) {
         free(raw);
         free(shell);
