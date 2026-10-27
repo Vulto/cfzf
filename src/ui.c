@@ -1794,14 +1794,23 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
                 if (avail < 1) avail = 1;
                 int cols = 0;
                 size_t cut = off;
+                size_t word_break = SIZE_MAX;
                 while (cut < len) {
                     wchar_t cp;
                     size_t used = mm_utf8_decode(p + cut, len - cut, &cp);
                     if (used == 0) used = 1;
                     int cw = mm_runewidth(cp);
                     if (cols + cw > avail) break;
+                    if (ui->preview_win.wrap_word && cp == L' ')
+                        word_break = cut;
                     cols += cw;
                     cut += used;
+                }
+                bool broke_word = false;
+                if (ui->preview_win.wrap_word && cut < len &&
+                    word_break != SIZE_MAX && word_break > off) {
+                    cut = word_break;
+                    broke_word = true;
                 }
                 if (cut == off && off < len) {
                     /* A single character does not fit: take it anyway. */
@@ -1820,6 +1829,9 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
                 free(chunk);
                 row++;
                 off = cut;
+                if (broke_word) {
+                    while (off < len && p[off] == ' ') off++;
+                }
                 first = 0;
                 if (row >= content_y + content_h) break;
                 if (off >= len) break;
@@ -2692,7 +2704,10 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         if (ui->preview) ui->preview_win.wrap = !ui->preview_win.wrap;
         break;
     case MM_ACT_TOGGLE_PREVIEW_WRAP_WORD:
-        if (ui->preview) ui->preview_win.wrap = !ui->preview_win.wrap;
+        if (ui->preview) {
+            ui->preview_win.wrap_word = !ui->preview_win.wrap_word;
+            if (ui->preview_win.wrap_word) ui->preview_win.wrap = true;
+        }
         break;
     case MM_ACT_CHANGE_PREVIEW:
         if (b->arg && ui->preview) {
