@@ -346,8 +346,12 @@ static void ui_search(mm_ui_t *ui) {
 
     /* The items are decoded once, when the UI starts, so every search can
        reuse them instead of decoding the whole list again. */
-    mm_input_t input = { ui->lines, ui->count, ui->items, 0, ui->delim, ui->nth,
-                         ui->nth_n, ui->length_from_transform };
+    mm_input_t input = {
+        .lines = ui->lines, .count = ui->count, .items = ui->items, .base = 0,
+        .delim = ui->delim, .nth_ranges = ui->nth, .nth_n = ui->nth_n,
+        .length_from_transform = false,
+        .with_nth_ranges = ui->with_nth, .with_nth_n = ui->with_nth_n
+    };
     int n = 0;
     mm_match_pos_t *mp = NULL;
     int *res = mm_batch_search(&input, pat, &ui->crit, ui->tac, &n, &mp);
@@ -1351,8 +1355,14 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             ui->jump_label_count = block + 1;
         {
         int item_idx = ui->results[idx];
+        char *display_text = NULL;
         char *single_line_text = NULL;
         const char *text = ui->lines[item_idx];
+        if (ui->with_nth && ui->with_nth_n > 0) {
+            display_text = mm_transform_line(text, ui->delim,
+                                             ui->with_nth, ui->with_nth_n);
+            if (display_text) text = display_text;
+        }
         if (ui->no_multi_line && strchr(text, '\n')) {
             single_line_text = strdup(text);
             if (single_line_text) {
@@ -1553,6 +1563,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         }
         free(fitted);
         free(single_line_text);
+        free(display_text);
         if (pieces) {
             for (int c = 0; c < n_pieces; c++) free(pieces[c]);
             free(pieces);
