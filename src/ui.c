@@ -3037,6 +3037,27 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             ui_search(ui);
         }
         break;
+    case MM_ACT_CHANGE_BORDER_LABEL:
+        if (b->arg) ui->border_label = b->arg;
+        break;
+    case MM_ACT_CHANGE_FOOTER:
+        if (b->arg) ui->footer = b->arg;
+        break;
+    case MM_ACT_CHANGE_GHOST:
+        if (b->arg) ui->ghost = b->arg;
+        break;
+    case MM_ACT_CHANGE_HEADER_LABEL:
+        if (b->arg) ui->header_label = b->arg;
+        break;
+    case MM_ACT_CHANGE_INPUT_LABEL:
+        if (b->arg) ui->input_label = b->arg;
+        break;
+    case MM_ACT_CHANGE_LIST_LABEL:
+        if (b->arg) ui->list_label = b->arg;
+        break;
+    case MM_ACT_CHANGE_PREVIEW_LABEL:
+        if (b->arg) ui->preview_label = b->arg;
+        break;
     case MM_ACT_CHANGE_QUERY:
         if (b->arg) { query_set(ui, b->arg); ui_search(ui); }
         break;
