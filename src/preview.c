@@ -332,8 +332,13 @@ const char *mm_preview_output(mm_preview_t *p) {
 void mm_preview_set_selected(mm_preview_t *p, const char *selected,
                              const char *selected_shell) {
     if (!p) return;
-    char *raw_copy = selected ? strdup(selected) : NULL;
-    char *shell_copy = selected_shell ? strdup(selected_shell) : NULL;
+    char *raw_copy = strdup(selected ? selected : "");
+    char *shell_copy = strdup(selected_shell ? selected_shell : "");
+    if (!raw_copy || !shell_copy) {
+        free(raw_copy);
+        free(shell_copy);
+        return;
+    }
     free(p->selected);
     free(p->selected_shell);
     p->selected = raw_copy;
