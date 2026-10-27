@@ -2689,6 +2689,12 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_EXECUTE_SILENT:
         if (b->arg) ui_run_command(ui, b->arg, true);
         break;
+    case MM_ACT_PUT:
+        if (b->arg && *b->arg) {
+            query_insert(ui, b->arg, strlen(b->arg));
+            ui_search(ui);
+        }
+        break;
     case MM_ACT_CHANGE_QUERY:
         if (b->arg) { query_set(ui, b->arg); ui_search(ui); }
         break;
@@ -2721,7 +2727,8 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         }
         break;
     case MM_ACT_RELOAD:
-        /* Reload the list from the output of the given command. */
+    case MM_ACT_RELOAD_SYNC:
+        /* This port currently collects reload output synchronously. */
         if (b->arg && *b->arg) ui_reload(ui, b->arg);
         break;
     case MM_ACT_PRINT:
