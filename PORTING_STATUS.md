@@ -258,3 +258,6 @@ evidence. Current evidence and its scope are recorded in `BASELINE_EVIDENCE.md`.
 - Implemented `best` as navigation to the top-ranked result and added a PTY differential case. Raw-mode result allocation now guards multiplication overflow. Neither change has been locally verified.
 
 - Implemented `change-footer-label` by overlaying the runtime label on the footer divider; added a PTY differential case. The new case has not been executed.
+
+- Hardened `bg-cancel`: it now gives the background process group a short SIGTERM grace period and escalates to SIGKILL, avoiding an indefinite wait on commands that ignore termination. Added a PTY differential regression case; it has not been run.
+- Hardened live-stream item insertion so item initialization or UTF-8 decoding failures do not increment the visible item count or leave a freed line referenced by the item array.
