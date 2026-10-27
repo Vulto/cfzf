@@ -119,8 +119,7 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   does not silently choose an arbitrary system `fzf`.
 - `tests/batch-diff.sh`, `tests/algo-diff.sh`, and `tests/nth-diff.sh`
   regenerate test corpora and compare output streams and exit status.
-- Latest source inventory audit: 131 option rows (77 labeled verified, 20
-  implemented but unverified, 34 unstarted), 127 action rows (54 implemented,
+- Latest source inventory audit: 131 option rows (51 verified, 50 implemented but unverified, 14 implemented, 12 unstarted, 4 n\/a), 127 action rows (54 implemented,
   69 implemented but unverified, 4 unstarted), and 13 event rows (all
   unstarted). Action IDs 060, 065, 100, 122, and 123 are absent from the inventory.
   These labels and counts are not proof of behavioral parity; only fresh local
