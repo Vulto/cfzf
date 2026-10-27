@@ -51,6 +51,7 @@ static const struct { const char *name; mm_action_t action; } action_table[] = {
     { "execute-multi", MM_ACT_EXECUTE_MULTI },
     { "change-border-label", MM_ACT_CHANGE_BORDER_LABEL },
     { "change-footer", MM_ACT_CHANGE_FOOTER },
+    { "change-footer-label", MM_ACT_CHANGE_FOOTER_LABEL },
     { "change-ghost", MM_ACT_CHANGE_GHOST },
     { "change-header-label", MM_ACT_CHANGE_HEADER_LABEL },
     { "change-input-label", MM_ACT_CHANGE_INPUT_LABEL },
