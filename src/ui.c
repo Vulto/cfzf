@@ -3224,6 +3224,9 @@ bool mm_ui_read_items(mm_ui_t *ui, int ttyin) {
 }
 
 bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
+    /* No descriptor means input was collected before entering the UI.
+       Streaming callers install their descriptor after initialization. */
+    ui->input_fd = -1;
     ui->lines = lines;
     ui->count = 0;
     ui->lines_cap = cap;
