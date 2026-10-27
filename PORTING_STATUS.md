@@ -50,9 +50,10 @@ Pure C23 fzf rewrite. All legacy `mmenu` code was removed (old `main.c`,
 
 The authoritative execution status is `TASKS.md`. Milestone 1
 (trustworthy baseline) remains **in progress** until the complete existing
-differential suite has passed from a clean CI build and the evidence and
-inventory documents have been reconciled. Individual implementation or
-historical test results do not complete a milestone.
+differential suite has passed from a clean local build and the evidence and
+inventory documents have been reconciled. GitHub Actions is disabled by user
+instruction; do not use CI. Individual implementation or historical test
+results do not complete a milestone.
 
 ## Previously reported feature coverage (verification scope varies)
 
@@ -95,9 +96,9 @@ historical test results do not complete a milestone.
 | Static analysis | `gcc -fanalyzer -fsyntax-only` over `src/*.c` | **0 findings** |
 | Strict build | `gcc` and `clang`, `-std=c23 -Wall -Wextra -Wpedantic -Werror` | **clean** |
 
-These counts were copied from prior reports and are not a substitute for the
-current baseline evidence. See `BASELINE_EVIDENCE.md` for the latest clean CI
-run and its exact commit IDs, commands, and scope. The pty harness compares
+These counts were copied from prior reports and are not a substitute for fresh
+local baseline evidence. Record exact commit IDs, commands, results, and scope
+in `BASELINE_EVIDENCE.md`; do not use GitHub Actions. The pty harness compares
 logical screen states through `tests/screen.py`.
 
 ## Known mismatches / open gaps
@@ -161,7 +162,7 @@ logical screen states through `tests/screen.py`.
 
 ## Dependency blockers
 
-- No `gh` (cannot open PRs or query CI). No `shellcheck`. No `sk`.
+- GitHub Actions workflows are intentionally disabled by user instruction; no CI runs are to be triggered. No `gh`, `shellcheck`, or `sk`.
 - The system `fzf` package binary (`/usr/bin/fzf`) is no longer present in
   this environment, so the differential tests build the reference from the
   pinned source (`tests/ref.sh`). A copy of the C23 binary was also found
