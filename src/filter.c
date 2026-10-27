@@ -469,7 +469,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
             }
 
             if (input->with_nth_ranges && input->with_nth_n > 0) {
-                mchars_t transformed_text;
+                mchars_t transformed_text = {0};
                 if (!mchars_init(&transformed_text, joined) ||
                     !mchars_decode(&transformed_text)) {
                     mchars_free(&transformed_text);
