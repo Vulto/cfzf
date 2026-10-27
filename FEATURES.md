@@ -175,7 +175,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-010 | `become` | - | - | unstarted |
 | ACT-011 | `bell` | - | - | unstarted |
 | ACT-012 | `best` | - | - | unstarted |
-| ACT-013 | `bg-cancel` | - | - | unstarted |
+| ACT-013 | `bg-cancel` | src/bind.c, src/ui.c, src/ui.h | tests/pty-diff.sh:bind-bg-cancel | implemented but unverified |
 | ACT-014 | `cancel` | - | - | unstarted |
 | ACT-015 | `change-border-label` | - | - | unstarted |
 | ACT-016 | `change-footer` | - | - | unstarted |
@@ -281,7 +281,6 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-119 | `track` | src/bind.c, src/ui.c | tests/pty-diff.sh:track-current-action | implemented but unverified |
 | ACT-120 | `transform` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-transform-change-query | implemented but unverified |
 | ACT-121 | `bg-transform` | src/bind.c, src/ui.c, src/ui.h | tests/pty-diff.sh:bind-bg-transform-change-query | implemented but unverified |
-| ACT-122 | `bg-cancel` | src/bind.c, src/ui.c, src/ui.h | tests/pty-diff.sh:bind-bg-cancel | implemented but unverified |
 | ACT-124 | `unbind` | src/bind.c, src/ui.c | - | implemented |
 | ACT-125 | `unix-line-discard` | src/bind.c, src/ui.c | - | implemented |
 | ACT-126 | `unix-word-rubout` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-unix-word-rubout | implemented but unverified |
