@@ -135,6 +135,9 @@ logical screen states through `tests/screen.py`.
 - `put(text)` inserts text at the query cursor and re-runs search;
   `reload-sync` is routed to the existing synchronous reload path. The
   `put` PTY regression case is not yet executed.
+- Runtime `unbind` now retains removed key bindings, and `rebind`
+  restores them, including wildcard forms. Differential cases are present but
+  not executed.
 - GitHub Actions CI and performance workflow files have been removed; this
   project now uses local-only verification by instruction.
 - fzf shows a spinner in the info line while the input is still being read;
