@@ -23,9 +23,9 @@ into the project's main objective or indefinitely block feature development.
 - [ ] Pin the reference executable and fail closed if it cannot be built or run.
 - [ ] Ensure differential tests compare relevant stdout, stderr, exit status,
   and PTY behavior; regenerate fixtures rather than trusting stale artifacts.
-- [ ] Establish a strict C23 build and a reproducible baseline CI run.
+- [ ] Establish a strict C23 build and a reproducible local differential baseline (GitHub Actions is disabled by project instruction).
 - [ ] Keep the feature/parity inventory and project documentation consistent.
-- [x] Add a CI inventory audit that reports declared statuses and missing IDs without presenting them as a completion percentage.
+- [x] Add an inventory audit that reports declared statuses and missing IDs without presenting them as a completion percentage.
 - [ ] Add per-feature links to named differential cases and their observed results; only then calculate feature-level verified coverage.
 - [ ] Record baseline evidence in `BASELINE_EVIDENCE.md`, including tested
   commit, reference commit, toolchain, commands, results, and skipped checks.
@@ -125,14 +125,14 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   IDs in the 001–132 range were absent. These counts are a warning that the
   inventory needs reconciliation, not proof of implementation completeness.
 - Historical test totals and benchmark numbers are not current evidence.
-  `BASELINE_EVIDENCE.md` must identify the exact tested commit and run.
+  `BASELINE_EVIDENCE.md` must identify the exact tested commit and local run.
 - Interactive `--select-1` / `--exit-0` now check the initial result set and
   wait for asynchronous input completion before auto-exiting; PTY regression
   cases were added, but have not yet been run against the pinned reference.
 - Preview `wrap-word` now has separate parser/UI state and word-boundary
   wrapping, and `toggle-preview-wrap-word` changes that mode. Differential
   cases cover the option and action, but have not yet been run.
-- Refresh these facts from the repository and latest CI before relying on them.
+- Refresh these facts from the repository and fresh local verification before relying on them.
 
 ## Reporting and completion rules
 
