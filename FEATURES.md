@@ -179,7 +179,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-014 | `cancel` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-015 | `change-border-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-border-label | implemented but unverified |
 | ACT-016 | `change-footer` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-footer | implemented but unverified |
-| ACT-017 | `change-footer-label` | - | - | unstarted |
+| ACT-017 | `change-footer-label` | src/bind.h, src/bind.c, src/ui.h, src/ui.c | tests/pty-diff.sh:bind-change-footer-label | implemented but unverified |
 | ACT-018 | `change-ghost` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-ghost | implemented but unverified |
 | ACT-019 | `change-header` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-hide-show-header | implemented but unverified |
 | ACT-020 | `change-header-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-header-label | implemented but unverified |
