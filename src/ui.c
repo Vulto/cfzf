@@ -3144,8 +3144,6 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             char *expanded = ui_expand_command(ui, b->arg);
             if (expanded) {
                 free(ui->become_command);
-    for (size_t i = 0; i < ui->runtime_strings_n; i++) free(ui->runtime_strings[i]);
-    free(ui->runtime_strings);
                 ui->become_command = expanded;
                 return false;
             }
@@ -3838,6 +3836,8 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
 void mm_ui_free(mm_ui_t *ui) {
     ui_bg_transform_cancel(ui);
     free(ui->become_command);
+    for (size_t i = 0; i < ui->runtime_strings_n; i++) free(ui->runtime_strings[i]);
+    free(ui->runtime_strings);
     if (ui->items)
         for (int i = 0; i < ui->count; i++) mm_item_free(&ui->items[i]);
     if (ui->lines) {
