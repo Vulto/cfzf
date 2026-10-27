@@ -1034,6 +1034,20 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                 free(line);
             }
         }
+        if (ui->footer_label && *ui->footer_label) {
+            int label_width = ui_str_width(ui->footer_label);
+            int label_x = ui->footer_label_pos == 0
+                        ? area_x + (area_w - label_width) / 2
+                        : area_x + ui->footer_label_pos - 1;
+            if (label_x < area_x) label_x = area_x;
+            if (label_x + label_width > area_x + area_w)
+                label_x = area_x + area_w - label_width;
+            if (label_x >= area_x && label_x + label_width <= area_x + area_w) {
+                mm_window_move(listwin, lrow, label_x);
+                mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.border_label, MM_THEME_BORDER),
+                                 MM_COL_DEFAULT, 0, ui->footer_label);
+            }
+        }
     }
 
     /* Draw a (possibly multiline) header block.  In the default layout the
@@ -3109,6 +3123,9 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_CHANGE_FOOTER:
         if (b->arg) (void)ui_set_runtime_string(ui, &ui->footer, b->arg);
+        break;
+    case MM_ACT_CHANGE_FOOTER_LABEL:
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->footer_label, b->arg);
         break;
     case MM_ACT_CHANGE_GHOST:
         if (b->arg) (void)ui_set_runtime_string(ui, &ui->ghost, b->arg);
