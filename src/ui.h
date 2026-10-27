@@ -87,6 +87,7 @@ typedef struct {
     int          exit_code;
     const char  *expected;   /* --expect key that accepted the selection */
     mm_keymap_t  keymap;     /* --bind specifications */
+    mm_keymap_t  disabled_keymap; /* keys temporarily removed by unbind */
     mm_event_map_t events;   /* --bind event bindings */
     mm_preview_t *preview;   /* preview runner (NULL when disabled) */
     bool         preview_hidden; /* visibility toggled without destroying command */
