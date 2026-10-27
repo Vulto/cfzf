@@ -108,8 +108,8 @@ logical screen states through `tests/screen.py`.
   are inherited inventory claims; the current CI suite covers only the cases
   recorded in `BASELINE_EVIDENCE.md`. Some unsupported options are rejected,
   but exact CLI parity has not been certified.
-- The latest source audit finds 127 action rows: 54 marked implemented, 68
-  implemented but unverified, and 5 unstarted. IDs 060, 065, 100, 122, and 123
+- The latest source audit finds 127 action rows: 54 marked implemented, 69
+  implemented but unverified, and 4 unstarted. IDs 060, 065, 100, 122, and 123
   are absent from the inventory and need reconciliation against upstream. No
   action is marked differentially verified in `FEATURES.md`. All 13 events
   remain marked unstarted; infrastructure presence is not equivalent to event
@@ -256,3 +256,5 @@ evidence. Current evidence and its scope are recorded in `BASELINE_EVIDENCE.md`.
 - Implemented `disable-raw` and `enable-raw`, and corrected `toggle-raw` to toggle the raw-results mode instead of ANSI parsing. Raw mode now displays unmatched items after the ranked matches while respecting exclusions. Three PTY differential cases were added but not run.
 
 - Implemented `best` as navigation to the top-ranked result and added a PTY differential case. Raw-mode result allocation now guards multiplication overflow. Neither change has been locally verified.
+
+- Implemented `change-footer-label` by overlaying the runtime label on the footer divider; added a PTY differential case. The new case has not been executed.
