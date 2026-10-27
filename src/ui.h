@@ -14,6 +14,7 @@
 #include "history.h"
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 typedef struct {
     /* Input */
