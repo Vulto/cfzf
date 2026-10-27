@@ -2869,6 +2869,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         if (!ui->track && ui->nresults > 0) ui->track_current = true;
         break;
     case MM_ACT_UNBIND:
+        if (b->arg) (void)mm_bind_unbind(&ui->keymap, b->arg);
         break;
     case MM_ACT_UNIX_LINE_DISCARD:
         query_set(ui, "");
