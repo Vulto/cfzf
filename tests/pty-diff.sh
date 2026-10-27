@@ -849,6 +849,41 @@ key ctrl-t
 sleep 150
 key enter
 sleep 200' "$WORK/change-nth.txt" --query=apple --nth=1 --bind='ctrl-t:change-nth(2)'
+run_case 'bind-change-border-label' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --border --border-label=old --bind="ctrl-t:change-border-label(new)"
+run_case 'bind-change-footer' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --footer=old --bind="ctrl-t:change-footer(new)"
+run_case 'bind-change-ghost' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --ghost=old --bind="ctrl-t:change-ghost(new)"
+run_case 'bind-change-header-label' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --header='header' --header-border --header-label=old --bind="ctrl-t:change-header-label(new)"
+run_case 'bind-change-input-label' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --input-border --input-label=old --bind="ctrl-t:change-input-label(new)"
+run_case 'bind-change-list-label' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --list-border --list-label=old --bind="ctrl-t:change-list-label(new)"
+run_case 'bind-change-preview-label' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --preview='printf preview' --preview-label=old --bind="ctrl-t:change-preview-label(new)"
 run_case 'bind-change-query' 'sleep 350
 key ctrl-t
 sleep 250'                                        "$WORK/items.txt" --bind='ctrl-t:change-query(cherry)'
