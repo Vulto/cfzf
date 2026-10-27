@@ -2658,9 +2658,27 @@ static bool ui_bg_transform_poll(mm_ui_t *ui) {
 
 static void ui_bg_transform_cancel(mm_ui_t *ui) {
     if (ui->bg_transform_pid > 0) {
-        if (kill(-ui->bg_transform_pid, SIGTERM) < 0)
-            (void)kill(ui->bg_transform_pid, SIGTERM);
-        while (waitpid(ui->bg_transform_pid, NULL, 0) < 0 && errno == EINTR) {}
+        pid_t pid = ui->bg_transform_pid;
+        if (kill(-pid, SIGTERM) < 0)
+            (void)kill(pid, SIGTERM);
+
+        /* Do not let bg-cancel hang forever on a command that ignores
+           SIGTERM. Give the process group a short grace period, then kill it. */
+        bool reaped = false;
+        const struct timespec pause = { .tv_sec = 0, .tv_nsec = 10000000 };
+        for (int i = 0; i < 10; i++) {
+            pid_t waited = waitpid(pid, NULL, WNOHANG);
+            if (waited == pid || (waited < 0 && errno == ECHILD)) {
+                reaped = true;
+                break;
+            }
+            if (waited < 0 && errno != EINTR) break;
+            (void)nanosleep(&pause, NULL);
+        }
+        (void)kill(-pid, SIGKILL);
+        if (!reaped) {
+            while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+        }
     }
     ui->bg_transform_pid = 0;
     if (ui->bg_transform_fd >= 0) close(ui->bg_transform_fd);
