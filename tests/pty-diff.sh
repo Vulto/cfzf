@@ -1020,7 +1020,7 @@ run_case 'bind-change-with-nth' 'sleep 350
 key ctrl-t
 sleep 200
 key enter
-sleep 200' "$WORK/change-nth.txt" --query=apple --bind='ctrl-t:change-with-nth(2)'
+sleep 200' "$WORK/change-nth.txt" --query=apple --with-nth=1 --bind='ctrl-t:change-with-nth(2)'
 run_case 'bind-change-border-label' 'sleep 350
 key ctrl-t
 sleep 150
