@@ -3653,8 +3653,21 @@ int mm_ui_run(mm_ui_t *ui) {
         if (ui_resize_pending) {
             ui_resize_pending = 0;
             mm_renderer_update_size(&r);
-            ui->page_size = mm_renderer_max_y(&r) > 3
-                          ? mm_renderer_max_y(&r) - 3 : 1;
+            int resized_width = mm_renderer_max_x(&r);
+            int resized_height = mm_renderer_max_y(&r);
+            if (r.inline_mode && ui->height_spec) {
+                ui->height = mm_ui_height(ui->height_spec, resized_height,
+                                          ui->min_height);
+                r.inline_height = ui->height;
+            }
+            ui->page_size = resized_height > 3 ? resized_height - 3 : 1;
+            mm_window_init(&listwin, &r, 0, 0, resized_width,
+                           resized_height > 0 ? resized_height : 1,
+                           MM_WIN_LIST, MM_BORDER_NONE, false);
+            mm_window_init(&promptwin, &r, 0, 0, resized_width, 1,
+                           MM_WIN_INPUT, MM_BORDER_NONE, false);
+            mm_window_init(&infowin, &r, 0, 0, resized_width, 1,
+                           MM_WIN_INPUT, MM_BORDER_NONE, false);
             ui_exec_event(ui, "resize");
             ui_render(ui, &r, &listwin, &promptwin, &infowin);
         }
