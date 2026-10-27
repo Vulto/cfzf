@@ -121,6 +121,57 @@ static void query_kill_after_cursor(mm_ui_t *ui) {
     ui->query_buf[pos] = '\0';
 }
 
+/* Subword movement treats punctuation/underscores as separators and splits
+   lower-to-upper transitions (for example, "fooBar" -> "foo" + "Bar").
+   UTF-8 continuation bytes remain attached to their leading byte. */
+static size_t query_prev_codepoint(const char *s, size_t pos) {
+    if (pos == 0) return 0;
+    pos--;
+    while (pos > 0 && ((unsigned char)s[pos] & 0xC0) == 0x80) pos--;
+    return pos;
+}
+
+static size_t query_next_codepoint(const char *s, size_t len, size_t pos) {
+    if (pos >= len) return len;
+    pos++;
+    while (pos < len && ((unsigned char)s[pos] & 0xC0) == 0x80) pos++;
+    return pos;
+}
+
+static bool query_subword_char(unsigned char c) {
+    return c >= 0x80 || (c >= 'a' && c <= 'z') ||
+           (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
+}
+
+static size_t query_subword_start(const char *s, size_t pos) {
+    if (pos == 0) return 0;
+    size_t cur = query_prev_codepoint(s, pos);
+    while (cur > 0) {
+        size_t prev = query_prev_codepoint(s, cur);
+        unsigned char a = (unsigned char)s[prev];
+        unsigned char b = (unsigned char)s[cur];
+        if (!query_subword_char(a) || !query_subword_char(b)) break;
+        if (a >= 'a' && a <= 'z' && b >= 'A' && b <= 'Z') break;
+        cur = prev;
+    }
+    return cur;
+}
+
+static size_t query_subword_end(const char *s, size_t len, size_t pos) {
+    if (pos >= len) return len;
+    size_t cur = pos;
+    size_t next = query_next_codepoint(s, len, cur);
+    while (next < len) {
+        unsigned char a = (unsigned char)s[cur];
+        unsigned char b = (unsigned char)s[next];
+        if (!query_subword_char(a) || !query_subword_char(b)) break;
+        if (a >= 'a' && a <= 'z' && b >= 'A' && b <= 'Z') break;
+        cur = next;
+        next = query_next_codepoint(s, len, cur);
+    }
+    return next;
+}
+
 /* --- searching --- */
 static void ui_search(mm_ui_t *ui);
 static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b);
@@ -2582,6 +2633,23 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         while ((size_t)ui->query_pos < ui->query_len &&
                ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
             ui->query_pos++;
+        break;
+    case MM_ACT_BACKWARD_KILL_SUBWORD: {
+        size_t pos = (size_t)ui->query_pos;
+        if (pos > ui->query_len) pos = ui->query_len;
+        size_t start = query_subword_start(ui->query_buf, pos);
+        if (start < pos) {
+            memmove(ui->query_buf + start, ui->query_buf + pos,
+                    ui->query_len - pos + 1);
+            ui->query_len -= pos - start;
+            ui->query_pos = (int)start;
+            ui_search(ui);
+        }
+        break;
+    }
+    case MM_ACT_FORWARD_SUBWORD:
+        ui->query_pos = (int)query_subword_end(
+            ui->query_buf, ui->query_len, (size_t)ui->query_pos);
         break;
     case MM_ACT_BACKWARD_DELETE_CHAR:
         query_backspace(ui);
