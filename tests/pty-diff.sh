@@ -844,6 +844,27 @@ key enter
 sleep 200' "$WORK/items.txt" --bind="ctrl-x:exclude,ctrl-r:reload(printf 'cherry\\napple\\n')"
 
 printf 'alpha cherry\nbeta apple\n' > "$WORK/change-nth.txt"
+run_case 'bind-enable-raw' 'sleep 350
+key ctrl-t
+sleep 150
+key down
+sleep 100
+key enter
+sleep 200' "$WORK/items.txt" --query=cherry --bind=ctrl-t:enable-raw
+run_case 'bind-disable-raw' 'sleep 350
+key down
+sleep 100
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --raw --query=cherry --bind=ctrl-t:disable-raw
+run_case 'bind-toggle-raw' 'sleep 350
+key ctrl-t
+sleep 150
+key down
+sleep 100
+key enter
+sleep 200' "$WORK/items.txt" --query=cherry --bind=ctrl-t:toggle-raw
 run_case 'bind-change-nth' 'sleep 350
 key ctrl-t
 sleep 150
