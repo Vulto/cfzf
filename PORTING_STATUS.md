@@ -138,6 +138,9 @@ logical screen states through `tests/screen.py`.
 - Runtime `unbind` now retains removed key bindings, and `rebind`
   restores them, including wildcard forms. Differential cases are present but
   not executed.
+- `select` now selects the current item within multi-select limits;
+  `toggle-in` / `toggle-out` dispatch according to layout direction. PTY
+  cases are present but unexecuted.
 - GitHub Actions CI and performance workflow files have been removed; this
   project now uses local-only verification by instruction.
 - fzf shows a spinner in the info line while the input is still being read;
