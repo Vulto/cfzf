@@ -122,7 +122,8 @@ typedef struct {
     bool         list_border_set;
     bool         style_full; /* --style=full component layout */
     const char  *pointer;    /* --pointer: the current line marker */
-    const char  *gutter;     /* --gutter: the marker of the other lines */
+    const char  *gutter;
+    const char  *gutter_raw;     /* --gutter: the marker of the other lines */
     const char  *marker;     /* --marker: the multi-select marker */
     const char  *shell;      /* --with-shell: the shell used by execute */
     char         *become_command; /* expanded command that replaces this process */
