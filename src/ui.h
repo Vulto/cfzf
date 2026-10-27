@@ -152,7 +152,7 @@ typedef struct {
     bool         no_hscroll;  /* --no-hscroll: disable horizontal scrolling */
     bool         no_multi_line;/* --no-multi-line: disable multi-line display */
     bool         no_tty_default;/* --no-tty-default: don't default to TTY */
-    bool         raw;         /* --raw: do not process ANSI escapes */
+    bool         raw;         /* --raw: display non-matching items in place */
     bool         no_unicode; /* --no-unicode: use the ASCII glyphs */
     bool         phony;      /* --phony: do not filter with the query */
     bool         search_enabled; /* --disabled / enable-search action state */
