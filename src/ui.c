@@ -3605,15 +3605,25 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
                 ui->header = ui->saved_header;
         }
         break;
-    case MM_ACT_CHANGE_NTH: {
+    case MM_ACT_CHANGE_NTH:
+    case MM_ACT_CHANGE_WITH_NTH: {
         mm_range_t *ranges = NULL;
         int nranges = 0;
-        if (b->arg && mm_parse_ranges(b->arg, &ranges, &nranges)) {
+        const char *spec = b->arg ? b->arg : "";
+        if (*spec && !mm_parse_ranges(spec, &ranges, &nranges)) {
+            free(ranges);
+            break;
+        }
+        if (b->action == MM_ACT_CHANGE_NTH) {
             free(ui->nth);
             ui->nth = ranges;
             ui->nth_n = nranges;
-            ui_search(ui);
+        } else {
+            free(ui->with_nth);
+            ui->with_nth = ranges;
+            ui->with_nth_n = nranges;
         }
+        ui_search(ui);
         break;
     }
     case MM_ACT_CHANGE_MULTI:
