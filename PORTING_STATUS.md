@@ -108,8 +108,8 @@ logical screen states through `tests/screen.py`.
   are inherited inventory claims; the current CI suite covers only the cases
   recorded in `BASELINE_EVIDENCE.md`. Some unsupported options are rejected,
   but exact CLI parity has not been certified.
-- The latest source audit finds 127 action rows: 54 marked implemented, 48
-  implemented but unverified, and 25 unstarted. IDs 060, 065, 100, 122, and 123
+- The latest source audit finds 127 action rows: 54 marked implemented, 49
+  implemented but unverified, and 24 unstarted. IDs 060, 065, 100, 122, and 123
   are absent from the inventory and need reconciliation against upstream. No
   action is marked differentially verified in `FEATURES.md`. All 13 events
   remain marked unstarted; infrastructure presence is not equivalent to event
@@ -246,3 +246,5 @@ evidence. Current evidence and its scope are recorded in `BASELINE_EVIDENCE.md`.
 - `become(command)` now expands placeholders, exits the UI through normal terminal cleanup, then replaces the process with the configured shell command. If exec fails, it reports an error and returns status 2. A PTY differential case was added but not executed.
 
 - Reconciled action inventory entries for subword deletion, forward-subword, put, rebind, reload-sync, select, show-header, show-preview, toggle-in, and toggle-out with the current dispatcher and regression-case names. The new reload-sync, select, and toggle-out PTY cases have not been executed.
+
+- Implemented `change-nth(spec)` to parse and replace the active field ranges, rerun search, and retain the previous configuration on invalid specifications. A PTY differential case changes matching from field 1 to field 2; it has not been executed.
