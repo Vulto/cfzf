@@ -942,6 +942,11 @@ sleep 200' "$WORK/items.txt" --query=no-such-item --header=before --bind='zero:c
 run_case 'event-result-final' 'sleep 350
 key enter
 sleep 200' "$WORK/items.txt" --header=before --bind='result-final:change-header(final)'
+run_case 'event-resize' 'sleep 350
+resize 70 20
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --header=before --bind='resize:change-header(resized)'
 run_case 'bind-change-header-label' 'sleep 350
 key ctrl-t
 sleep 150
