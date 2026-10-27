@@ -2711,6 +2711,19 @@ fail:
     return NULL;
 }
 
+/* Remove temporary item files allocated after a caller's checkpoint. */
+static void ui_cleanup_placeholder_files(mm_ui_t *ui, size_t first) {
+    if (first > ui->placeholder_files_n) first = ui->placeholder_files_n;
+    for (size_t i = first; i < ui->placeholder_files_n; i++) {
+        if (ui->placeholder_files[i]) {
+            (void)unlink(ui->placeholder_files[i]);
+            free(ui->placeholder_files[i]);
+            ui->placeholder_files[i] = NULL;
+        }
+    }
+    ui->placeholder_files_n = first;
+}
+
 static char *ui_expand_command(mm_ui_t *ui, const char *cmd, bool force_plus) {
     char *out = NULL;
     size_t length = 0, capacity = 0;
@@ -2818,8 +2831,12 @@ fail:
 static void ui_run_command(mm_ui_t *ui, const char *cmd, bool silent,
                             bool force_plus) {
     if (!cmd || !*cmd) return;
+    size_t placeholder_checkpoint = ui->placeholder_files_n;
     char *expanded = ui_expand_command(ui, cmd, force_plus);
-    if (!expanded) return;
+    if (!expanded) {
+        ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
+        return;
+    }
     if (!silent) {
         /* Leave the alternate screen so the command can interact with the
            terminal, then come back. */
@@ -2837,6 +2854,7 @@ static void ui_run_command(mm_ui_t *ui, const char *cmd, bool silent,
         while (waitpid(pid, &status, 0) < 0) { }
     }
     free(expanded);
+    ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
     if (!silent) {
         /* Re-enter the alternate screen and repaint. */
         mm_renderer_init(ui->renderer, ui->renderer->ttyin, ui->renderer->ttyout,
@@ -2880,10 +2898,18 @@ static bool ui_apply_transform_output(mm_ui_t *ui, char *output, size_t len) {
 /* Run transform(command), capture stdout, then execute the returned action chain. */
 static bool ui_transform(mm_ui_t *ui, const char *cmd) {
     if (!cmd || !*cmd) return true;
+    size_t placeholder_checkpoint = ui->placeholder_files_n;
     char *expanded = ui_expand_command(ui, cmd, false);
-    if (!expanded) return true;
+    if (!expanded) {
+        ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
+        return true;
+    }
     int fds[2];
-    if (pipe(fds) != 0) { free(expanded); return true; }
+    if (pipe(fds) != 0) {
+        free(expanded);
+        ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
+        return true;
+    }
     pid_t pid = fork();
     if (pid == 0) {
         close(fds[0]);
@@ -2895,12 +2921,17 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
     }
     free(expanded);
     close(fds[1]);
-    if (pid < 0) { close(fds[0]); return true; }
+    if (pid < 0) {
+        close(fds[0]);
+        ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
+        return true;
+    }
     size_t len = 0, cap = 256;
     char *output = malloc(cap);
     if (!output) {
         close(fds[0]);
         while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+        ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
         return true;
     }
     for (;;) {
@@ -2918,6 +2949,7 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
     close(fds[0]);
     while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
     output[len] = '\0';
+    ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
     bool keep = ui_apply_transform_output(ui, output, len);
     free(output);
     return keep;
@@ -4402,12 +4434,7 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
 
 void mm_ui_free(mm_ui_t *ui) {
     ui_bg_transform_cancel(ui);
-    for (size_t i = 0; i < ui->placeholder_files_n; i++) {
-        if (ui->placeholder_files[i]) {
-            (void)unlink(ui->placeholder_files[i]);
-            free(ui->placeholder_files[i]);
-        }
-    }
+    ui_cleanup_placeholder_files(ui, 0);
     free(ui->placeholder_files);
     free(ui->become_command);
     for (size_t i = 0; i < ui->runtime_strings_n; i++) free(ui->runtime_strings[i]);
