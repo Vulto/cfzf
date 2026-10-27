@@ -354,6 +354,20 @@ key tab
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --bind='tab:toggle' --multi
+run_case 'bind-select-down' 'sleep 350
+key ctrl-s
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind=ctrl-s:select-down --multi
+run_case 'bind-deselect-up' 'sleep 350
+key tab
+sleep 100
+key down
+sleep 100
+key ctrl-d
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind=ctrl-d:deselect-up --multi
 run_case 'bind-abort'     'sleep 350
 key esc
 sleep 200'                                        "$WORK/items.txt" --bind='esc:abort'
