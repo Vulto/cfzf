@@ -425,13 +425,24 @@ static void ui_search(mm_ui_t *ui) {
 }
 
 /* Execute the actions bound to an event. */
+/* Execute the actions bound to an event. */
 static void ui_exec_event(mm_ui_t *ui, const char *name) {
     const mm_event_binding_t *found[16];
     int nf = mm_event_lookup(&ui->events, name, found, 16);
     for (int i = 0; i < nf; i++)
-        ui_execute_action(ui, &(const mm_binding_t){
+        (void)ui_execute_action(ui, &(const mm_binding_t){
             .type = MM_EV_INVALID, .rune = 0, .action = found[i]->action,
             .arg = found[i]->arg });
+}
+
+/* Dispatch focus when the current input item changes, not on every redraw. */
+static void ui_exec_focus_if_changed(mm_ui_t *ui, int *last_item) {
+    int item = ui->nresults > 0 && ui->cursor >= 0 &&
+               ui->cursor < ui->nresults
+             ? ui->results[ui->cursor] : -1;
+    if (item == *last_item) return;
+    *last_item = item;
+    ui_exec_event(ui, "focus");
 }
 
 /* --- rendering --- */
