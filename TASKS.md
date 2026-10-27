@@ -164,6 +164,9 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   position/line-indicator updates for unwrapped preview output. PTY cases cover
   down, page-down, bottom and top; differential execution is pending. Wrapped
   preview scrolling still needs a visual-line model.
+- Implemented synchronous `transform(command)`: captures child stdout, trims it,
+  parses it as a regular `--bind` action chain, and executes the actions in order.
+  Added a PTY regression case that transforms into `change-query(cherry)`; not run.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
