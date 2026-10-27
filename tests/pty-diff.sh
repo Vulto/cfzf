@@ -368,6 +368,20 @@ key ctrl-d
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --bind=ctrl-d:deselect-up --multi
+run_case 'bind-hide-show-header' 'sleep 350
+key ctrl-h
+sleep 100
+key ctrl-h
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --header='test header' --bind='ctrl-h:hide-header,ctrl-h:show-header'
+run_case 'bind-toggle-header' 'sleep 350
+key ctrl-h
+sleep 100
+key ctrl-h
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --header='test header' --bind=ctrl-h:toggle-header
 run_case 'bind-abort'     'sleep 350
 key esc
 sleep 200'                                        "$WORK/items.txt" --bind='esc:abort'
