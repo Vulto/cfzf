@@ -259,3 +259,5 @@ evidence. Current evidence and its scope are recorded in `BASELINE_EVIDENCE.md`.
 - Hardened live-stream item insertion so item initialization or UTF-8 decoding failures do not increment the visible item count or leave a freed line referenced by the item array.
 
 - Hardened item allocation paths in the interactive UI: streamed records are counted only after initialization and decoding succeed, and initial initialization failures leave a fully cleanable item array so the common error path can release every input line. These failure paths have not been exercised locally.
+
+- Added `live-stream-growth`, a PTY differential case feeding 2,048 records through the live-input harness to exercise dynamic item/selection/exclusion array growth. It has not been executed.
