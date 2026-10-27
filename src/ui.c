@@ -2131,11 +2131,13 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
 
     mm_item_t *items = calloc((size_t)(n ? n : 1), sizeof(*items));
     bool *selected = calloc((size_t)(n ? n : 1), sizeof(*selected));
-    if (!items || !selected) {
+    bool *excluded = calloc((size_t)(n ? n : 1), sizeof(*excluded));
+    if (!items || !selected || !excluded) {
         free(track_key);
         ui_free_identity_keys(selected_keys, selected_key_count);
         free(items);
         free(selected);
+        free(excluded);
         for (int i = 0; i < n; i++) free(lines[i]);
         free(lines);
         return;
@@ -2156,6 +2158,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
         for (int i = 0; i < initialized; i++) mm_item_free(&items[i]);
         free(items);
         free(selected);
+        free(excluded);
         for (int i = 0; i < n; i++) free(lines[i]);
         free(lines);
         return;
@@ -2174,6 +2177,7 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     ui->lines = lines;
     ui->items = items;
     ui->selected = selected;
+    ui->excluded = excluded;
     ui->count = n;
     ui->nselected = 0;
     ui->sel_order_n = 0;
