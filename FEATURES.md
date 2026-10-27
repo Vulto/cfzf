@@ -279,6 +279,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-117 | `toggle-wrap` | src/bind.c, src/ui.c | - | implemented |
 | ACT-118 | `toggle-wrap-word` | src/bind.c, src/ui.c | - | implemented |
 | ACT-119 | `track` | src/bind.c, src/ui.c | tests/pty-diff.sh:track-current-action | implemented but unverified |
+| ACT-120 | `transform` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-transform-change-query | implemented but unverified |
 | ACT-124 | `unbind` | src/bind.c, src/ui.c | - | implemented |
 | ACT-125 | `unix-line-discard` | src/bind.c, src/ui.c | - | implemented |
 | ACT-126 | `unix-word-rubout` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-unix-word-rubout | implemented but unverified |
