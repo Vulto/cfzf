@@ -124,6 +124,8 @@ typedef struct {
     const char  *marker;     /* --marker: the multi-select marker */
     const char  *shell;      /* --with-shell: the shell used by execute */
     char         *become_command; /* expanded command that replaces this process */
+    char        **runtime_strings; /* owned strings installed by dynamic actions */
+    size_t        runtime_strings_n, runtime_strings_cap;
     mm_history_t *history;   /* --history: the query history file */
     const char  *ghost;       /* --ghost: the prompt placeholder */
     int          height;      /* --height: the inline window height (0 = full screen) */
