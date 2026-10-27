@@ -3930,6 +3930,7 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->lines = lines;
     ui->count = 0;
     ui->lines_cap = cap;
+    ui->count = count; /* lets mm_ui_free release every input line on failure */
     /* The arrays are allocated with the full capacity, so that the items
        can be appended while the program is running. */
     size_t alloc = (size_t)(cap ? cap : (count ? count : 1));
@@ -3937,19 +3938,18 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     if (!ui->items) return false;
     for (int i = 0; i < count; i++) {
         if (!mm_item_init(&ui->items[i], lines[i], i)) {
-            ui->count = i;
+            memset(&ui->items[i], 0, sizeof(ui->items[i]));
             return false;
         }
         if (!mchars_decode(&ui->items[i].text)) {
             mm_item_free(&ui->items[i]);
-            ui->count = i;
+            memset(&ui->items[i], 0, sizeof(ui->items[i]));
             return false;
         }
     }
     ui->selected = calloc(alloc, sizeof(bool));
     ui->excluded = calloc(alloc, sizeof(bool));
     if (!ui->selected || !ui->excluded) return false;
-    ui->count = count;
     query_set(ui, ui->query ? ui->query : "");
     ui->cursor = 0;
     ui->offset = 0;
