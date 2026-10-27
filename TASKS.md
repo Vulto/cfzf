@@ -136,6 +136,9 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   `deselect-up`, respecting navigation direction and selection limits.
   PTY differential cases were added; execution remains pending because this
   environment has no local checkout of the project.
+- Header visibility actions now preserve the configured header:
+  `hide-header`, `show-header`, and `toggle-header` no longer replace it
+  with a fabricated prompt. PTY cases were added but remain unexecuted.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
