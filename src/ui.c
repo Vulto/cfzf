@@ -202,6 +202,7 @@ static size_t query_subword_end(const char *s, size_t len, size_t pos) {
 static void ui_search(mm_ui_t *ui);
 static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b);
 static void ui_exec_event(mm_ui_t *ui, const char *name);
+static void ui_exec_result_events(mm_ui_t *ui, int previous_count);
 
 static char *ui_track_key_for(mm_ui_t *ui, int item) {
     if (!ui->id_nth_spec || item < 0 || item >= ui->count) return NULL;
@@ -312,8 +313,7 @@ static void ui_search(mm_ui_t *ui) {
         /* Trigger events. */
         if (strcmp(prev_query, ui->query_buf) != 0)
             ui_exec_event(ui, "change");
-        if (prev_nresults != ui->nresults)
-            ui_exec_event(ui, "result");
+        ui_exec_result_events(ui, prev_nresults);
         return;
     }
     bool forward = mm_criteria_forward(&ui->crit);
@@ -321,7 +321,7 @@ static void ui_search(mm_ui_t *ui) {
                                          ui->case_mode, !ui->literal, forward, true);
     if (!pat) { ui->nresults = 0; free(track_key); /* Trigger events. */
         if (strcmp(prev_query, ui->query_buf) != 0) ui_exec_event(ui, "change");
-        if (prev_nresults != ui->nresults) ui_exec_event(ui, "result");
+        ui_exec_result_events(ui, prev_nresults);
         return; }
     if (ui->no_sort) mm_pattern_set_sortable(pat, false);
 
@@ -420,8 +420,7 @@ static void ui_search(mm_ui_t *ui) {
     /* Trigger events. */
     if (strcmp(prev_query, ui->query_buf) != 0)
         ui_exec_event(ui, "change");
-    if (prev_nresults != ui->nresults)
-        ui_exec_event(ui, "result");
+    ui_exec_result_events(ui, prev_nresults);
 }
 
 /* Execute the actions bound to an event. */
