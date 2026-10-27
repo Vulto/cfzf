@@ -129,6 +129,9 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - Interactive `--select-1` / `--exit-0` now check the initial result set and
   wait for asynchronous input completion before auto-exiting; PTY regression
   cases were added, but have not yet been run against the pinned reference.
+- Preview `wrap-word` now has separate parser/UI state and word-boundary
+  wrapping, and `toggle-preview-wrap-word` changes that mode. Differential
+  cases cover the option and action, but have not yet been run.
 - Refresh these facts from the repository and latest CI before relying on them.
 
 ## Reporting and completion rules
