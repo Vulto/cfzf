@@ -1816,9 +1816,7 @@ int main(int argc, char **argv) {
         ui.search_enabled = !disabled;
         ui.footer = footer_spec;
         ui.gutter = gutter_spec;
-        /* The raw gutter is only used in the raw search mode, which is not
-           implemented; the option is accepted like the reference does. */
-        (void)gutter_raw_spec;
+        ui.gutter_raw = gutter_raw_spec;
         ui.no_unicode = no_unicode;
         /* The horizontal scrolling of the preview and the multi-line items
            are not implemented; the options are accepted like the reference
