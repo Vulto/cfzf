@@ -152,7 +152,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-123 | `\-\-walker` | src/walker.c, src/main.c | tests/pty-diff.sh, tests/walker-diff.sh, tests/batch-diff.sh:walker-missing | implemented but unverified |
 | OPT-124 | `\-\-walker\-root` | src/walker.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
 | OPT-125 | `\-\-walker\-skip` | src/walker.c, src/main.c | tests/pty-diff.sh, tests/walker-diff.sh, tests/batch-diff.sh:walker-skip-missing | implemented but unverified |
-| OPT-126 | `--with-nth` | src/tokenizer.c, src/main.c | tests/batch-diff.sh:with-nth-missing, tests/batch-diff.sh:with-nth-empty-component | implemented but unverified |
+| OPT-126 | `--with-nth` | src/tokenizer.c, src/filter.c, src/main.c, src/ui.c | tests/batch-diff.sh:with-nth-and-nth-first, tests/pty-diff.sh:interactive-with-nth-display | implemented but unverified |
 | OPT-127 | `\-\-with\-shell` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-128 | `--wrap` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-129 | `--wrap-sign` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
@@ -194,7 +194,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-029 | `change-preview-window` | src/bind.c, src/ui.c | - | implemented |
 | ACT-030 | `change-prompt` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-031 | `change-query` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-transform-change-query | implemented but unverified |
-| ACT-032 | `change-with-nth` | - | - | unstarted |
+| ACT-032 | `change-with-nth` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-with-nth | implemented but unverified |
 | ACT-033 | `clear-multi` | src/bind.c, src/ui.c | - | implemented |
 | ACT-034 | `clear-query` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-035 | `clear-screen` | src/bind.c, src/ui.c | - | implemented |
