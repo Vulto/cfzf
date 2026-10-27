@@ -26,6 +26,7 @@ printf 'x%.0s' $(seq 1 80) > "$WORK/long.txt"
 printf '\nshort\n' >> "$WORK/long.txt"
 printf 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxneedle\n' > "$WORK/scroll.txt"
 printf '日本語テキスト\n日本語\n' > "$WORK/unicode.txt"
+printf 'alpha\nbeta\0gamma\0' > "$WORK/multiline.bin"
 
 pass=0
 fail=0
@@ -399,6 +400,9 @@ key ctrl-h
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --header='test header' --bind=ctrl-h:toggle-header
+run_case 'bind-toggle-multi-line' 'sleep 350
+key ctrl-m
+sleep 200' "$WORK/multiline.bin" --read0 --bind=ctrl-m:toggle-multi-line
 run_case 'bind-toggle-input' 'sleep 350
 key ctrl-i
 sleep 200' "$WORK/items.txt" --bind=ctrl-i:toggle-input
