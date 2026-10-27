@@ -361,24 +361,28 @@ static void ui_search(mm_ui_t *ui) {
                          ? malloc(count * sizeof(*raw_results)) : NULL;
         mm_match_pos_t *raw_positions = calloc(count, sizeof(*raw_positions));
         if (seen && raw_results && raw_positions) {
-            int kept = 0;
             for (int i = 0; i < n; i++) {
                 int item = res ? res[i] : -1;
-                if (item < 0 || item >= ui->count || seen[item] ||
-                    (ui->excluded && ui->excluded[item]))
-                    continue;
-                seen[item] = true;
-                raw_results[kept] = item;
-                if (mp) {
-                    raw_positions[kept] = mp[i];
-                    mp[i].pos = NULL;
-                    mp[i].npos = 0;
+                if (item >= 0 && item < ui->count &&
+                    !(ui->excluded && ui->excluded[item]))
+                    seen[item] = true;
+            }
+            int match_cursor = 0, kept = 0;
+            for (int item = 0; item < ui->count; item++) {
+                if (ui->excluded && ui->excluded[item]) continue;
+                if (seen[item]) {
+                    int match_item = res[match_cursor];
+                    raw_results[kept] = match_item;
+                    if (mp) {
+                        raw_positions[kept] = mp[match_cursor];
+                        mp[match_cursor].pos = NULL;
+                        mp[match_cursor].npos = 0;
+                    }
+                    match_cursor++;
+                } else {
+                    raw_results[kept] = item;
                 }
                 kept++;
-            }
-            for (int item = 0; item < ui->count; item++) {
-                if (seen[item] || (ui->excluded && ui->excluded[item])) continue;
-                raw_results[kept++] = item;
             }
             free(seen);
             free(res);
@@ -1304,6 +1308,8 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         }
         const mm_match_pos_t *matched = (ui->match_pos && idx < ui->match_pos_n)
                                           ? &ui->match_pos[idx] : NULL;
+        bool raw_nonmatch = ui->raw && ui->query_len > 0 &&
+                            (!matched || matched->npos == 0);
         bool cur = (idx == ui->cursor);
         bool sel = ui->selected && ui->selected[item_idx];
         int text_width = 0;
@@ -1396,7 +1402,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                             : MM_COL_DEFAULT;
         mm_color_t bg = cur ? ui_theme_color(ui, ui->theme.dark_bg, MM_THEME_DARK_BG)
                             : MM_COL_DEFAULT;
-        mm_attr_t attr = line_attr;
+        mm_attr_t attr = line_attr | (raw_nonmatch ? MM_DIM : 0);
         if (sel && !cur) {
             /* A selected item that is not the current one uses the theme's
                selected colours (the default ones in the dark theme). */
@@ -1410,8 +1416,11 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         bool visible = (screen_y >= list_first && screen_y <= list_last);
         /* Without unicode the gutter is a blank column drawn in reverse
            video on the current line (fzf's behaviour). */
-        const char *gutter = ui->gutter ? ui->gutter
-                                        : (ui->no_unicode ? " " : "\u258c");
+        const char *gutter = raw_nonmatch
+                                 ? (ui->gutter_raw ? ui->gutter_raw
+                                                   : (ui->no_unicode ? " " : "\\u2596"))
+                                 : (ui->gutter ? ui->gutter
+                                               : (ui->no_unicode ? " " : "\\u258c"));
         if (ui->no_unicode && cur) pointer_attr |= MM_REVERSE;
         /* The column after the pointer holds the multi-select marker.  The
            default marker is U+2503 (fzf's default). */
@@ -2781,15 +2790,19 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_UP_MATCH:
     case MM_ACT_DOWN_MATCH:
-        /* Only the matching items are listed, so this is a plain move. */
         if (ui->nresults > 0) {
             int step = ui_nav_step(ui, b->action == MM_ACT_UP_MATCH);
-            if (ui->cycle) {
-                int n = ui->nresults;
-                ui->cursor = ((ui->cursor + step) % n + n) % n;
-            } else {
-                int next = ui->cursor + step;
-                if (next >= 0 && next < ui->nresults) ui->cursor = next;
+            int next = ui->cursor;
+            for (int tried = 0; tried < ui->nresults; tried++) {
+                next += step;
+                if (ui->cycle) next = (next + ui->nresults) % ui->nresults;
+                else if (next < 0 || next >= ui->nresults) break;
+                if (!ui->raw || ui->query_len == 0 ||
+                    (ui->match_pos && next < ui->match_pos_n &&
+                     ui->match_pos[next].npos > 0)) {
+                    ui->cursor = next;
+                    break;
+                }
             }
         }
         break;
@@ -2903,6 +2916,11 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     }
     case MM_ACT_BEST:
         ui->cursor = 0;
+        if (ui->raw && ui->query_len > 0 && ui->match_pos) {
+            for (int i = 0; i < ui->nresults && i < ui->match_pos_n; i++) {
+                if (ui->match_pos[i].npos > 0) { ui->cursor = i; break; }
+            }
+        }
         ui->offset = 0;
         break;
     case MM_ACT_FIRST:
