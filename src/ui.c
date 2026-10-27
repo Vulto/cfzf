@@ -2435,6 +2435,22 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             }
         }
         break;
+    case MM_ACT_SELECT:
+        if (ui->multi && ui->nresults > 0) {
+            int item = ui->results[ui->cursor];
+            if (!ui->selected[item] &&
+                (ui->multi_max <= 0 || ui->nselected < ui->multi_max))
+                ui_select_item(ui, item);
+        }
+        break;
+    case MM_ACT_TOGGLE_IN:
+    case MM_ACT_TOGGLE_OUT: {
+        mm_binding_t mapped = *b;
+        bool toggle_down = (b->action == MM_ACT_TOGGLE_IN)
+            ? ui->layout == 0 : ui->layout != 0;
+        mapped.action = toggle_down ? MM_ACT_TOGGLE_DOWN : MM_ACT_TOGGLE_UP;
+        return ui_execute_action(ui, &mapped);
+    }
     case MM_ACT_TOGGLE_DOWN:
     case MM_ACT_TOGGLE_UP: {
         /* Toggle the current item and move on. */
