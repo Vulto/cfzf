@@ -223,8 +223,8 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-058 | `half-page-up` | src/bind.c, src/ui.c | - | implemented |
 | ACT-059 | `hide-header` | src/bind.c, src/ui.c | - | implemented |
 | ACT-061 | `hide-preview` | src/bind.c, src/ui.c | - | implemented |
-| ACT-062 | `jump` | - | - | unstarted |
-| ACT-063 | `jump-accept` | - | - | unstarted |
+| ACT-062 | `jump` | src/ui.c | tests/pty-diff.sh:bind-jump | implemented but unverified |
+| ACT-063 | `jump-accept` | src/ui.c | tests/pty-diff.sh:bind-jump-accept | implemented but unverified |
 | ACT-064 | `kill-line` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-kill-line | implemented but unverified |
 | ACT-066 | `kill-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-kill-word | implemented but unverified |
 | ACT-067 | `last` | src/bind.c, src/ui.c | - | implemented |
@@ -295,16 +295,16 @@ with results tied to a specific implementation commit and pinned reference.
 
 | ID | Event | C location | Verification | Status |
 |----|-------|-----------|--------------|--------|
-| EVT-001 | `start` | - | - | unstarted |
-| EVT-002 | `load` | - | - | unstarted |
-| EVT-003 | `change` | - | - | unstarted |
-| EVT-004 | `focus` | - | - | unstarted |
-| EVT-005 | `result` | - | - | unstarted |
-| EVT-006 | `result-final` | - | - | unstarted |
-| EVT-007 | `resize` | - | - | unstarted |
-| EVT-008 | `one` | - | - | unstarted |
-| EVT-009 | `zero` | - | - | unstarted |
-| EVT-010 | `jump` | - | - | unstarted |
-| EVT-011 | `jump-cancel` | - | - | unstarted |
+| EVT-001 | `start` | src/ui.c | tests/pty-diff.sh:event-start-load | implemented but unverified |
+| EVT-002 | `load` | src/ui.c | tests/pty-diff.sh:event-start-load | implemented but unverified |
+| EVT-003 | `change` | src/ui.c | tests/pty-diff.sh:event-change | implemented but unverified |
+| EVT-004 | `focus` | src/ui.c | tests/pty-diff.sh:event-focus | implemented but unverified |
+| EVT-005 | `result` | src/ui.c | tests/pty-diff.sh:event-result | implemented but unverified |
+| EVT-006 | `result-final` | src/ui.c | tests/pty-diff.sh:event-result-final | implemented but unverified |
+| EVT-007 | `resize` | src/ui.c | tests/pty-diff.sh:event-resize | implemented but unverified |
+| EVT-008 | `one` | src/ui.c | tests/pty-diff.sh:event-one | implemented but unverified |
+| EVT-009 | `zero` | src/ui.c | tests/pty-diff.sh:event-zero | implemented but unverified |
+| EVT-010 | `jump` | src/ui.c | tests/pty-diff.sh:event-jump | implemented but unverified |
+| EVT-011 | `jump-cancel` | src/ui.c | tests/pty-diff.sh:event-jump-cancel | implemented but unverified |
 | EVT-012 | `click-header` | - | - | unstarted |
 | EVT-013 | `click-footer` | - | - | unstarted |
