@@ -121,7 +121,7 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   regenerate test corpora and compare output streams and exit status.
 - Latest source inventory audit: 131 option rows (77 labeled verified, 20
   implemented but unverified, 34 unstarted), 127 action rows (54 implemented,
-  36 implemented but unverified, 37 unstarted), and 13 event rows (all
+  37 implemented but unverified, 36 unstarted), and 13 event rows (all
   unstarted). Action IDs 060, 065, 100, 122, and 123 are absent from the inventory.
   These labels and counts are not proof of behavioral parity; only fresh local
   differential runs can verify the current commit.
