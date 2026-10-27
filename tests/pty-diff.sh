@@ -945,6 +945,12 @@ sleep 200'                                        "$WORK/items.txt" --bind='ctrl
 run_case 'bind-become-command' 'sleep 350
 key ctrl-t
 sleep 300' "$WORK/items.txt" --bind="ctrl-t:become(printf 'became')"
+printf 'apple,red\ncherry,blue\n' > "$WORK/runtime-nth.txt"
+run_case 'bind-change-nth' 'sleep 350
+key ctrl-t
+sleep 200
+key enter
+sleep 200' "$WORK/runtime-nth.txt" --delimiter=, --nth=1 --query=red --bind='ctrl-t:change-nth(2)'
 run_case 'bind-transform-owned-string' 'sleep 350
 key ctrl-t
 sleep 200
