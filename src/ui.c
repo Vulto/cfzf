@@ -2769,7 +2769,7 @@ static char *ui_expand_command(mm_ui_t *ui, const char *cmd, bool force_plus) {
             continue;
         }
         if (cmd[i] == '{' && cmd[i + 1] == 'f' && cmd[i + 2] == '}') {
-            char *file = ui_expand_item_file(ui, force_plus ? 1 : 0);
+            char *file = ui_expand_item_file(ui, 0);
             if (!file) goto fail;
             bool ok = ui_command_append(&out, &length, &capacity, file, strlen(file));
             free(file);
