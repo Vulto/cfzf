@@ -3727,7 +3727,10 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     /* No descriptor means input was collected before entering the UI.
        Streaming callers install their descriptor after initialization. */
     ui->input_fd = -1;
+    ui->bg_transform_pid = 0;
     ui->bg_transform_fd = -1;
+    ui->bg_transform_output = NULL;
+    ui->bg_transform_len = ui->bg_transform_cap = 0;
     ui->lines = lines;
     ui->count = 0;
     ui->lines_cap = cap;
