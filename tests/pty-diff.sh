@@ -764,6 +764,13 @@ run_execute_case 'bind-execute' 'ctrl-t'
 run_case 'bind-change-query' 'sleep 350
 key ctrl-t
 sleep 250'                                        "$WORK/items.txt" --bind='ctrl-t:change-query(cherry)'
+run_case 'bind-unbind-key' 'sleep 350
+key ctrl-t
+sleep 100
+key ctrl-x
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind='ctrl-t:unbind(ctrl-x),ctrl-x:change-query(cherry)'
 
 # Compare the SGR (color/attribute) codes the two programs emit, so that
 # --color handling is verified and not only the text layout.
