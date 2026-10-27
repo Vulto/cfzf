@@ -187,7 +187,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-022 | `change-input-label` | - | - | unstarted |
 | ACT-023 | `change-list-label` | - | - | unstarted |
 | ACT-024 | `change-multi` | - | - | unstarted |
-| ACT-025 | `change-nth` | - | - | unstarted |
+| ACT-025 | `change-nth` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-nth | implemented but unverified |
 | ACT-026 | `change-pointer` | - | - | unstarted |
 | ACT-027 | `change-preview` | src/bind.c, src/ui.c | - | implemented |
 | ACT-028 | `change-preview-label` | - | - | unstarted |
