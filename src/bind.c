@@ -202,35 +202,63 @@ static void keymap_remove_key(mm_keymap_t *km, mm_event_type_t type, wchar_t run
     km->n = w;
 }
 
-bool mm_bind_unbind(mm_keymap_t *km, const char *keys) {
-    if (!km || !keys || !*keys) return false;
-    if (strcmp(keys, "*") == 0) {
-        for (int i = 0; i < km->n; i++) free(km->items[i].arg);
-        km->n = 0;
-        return true;
-    }
+static bool key_matches(const mm_binding_t *b, mm_event_type_t type,
+                         wchar_t rune) {
+    return b->type == type && (type != MM_EV_RUNE || b->rune == rune);
+}
+
+static bool binding_key_spec(const char *p, size_t len,
+                             mm_event_type_t *type, wchar_t *rune) {
+    while (len && (*p == ' ' || *p == '\t')) { p++; len--; }
+    while (len && (p[len - 1] == ' ' || p[len - 1] == '\t')) len--;
+    if (!len) return false;
+    char *name = malloc(len + 1);
+    if (!name) return false;
+    memcpy(name, p, len);
+    name[len] = '\0';
+    bool valid = parse_key(name, type, rune);
+    free(name);
+    return valid;
+}
+
+static bool binding_control(mm_keymap_t *km, mm_keymap_t *disabled,
+                            const char *keys, bool restore) {
+    if (!km || !disabled || !keys || !*keys) return false;
+    bool all = strcmp(keys, "*") == 0;
     const char *p = keys;
-    while (*p) {
-        const char *end = strchr(p, ',');
-        size_t len = end ? (size_t)(end - p) : strlen(p);
-        while (len && (*p == ' ' || *p == '\t')) { p++; len--; }
-        while (len && (p[len - 1] == ' ' || p[len - 1] == '\t')) len--;
-        if (len == 0) return false;
-        char *name = malloc(len + 1);
-        if (!name) return false;
-        memcpy(name, p, len);
-        name[len] = '\0';
-        mm_event_type_t type;
-        wchar_t rune;
-        bool valid = parse_key(name, &type, &rune);
-        free(name);
-        if (!valid) return false;
-        keymap_remove_key(km, type, rune);
+    do {
+        const char *end = all ? NULL : strchr(p, ',');
+        size_t len = all ? 0 : (end ? (size_t)(end - p) : strlen(p));
+        mm_event_type_t type = MM_EV_INVALID;
+        wchar_t rune = 0;
+        if (!all && !binding_key_spec(p, len, &type, &rune)) return false;
+        mm_keymap_t *src = restore ? disabled : km;
+        mm_keymap_t *dst = restore ? km : disabled;
+        int i = 0;
+        while (i < src->n) {
+            if (!all && !key_matches(&src->items[i], type, rune)) {
+                i++;
+                continue;
+            }
+            if (!keymap_push(dst, src->items[i])) return false;
+            memmove(src->items + i, src->items + i + 1,
+                    (size_t)(src->n - i - 1) * sizeof(*src->items));
+            src->n--;
+        }
+        if (all) break;
         if (!end) break;
         p = end + 1;
         if (!*p) return false;
-    }
+    } while (true);
     return true;
+}
+
+bool mm_bind_unbind(mm_keymap_t *km, mm_keymap_t *disabled, const char *keys) {
+    return binding_control(km, disabled, keys, false);
+}
+
+bool mm_bind_rebind(mm_keymap_t *km, mm_keymap_t *disabled, const char *keys) {
+    return binding_control(km, disabled, keys, true);
 }
 
 bool mm_bind_parse(mm_keymap_t *km, const char *spec, bool replace, const char **err) {
