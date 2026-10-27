@@ -108,8 +108,8 @@ logical screen states through `tests/screen.py`.
   are inherited inventory claims; the current CI suite covers only the cases
   recorded in `BASELINE_EVIDENCE.md`. Some unsupported options are rejected,
   but exact CLI parity has not been certified.
-- The action inventory currently has 125 rows, with 64 marked implemented but
-  unverified and 61 unstarted; seven IDs are absent from the table. Although
+- The action inventory currently has 125 rows, with 66 marked implemented but
+  unverified and 59 unstarted; seven IDs are absent from the table. Although
   `--bind` and action handling exist in the source, no action is currently
   marked differentially verified in `FEATURES.md`. All 13 events are marked
   unstarted; infrastructure presence is not equivalent to event parity.
