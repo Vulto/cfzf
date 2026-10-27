@@ -309,19 +309,21 @@ static void ui_search(mm_ui_t *ui) {
     int n = 0;
     mm_match_pos_t *mp = NULL;
     int *res = mm_batch_search(&input, pat, &ui->crit, ui->tac, &n, &mp);
-    if (res && mp && ui->excluded) {
+    if (res && ui->excluded) {
         int kept = 0;
         for (int i = 0; i < n; i++) {
             int item = res[i];
             if (item >= 0 && item < ui->count && ui->excluded[item]) {
-                free(mp[i].pos);
+                if (mp) free(mp[i].pos);
                 continue;
             }
             if (kept != i) {
                 res[kept] = res[i];
-                mp[kept] = mp[i];
-                mp[i].pos = NULL;
-                mp[i].npos = 0;
+                if (mp) {
+                    mp[kept] = mp[i];
+                    mp[i].pos = NULL;
+                    mp[i].npos = 0;
+                }
             }
             kept++;
         }
@@ -2879,14 +2881,30 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             for (int i = 0; i < ui->count; i++) {
                 if (ui->selected[i] && !ui->excluded[i]) {
                     ui->excluded[i] = true;
+                    ui->selected[i] = false;
                     changed = true;
                 }
+            }
+            if (changed) {
+                ui->nselected = 0;
+                ui->sel_order_n = 0;
+                for (int i = 0; i < ui->count; i++)
+                    if (ui->selected[i]) ui->nselected++;
             }
         } else if (ui->nresults > 0 && ui->cursor >= 0 &&
                    ui->cursor < ui->nresults) {
             int item = ui->results[ui->cursor];
             if (item >= 0 && item < ui->count && !ui->excluded[item]) {
                 ui->excluded[item] = true;
+                if (ui->selected[item]) {
+                    ui->selected[item] = false;
+                    if (ui->nselected > 0) ui->nselected--;
+                    int out = 0;
+                    for (int i = 0; i < ui->sel_order_n; i++)
+                        if (ui->sel_order[i] != item)
+                            ui->sel_order[out++] = ui->sel_order[i];
+                    ui->sel_order_n = out;
+                }
                 changed = true;
             }
         }
