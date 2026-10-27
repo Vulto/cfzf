@@ -2830,7 +2830,14 @@ int mm_ui_run(mm_ui_t *ui) {
     ui_exec_event(ui, "load");
 
     bool running = true;
-    if (ui->select_1 && ui->nresults == 1) running = false;
+    /* Do not auto-accept a transient single result while a producer is still
+       feeding the input stream. fzf evaluates --select-1/--exit-0 against the
+       completed initial result set, not an arbitrary partial read. */
+    bool input_complete = ui->input_fd < 0 || ui->input_done;
+    if (input_complete &&
+        ((ui->select_1 && ui->nresults == 1) ||
+         (ui->exit_0 && ui->nresults == 0)))
+        running = false;
     int exit_code = 0;
     if (ui->preview) ui_preview_restart(ui);
 
@@ -2844,6 +2851,11 @@ int mm_ui_run(mm_ui_t *ui) {
                give the preview a chance to produce output. */
             bool more = mm_ui_read_items(ui, ttyin);
             if (more) { ui_search(ui); }
+            input_complete = ui->input_fd < 0 || ui->input_done;
+            if (input_complete &&
+                ((ui->select_1 && ui->nresults == 1) ||
+                 (ui->exit_0 && ui->nresults == 0)))
+                running = false;
             if ((more || (ui->preview && mm_preview_poll(ui->preview))) && running) {
                 ui_render(ui, &r, &listwin, &promptwin, &infowin);
             }
