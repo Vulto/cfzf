@@ -954,11 +954,11 @@ key ctrl-t
 sleep 150
 key enter
 sleep 200' "$WORK/items.txt" --ghost=old --bind="ctrl-t:change-ghost(new)"
-run_case 'bind-focus-header-label' 'sleep 350
+run_case 'event-focus' 'sleep 350
 key down
 sleep 200
 key enter
-sleep 200' "$WORK/items.txt" --header='header' --header-border --header-label=old --bind="focus:change-header-label({})"
+sleep 200' "$WORK/items.txt" --header='header' --bind='focus:toggle-header'
 run_case 'event-change' 'sleep 350
 send b
 sleep 200
