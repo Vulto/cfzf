@@ -132,6 +132,9 @@ logical screen states through `tests/screen.py`.
   Differential execution remains pending.
 - `unbind(key[,key...])` and `unbind(*)` now remove active key bindings;
   a PTY differential case was added but has not been run.
+- `put(text)` inserts text at the query cursor and re-runs search;
+  `reload-sync` is routed to the existing synchronous reload path. The
+  `put` PTY regression case is not yet executed.
 - GitHub Actions CI and performance workflow files have been removed; this
   project now uses local-only verification by instruction.
 - fzf shows a spinner in the info line while the input is still being read;
