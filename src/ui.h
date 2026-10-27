@@ -102,6 +102,7 @@ typedef struct {
     int          bg_transform_fd;
     char        *bg_transform_output;
     size_t       bg_transform_len, bg_transform_cap;
+    size_t       bg_transform_placeholder_start;
     bool         preview_hidden; /* visibility toggled without destroying command */
     int          preview_offset; /* first preview output line to display */
     int          preview_page_size; /* visible preview content rows */
