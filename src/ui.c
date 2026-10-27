@@ -3403,6 +3403,7 @@ void mm_ui_free(mm_ui_t *ui) {
     free(ui->query_buf);
     mm_delimiter_free(&ui->delim);
     mm_keymap_free(&ui->keymap);
+    mm_keymap_free(&ui->disabled_keymap);
     mm_event_map_free(&ui->events);
     mm_preview_free(ui->preview);
     ui->preview = NULL;
