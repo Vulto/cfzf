@@ -357,7 +357,8 @@ static void ui_search(mm_ui_t *ui) {
     if (ui->raw) {
         size_t count = (size_t)(ui->count > 0 ? ui->count : 1);
         bool *seen = calloc(count, sizeof(*seen));
-        int *raw_results = malloc(count * sizeof(*raw_results));
+        int *raw_results = count <= SIZE_MAX / sizeof(*raw_results)
+                         ? malloc(count * sizeof(*raw_results)) : NULL;
         mm_match_pos_t *raw_positions = calloc(count, sizeof(*raw_positions));
         if (seen && raw_results && raw_positions) {
             int kept = 0;
@@ -2864,6 +2865,10 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         }
         break;
     }
+    case MM_ACT_BEST:
+        ui->cursor = 0;
+        ui->offset = 0;
+        break;
     case MM_ACT_FIRST:
         ui->cursor = 0;
         break;
