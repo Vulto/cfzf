@@ -434,6 +434,15 @@ sleep 200'                                        "$WORK/items.txt" --bind=ctrl-
 run_case 'bind-abort'     'sleep 350
 key esc
 sleep 200'                                        "$WORK/items.txt" --bind='esc:abort'
+run_case 'bind-forward-subword' 'sleep 350
+send fooBar
+key ctrl-a
+sleep 100
+key ctrl-f
+send X
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --print-query --bind=ctrl-f:forward-subword
 
 # Preview window: the layout, the command output and the box are compared.
 run_preview_case() {
