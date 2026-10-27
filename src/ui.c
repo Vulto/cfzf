@@ -3788,9 +3788,20 @@ static void ui_add_line(mm_ui_t *ui, char *line) {
     if (!ui_grow(ui, 1)) { free(line); return; }
     int idx = ui->count;
     ui->lines[idx] = line;
-    mm_item_init(&ui->items[idx], line, idx);
-    if (!mchars_decode(&ui->items[idx].text)) { free(line); return; }
+    if (!mm_item_init(&ui->items[idx], line, idx)) {
+        free(line);
+        ui->lines[idx] = NULL;
+        return;
+    }
+    if (!mchars_decode(&ui->items[idx].text)) {
+        mm_item_free(&ui->items[idx]);
+        free(line);
+        ui->lines[idx] = NULL;
+        memset(&ui->items[idx], 0, sizeof(ui->items[idx]));
+        return;
+    }
     ui->selected[idx] = false;
+    ui->excluded[idx] = false;
     ui->count++;
 }
 
