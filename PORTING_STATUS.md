@@ -179,6 +179,8 @@ logical screen states through `tests/screen.py`.
 
 ### New interactive action work
 
+- `show-input` and `toggle-input` now control runtime prompt/query visibility. PTY differential cases were added but not executed.
+
 - `transform(command)` now captures stdout from the configured shell and parses the returned text as an action chain, with a PTY regression case for `change-query(cherry)`. The regression has not been run.
 
 - Preview scroll actions now support top, bottom, line, page, and half-page movement for unwrapped preview output, with a matching scrollbar thumb and line indicator. PTY regression cases have been added but are not executed. Wrapped preview scrolling remains incomplete.
