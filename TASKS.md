@@ -146,6 +146,9 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   using UTF-8-aware byte boundaries, punctuation separators, and lower-to-upper
   transitions. A PTY case covers backward deletion; differential execution is
   pending.
+- Implemented runtime `unbind(key[,key...])` and `unbind(*)` by removing
+  bindings from the active keymap; wired the action into the dispatcher and
+  added a PTY regression case. Differential execution remains pending.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
