@@ -928,6 +928,11 @@ key ctrl-t
 sleep 150
 key enter
 sleep 200' "$WORK/items.txt" --ghost=old --bind="ctrl-t:change-ghost(new)"
+run_case 'bind-focus-header-label' 'sleep 350
+key down
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --header='header' --header-border --header-label=old --bind="focus:change-header-label({})"
 run_case 'bind-change-header-label' 'sleep 350
 key ctrl-t
 sleep 150
