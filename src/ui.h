@@ -92,6 +92,7 @@ typedef struct {
     mm_preview_t *preview;   /* preview runner (NULL when disabled) */
     bool         preview_hidden; /* visibility toggled without destroying command */
     int          preview_offset; /* first preview output line to display */
+    int          preview_page_size; /* visible preview content rows */
     mm_match_pos_t *match_pos;  /* the matched offsets of every result */
     int             match_pos_n;
     mm_preview_win_t preview_win;
