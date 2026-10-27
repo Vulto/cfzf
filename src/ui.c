@@ -3771,6 +3771,8 @@ static bool ui_grow(mm_ui_t *ui, int need) {
     ui->items = ni;
     bool *nsel = realloc(ui->selected, sizeof(*nsel) * (size_t)ncap);
     if (!nsel) return false;
+    memset(nsel + ui->lines_cap, 0,
+           (size_t)(ncap - ui->lines_cap) * sizeof(*nsel));
     ui->selected = nsel;
     bool *nexcluded = realloc(ui->excluded, sizeof(*nexcluded) * (size_t)ncap);
     if (!nexcluded) return false;
