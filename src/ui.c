@@ -3742,6 +3742,7 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->bg_transform_fd = -1;
     ui->bg_transform_output = NULL;
     ui->bg_transform_len = ui->bg_transform_cap = 0;
+    ui->become_command = NULL;
     ui->lines = lines;
     ui->count = 0;
     ui->lines_cap = cap;
