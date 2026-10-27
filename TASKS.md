@@ -139,6 +139,13 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - Header visibility actions now preserve the configured header:
   `hide-header`, `show-header`, and `toggle-header` no longer replace it
   with a fabricated prompt. PTY cases were added but remain unexecuted.
+- Preview visibility now has independent state: `hide-preview`,
+  `show-preview`, `toggle-preview`, and `preview` no longer destroy the
+  configured preview runner. Added PTY differential cases; not executed.
+- Implemented `backward-kill-subword` and `forward-subword` query editing
+  using UTF-8-aware byte boundaries, punctuation separators, and lower-to-upper
+  transitions. A PTY case covers backward deletion; differential execution is
+  pending.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
