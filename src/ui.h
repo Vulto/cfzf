@@ -41,6 +41,7 @@ typedef struct {
     const char      *query;
     const char      *header;
     const char      *saved_header; /* last configured header while hidden */
+    bool              header_hidden;
     const char      *header_lines; /* --header-lines: the first N input lines */
     const char      *footer;     /* --footer: the text at the top of the list */
     bool             info;
