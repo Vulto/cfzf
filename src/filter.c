@@ -496,9 +496,11 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                     }
                     mm_item_t transformed_item = items[i];
                     transformed_item.text = transformed_text;
+                    transformed_item.trim_known = false;
+                    transformed_item.trim_length = 0;
                     mm_result_set_bounds(&results[n], &transformed_item, score,
                                          minb, mine, maxe, valid, crit);
-                    results[n].item = own_items ? &items[i] : &items[i];
+                    results[n].item = &items[i];
                     if (npos > 1) qsort(pos, (size_t)npos, sizeof(*pos), mm_int_compare);
                     results[n].pos = pos;
                     results[n].npos = npos;
