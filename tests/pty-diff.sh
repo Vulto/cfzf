@@ -368,6 +368,13 @@ key ctrl-d
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --bind=ctrl-d:deselect-up --multi
+run_case 'bind-deselect-down' 'sleep 350
+key ctrl-t
+sleep 100
+key ctrl-d
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind='ctrl-t:toggle,ctrl-d:deselect-down' --multi
 run_case 'bind-hide-show-header' 'sleep 350
 key ctrl-h
 sleep 100
