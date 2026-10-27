@@ -237,14 +237,14 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-074 | `pos` | src/bind.c, src/ui.c | - | implemented |
 | ACT-075 | `prev-history` | src/bind.c, src/ui.c | - | implemented |
 | ACT-076 | `preview` | src/bind.c, src/ui.c | - | implemented |
-| ACT-077 | `preview-bottom` | - | - | unstarted |
-| ACT-078 | `preview-down` | - | - | unstarted |
-| ACT-079 | `preview-half-page-down` | - | - | unstarted |
-| ACT-080 | `preview-half-page-up` | - | - | unstarted |
-| ACT-081 | `preview-page-down` | - | - | unstarted |
-| ACT-082 | `preview-page-up` | - | - | unstarted |
-| ACT-083 | `preview-top` | - | - | unstarted |
-| ACT-084 | `preview-up` | - | - | unstarted |
+| ACT-077 | `preview-bottom` | src/bind.c, src/ui.c | tests/pty-diff.sh:preview-scroll-bottom | implemented but unverified |
+| ACT-078 | `preview-down` | src/bind.c, src/ui.c | tests/pty-diff.sh:preview-scroll-down | implemented but unverified |
+| ACT-079 | `preview-half-page-down` | src/bind.c, src/ui.c | - | implemented but unverified |
+| ACT-080 | `preview-half-page-up` | src/bind.c, src/ui.c | - | implemented but unverified |
+| ACT-081 | `preview-page-down` | src/bind.c, src/ui.c | tests/pty-diff.sh:preview-scroll-page-down | implemented but unverified |
+| ACT-082 | `preview-page-up` | src/bind.c, src/ui.c | - | implemented but unverified |
+| ACT-083 | `preview-top` | src/bind.c, src/ui.c | tests/pty-diff.sh:preview-scroll-top | implemented but unverified |
+| ACT-084 | `preview-up` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-085 | `print` | src/bind.c, src/ui.c | - | implemented |
 | ACT-086 | `print-query` | src/bind.c, src/ui.c | - | implemented |
 | ACT-087 | `put` | - | - | unstarted |
