@@ -2319,25 +2319,63 @@ int mm_ui_height(const char *spec, int rows, int min_height) {
 static void ui_preview_restart(mm_ui_t *ui) {
     if (!ui->preview) return;
     int idx = ui->nresults > 0 ? ui->results[ui->cursor] : -1;
-    if (idx < 0) return;
-    /* The selected items, space separated, for the {+} and {f} placeholders. */
-    char *sel = NULL;
-    size_t sel_len = 0;
-    if (ui->selected) {
-        for (int i = 0; i < ui->count; i++) {
-            if (!ui->selected[i]) continue;
-            size_t l = strlen(ui->lines[i]);
-            char *ns = realloc(sel, sel_len + l + 2);
-            if (!ns) break;
-            sel = ns;
-            if (sel_len) sel[sel_len++] = ' ';
-            memcpy(sel + sel_len, ui->lines[i], l);
-            sel_len += l;
-            sel[sel_len] = 0;
+    if (idx < 0 || idx >= ui->count) return;
+
+    char *raw = NULL, *shell = NULL;
+    size_t raw_len = 0, raw_cap = 0, shell_len = 0, shell_cap = 0;
+    int selected_count = 0;
+    bool allocation_failed = false;
+    bool have_selection = ui->selected && ui->nselected > 0 &&
+                          ui->sel_order && ui->sel_order_n > 0;
+
+    for (int i = 0; i < (have_selection ? ui->sel_order_n : 1); i++) {
+        int item = have_selection ? ui->sel_order[i] : idx;
+        if (item < 0 || item >= ui->count) continue;
+        if (have_selection && !ui->selected[item]) continue;
+
+        const char *line = ui->lines[item] ? ui->lines[item] : "";
+        size_t line_len = strlen(line);
+        if (selected_count > 0 &&
+            !ui_command_append(&raw, &raw_len, &raw_cap, "\n", 1)) {
+            allocation_failed = true;
+            break;
         }
+        if (!ui_command_append(&raw, &raw_len, &raw_cap, line, line_len) ||
+            !ui_command_append(&raw, &raw_len, &raw_cap, "\n", 1)) {
+            allocation_failed = true;
+            break;
+        }
+
+        char *quoted = mm_shell_quote(line);
+        if (!quoted) {
+            allocation_failed = true;
+            break;
+        }
+        if (selected_count > 0 &&
+            !ui_command_append(&shell, &shell_len, &shell_cap, " ", 1)) {
+            free(quoted);
+            allocation_failed = true;
+            break;
+        }
+        bool appended = ui_command_append(&shell, &shell_len, &shell_cap,
+                                          quoted, strlen(quoted));
+        free(quoted);
+        if (!appended) {
+            allocation_failed = true;
+            break;
+        }
+        selected_count++;
     }
-    mm_preview_set_selected(ui->preview, sel ? sel : "");
-    free(sel);
+
+    if (allocation_failed || selected_count == 0) {
+        free(raw);
+        free(shell);
+        raw = strdup("");
+        shell = strdup("");
+    }
+    mm_preview_set_selected(ui->preview, raw ? raw : "", shell ? shell : "");
+    free(raw);
+    free(shell);
     ui->preview_offset = 0;
     mm_preview_start(ui->preview, ui->lines[idx], ui->query_buf, idx);
 }
