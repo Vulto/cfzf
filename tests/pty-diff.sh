@@ -843,7 +843,7 @@ sleep 250
 key enter
 sleep 200' "$WORK/items.txt" --bind="ctrl-x:exclude,ctrl-r:reload(printf 'cherry\\napple\\n')"
 
-printf 'alpha cherry\\nbeta apple\\n' > "$WORK/change-nth.txt"
+printf 'alpha cherry\nbeta apple\n' > "$WORK/change-nth.txt"
 run_case 'bind-change-nth' 'sleep 350
 key ctrl-t
 sleep 150
