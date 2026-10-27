@@ -152,6 +152,10 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - Implemented `put(text)` as cursor-position insertion into the query and
   routed `reload-sync` through the existing synchronous reload implementation.
   Added a PTY case for `put`; differential execution is pending.
+- Added reversible runtime key binding state: `unbind(key[,key...])` and
+  `unbind(*)` preserve removed bindings, while `rebind(key[,key...])` and
+  `rebind(*)` restore them. Added PTY coverage for unbind/rebind; tests remain
+  unexecuted.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
