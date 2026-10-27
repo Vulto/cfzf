@@ -132,6 +132,13 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - Preview `wrap-word` now has separate parser/UI state and word-boundary
   wrapping, and `toggle-preview-wrap-word` changes that mode. Differential
   cases cover the option and action, but have not yet been run.
+- The interactive dispatcher now implements `select-down` and
+  `deselect-up`, respecting navigation direction and selection limits.
+  PTY differential cases were added; execution remains pending because this
+  environment has no local checkout of the project.
+- GitHub Actions CI and performance workflows were removed at the user's
+  request. Continue using local build and differential tests only; never
+  trigger GitHub Actions.
 - Refresh these facts from the repository and fresh local verification before relying on them.
 
 ## Reporting and completion rules
