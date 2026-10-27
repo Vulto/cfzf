@@ -169,6 +169,9 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   Added a PTY regression case that transforms into `change-query(cherry)`; not run.
 - Implemented `show-input` and `toggle-input` to control runtime prompt/query
   visibility and cursor placement. Added PTY differential cases; not executed.
+- Implemented `toggle-multi-line` and single-line rendering for embedded newlines,
+  preserving byte offsets for match highlighting. Added a NUL-delimited PTY case;
+  differential execution is pending.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
