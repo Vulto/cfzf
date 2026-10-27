@@ -25,6 +25,15 @@
 
 #define MM_MIN_HEIGHT 1
 
+static volatile sig_atomic_t ui_resize_pending;
+
+static void ui_handle_sigwinch(int signal_number) {
+    (void)signal_number;
+    ui_resize_pending = 1;
+}
+
+
+
 /* Forward declarations. */
 static mm_color_t ui_theme_color(const mm_ui_t *ui, mm_color_attr_t entry,
                                  mm_color_t fallback);
