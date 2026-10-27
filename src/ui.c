@@ -441,7 +441,7 @@ static void ui_exec_focus_if_changed(mm_ui_t *ui, int *last_item) {
              ? ui->results[ui->cursor] : -1;
     if (item == *last_item) return;
     *last_item = item;
-    ui_exec_event(ui, "focus");
+    if (item >= 0) ui_exec_event(ui, "focus");
 }
 
 /* Match fzf's list-update events: result on result-count changes, one/zero
