@@ -2543,10 +2543,72 @@ static bool ui_command_append(char **out, size_t *length, size_t *capacity,
     return true;
 }
 
+/* Build shell-quoted arguments in selection order, or in result order
+   for the matched-item placeholder. */
+static char *ui_expand_item_list(mm_ui_t *ui, bool matched) {
+    char *out = NULL;
+    size_t length = 0, capacity = 0;
+    int appended = 0;
+
+    if (matched) {
+        for (int i = 0; i < ui->nresults; i++) {
+            int item = ui->results[i];
+            if (item < 0 || item >= ui->count) continue;
+            char *quoted = mm_shell_quote(ui->lines[item]);
+            if (!quoted) goto fail;
+            if (appended > 0 &&
+                !ui_command_append(&out, &length, &capacity, " ", 1)) {
+                free(quoted);
+                goto fail;
+            }
+            bool ok = ui_command_append(&out, &length, &capacity,
+                                        quoted, strlen(quoted));
+            free(quoted);
+            if (!ok) goto fail;
+            appended++;
+        }
+    } else if (ui->nselected > 0 && ui->sel_order &&
+               ui->sel_order_n > 0) {
+        for (int i = 0; i < ui->sel_order_n; i++) {
+            int item = ui->sel_order[i];
+            if (item < 0 || item >= ui->count || !ui->selected[item]) continue;
+            char *quoted = mm_shell_quote(ui->lines[item]);
+            if (!quoted) goto fail;
+            if (appended > 0 &&
+                !ui_command_append(&out, &length, &capacity, " ", 1)) {
+                free(quoted);
+                goto fail;
+            }
+            bool ok = ui_command_append(&out, &length, &capacity,
+                                        quoted, strlen(quoted));
+            free(quoted);
+            if (!ok) goto fail;
+            appended++;
+        }
+    } else {
+        int item = ui->nresults > 0 && ui->cursor >= 0 &&
+                   ui->cursor < ui->nresults ? ui->results[ui->cursor] : -1;
+        const char *value = item >= 0 && item < ui->count ? ui->lines[item] : "";
+        char *quoted = mm_shell_quote(value);
+        if (!quoted) goto fail;
+        bool ok = ui_command_append(&out, &length, &capacity,
+                                    quoted, strlen(quoted));
+        free(quoted);
+        if (!ok) goto fail;
+    }
+
+    if (!out) return strdup("");
+    return out;
+
+fail:
+    free(out);
+    return NULL;
+}
+
 /* Replace fzf command placeholders. Values inserted into the shell command
    are quoted as single arguments unless the placeholder explicitly requests
    raw text. */
-static char *ui_expand_command(mm_ui_t *ui, const char *cmd) {
+static char *ui_expand_command(mm_ui_t *ui, const char *cmd, bool force_plus) {
     char *out = NULL;
     size_t length = 0, capacity = 0;
     int idx = ui->nresults > 0 ? ui->results[ui->cursor] : -1;
@@ -2558,6 +2620,8 @@ static char *ui_expand_command(mm_ui_t *ui, const char *cmd) {
             if (cmd[i + 2] == '}') literal_len = 2;
             else if (cmd[i + 2] == 'q' && cmd[i + 3] == '}') literal_len = 3;
             else if (cmd[i + 2] == 'n' && cmd[i + 3] == '}') literal_len = 3;
+            else if ((cmd[i + 2] == '+' || cmd[i + 2] == '*') &&
+                     cmd[i + 3] == '}') literal_len = 3;
             if (literal_len) {
                 if (!ui_command_append(&out, &length, &capacity,
                                        cmd + i + 1, literal_len))
@@ -2568,13 +2632,31 @@ static char *ui_expand_command(mm_ui_t *ui, const char *cmd) {
         }
 
         if (cmd[i] == '{' && cmd[i + 1] == '}') {
-            const char *value = idx >= 0 && idx < ui->count ? ui->lines[idx] : "";
-            char *quoted = mm_shell_quote(value);
-            if (!quoted) goto fail;
-            bool ok = ui_command_append(&out, &length, &capacity, quoted, strlen(quoted));
-            free(quoted);
-            if (!ok) goto fail;
+            if (force_plus) {
+                char *items = ui_expand_item_list(ui, false);
+                if (!items) goto fail;
+                bool ok = ui_command_append(&out, &length, &capacity, items, strlen(items));
+                free(items);
+                if (!ok) goto fail;
+            } else {
+                const char *value = idx >= 0 && idx < ui->count ? ui->lines[idx] : "";
+                char *quoted = mm_shell_quote(value);
+                if (!quoted) goto fail;
+                bool ok = ui_command_append(&out, &length, &capacity, quoted, strlen(quoted));
+                free(quoted);
+                if (!ok) goto fail;
+            }
             i++;
+            continue;
+        }
+        if (cmd[i] == '{' && (cmd[i + 1] == '+' || cmd[i + 1] == '*') &&
+            cmd[i + 2] == '}') {
+            char *items = ui_expand_item_list(ui, cmd[i + 1] == '*');
+            if (!items) goto fail;
+            bool ok = ui_command_append(&out, &length, &capacity, items, strlen(items));
+            free(items);
+            if (!ok) goto fail;
+            i += 2;
             continue;
         }
         if (cmd[i] == '{' && cmd[i + 1] == 'q' && cmd[i + 2] == '}') {
@@ -2608,9 +2690,10 @@ fail:
 }
 
 /* Run a command with the system shell, waiting for it to finish. */
-static void ui_run_command(mm_ui_t *ui, const char *cmd, bool silent) {
+static void ui_run_command(mm_ui_t *ui, const char *cmd, bool silent,
+                            bool force_plus) {
     if (!cmd || !*cmd) return;
-    char *expanded = ui_expand_command(ui, cmd);
+    char *expanded = ui_expand_command(ui, cmd, force_plus);
     if (!expanded) return;
     if (!silent) {
         /* Leave the alternate screen so the command can interact with the
@@ -2672,7 +2755,7 @@ static bool ui_apply_transform_output(mm_ui_t *ui, char *output, size_t len) {
 /* Run transform(command), capture stdout, then execute the returned action chain. */
 static bool ui_transform(mm_ui_t *ui, const char *cmd) {
     if (!cmd || !*cmd) return true;
-    char *expanded = ui_expand_command(ui, cmd);
+    char *expanded = ui_expand_command(ui, cmd, false);
     if (!expanded) return true;
     int fds[2];
     if (pipe(fds) != 0) { free(expanded); return true; }
@@ -2729,7 +2812,7 @@ static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
     ui->bg_transform_len = ui->bg_transform_cap = 0;
     ui->bg_transform_pid = 0;
     ui->bg_transform_fd = -1;
-    char *expanded = ui_expand_command(ui, cmd);
+    char *expanded = ui_expand_command(ui, cmd, false);
     if (!expanded) return;
     int fds[2];
     if (pipe(fds) != 0) { free(expanded); return; }
@@ -3245,11 +3328,13 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui_search(ui);
         break;
     case MM_ACT_EXECUTE:
+        if (b->arg) ui_run_command(ui, b->arg, false, false);
+        break;
     case MM_ACT_EXECUTE_MULTI:
-        if (b->arg) ui_run_command(ui, b->arg, false);
+        if (b->arg) ui_run_command(ui, b->arg, false, true);
         break;
     case MM_ACT_EXECUTE_SILENT:
-        if (b->arg) ui_run_command(ui, b->arg, true);
+        if (b->arg) ui_run_command(ui, b->arg, true, false);
         break;
     case MM_ACT_TRANSFORM:
         return ui_transform(ui, b->arg);
@@ -3394,7 +3479,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_BECOME:
         /* Defer exec until the event loop has restored terminal state. */
         if (b->arg && *b->arg) {
-            char *expanded = ui_expand_command(ui, b->arg);
+            char *expanded = ui_expand_command(ui, b->arg, false);
             if (expanded) {
                 free(ui->become_command);
                 ui->become_command = expanded;
