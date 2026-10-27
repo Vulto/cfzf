@@ -115,6 +115,7 @@ static const struct { const char *name; mm_action_t action; } action_table[] = {
     { "end-of-line", MM_ACT_END_OF_LINE },
     { "forward-word", MM_ACT_FORWARD_WORD },
     { "backward-word", MM_ACT_BACKWARD_WORD },
+    { "backward-subword", MM_ACT_BACKWARD_SUBWORD },
     { "backward-kill-subword", MM_ACT_BACKWARD_KILL_SUBWORD },
     { "forward-subword", MM_ACT_FORWARD_SUBWORD },
     { "reload-sync", MM_ACT_RELOAD_SYNC },
