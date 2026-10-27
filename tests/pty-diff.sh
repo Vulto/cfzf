@@ -771,6 +771,11 @@ key ctrl-x
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --bind='ctrl-t:unbind(ctrl-x),ctrl-x:change-query(cherry)'
+run_case 'bind-put-query' 'sleep 350
+key ctrl-p
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind='ctrl-p:put(cherry)'
 
 # Compare the SGR (color/attribute) codes the two programs emit, so that
 # --color handling is verified and not only the text layout.
