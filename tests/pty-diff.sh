@@ -371,10 +371,10 @@ sleep 200'                                        "$WORK/items.txt" --bind=ctrl-
 run_case 'bind-hide-show-header' 'sleep 350
 key ctrl-h
 sleep 100
-key ctrl-h
+key ctrl-s
 sleep 150
 key enter
-sleep 200'                                        "$WORK/items.txt" --header='test header' --bind='ctrl-h:hide-header,ctrl-h:show-header'
+sleep 200'                                        "$WORK/items.txt" --header='test header' --bind='ctrl-h:hide-header,ctrl-s:show-header'
 run_case 'bind-toggle-header' 'sleep 350
 key ctrl-h
 sleep 100
