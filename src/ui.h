@@ -93,6 +93,7 @@ typedef struct {
     mm_keymap_t  keymap;     /* --bind specifications */
     mm_keymap_t  disabled_keymap; /* keys temporarily removed by unbind */
     mm_event_map_t events;   /* --bind event bindings */
+    bool result_events_initialized; /* final result-count events were emitted */
     mm_preview_t *preview;   /* preview runner (NULL when disabled) */
     pid_t        bg_transform_pid;
     int          bg_transform_fd;
