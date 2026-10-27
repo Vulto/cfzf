@@ -120,10 +120,10 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - `tests/batch-diff.sh`, `tests/algo-diff.sh`, and `tests/nth-diff.sh`
   regenerate test corpora and compare output streams and exit status.
 - Latest inventory snapshot: 131 option rows (51 verified, 50 implemented but unverified, 14 implemented, 12 unstarted, 4 n\/a), 127 action rows (54 implemented,
-  71 implemented but unverified, 2 unstarted), and 13 event rows (11 implemented
+  72 implemented but unverified, 1 unstarted), and 13 event rows (11 implemented
   but unverified, 2 unstarted). Action IDs 060, 065, 100, 122, and 123 remain
-  absent from the inventory. The new interactive differential cases have not
-  been executed in this environment; counts are not proof of behavioral parity.
+  absent from the inventory. New with-nth and interactive differential cases
+  have not been executed in this environment; counts are not proof of parity.
 - Historical test totals and benchmark numbers are not current evidence.
   `BASELINE_EVIDENCE.md` must identify the exact tested commit and local run.
 - Interactive `--select-1` / `--exit-0` now check the initial result set and
