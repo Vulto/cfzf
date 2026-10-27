@@ -814,6 +814,12 @@ key ctrl-x
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --bind='ctrl-t:unbind(ctrl-x),ctrl-s:rebind(ctrl-x),ctrl-x:change-query(cherry)'
+run_case 'bind-transform-change-query' 'sleep 350
+key ctrl-t
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --bind="ctrl-t:transform(printf 'change-query(cherry)')"
+
 run_case 'bind-put-query' 'sleep 350
 key ctrl-p
 sleep 150
