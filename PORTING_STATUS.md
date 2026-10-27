@@ -118,6 +118,10 @@ logical screen states through `tests/screen.py`.
 - Preview `wrap-word` and `toggle-preview-wrap-word` now distinguish
   word-boundary wrapping from character wrapping. The new PTY cases have not
   yet been executed against the pinned reference.
+- `select-down` and `deselect-up` have interactive dispatcher
+  implementations and PTY differential cases. Those cases have not been run.
+- GitHub Actions CI and performance workflow files have been removed; this
+  project now uses local-only verification by instruction.
 - fzf shows a spinner in the info line while the input is still being read;
   the C23 port reads the input synchronously and never shows one, so the
   spinner colour is excluded from the palette comparison.
