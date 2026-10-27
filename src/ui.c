@@ -2923,6 +2923,10 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
                ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
             ui->query_pos++;
         break;
+    case MM_ACT_BACKWARD_SUBWORD:
+        ui->query_pos = (int)query_subword_start(
+            ui->query_buf, (size_t)ui->query_pos);
+        break;
     case MM_ACT_BACKWARD_KILL_SUBWORD: {
         size_t pos = (size_t)ui->query_pos;
         if (pos > ui->query_len) pos = ui->query_len;
