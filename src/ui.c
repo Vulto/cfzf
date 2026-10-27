@@ -2338,11 +2338,6 @@ static void ui_preview_restart(mm_ui_t *ui) {
 
         const char *line = ui->lines[item] ? ui->lines[item] : "";
         size_t line_len = strlen(line);
-        if (selected_count > 0 &&
-            !ui_command_append(&raw, &raw_len, &raw_cap, "\n", 1)) {
-            allocation_failed = true;
-            break;
-        }
         if (!ui_command_append(&raw, &raw_len, &raw_cap, line, line_len) ||
             !ui_command_append(&raw, &raw_len, &raw_cap, "\n", 1)) {
             allocation_failed = true;
