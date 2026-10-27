@@ -1962,6 +1962,13 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
         int width = content_w;
         if (width < 1) width = 1;
         const char *p = out;
+        int skipped = 0;
+        while (*p && skipped < ui->preview_offset) {
+            const char *nl = strchr(p, '\n');
+            if (!nl) { p += strlen(p); break; }
+            p = nl + 1;
+            skipped++;
+        }
         int first = 1;
         while (*p && row < content_y + content_h) {
             const char *nl = strchr(p, '\n');
@@ -2028,7 +2035,7 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
             size_t olen = strlen(out);
             if (olen > 0 && out[olen - 1] == '\n') nlines--;
             ui_preview_scrollbar(ui, win, x, y, w, content_x, content_y, content_w,
-                                 content_h, nlines, 0);
+                                 content_h, nlines, ui->preview_offset);
         }
         return;
     }
@@ -2716,9 +2723,10 @@ static void ui_preview_scroll(mm_ui_t *ui, int delta) {
     if (!ui->preview || ui->preview_hidden) return;
     int lines = ui_preview_line_count(ui);
     int page = ui->preview_page_size > 1 ? ui->preview_page_size : 1;
-    int max_offset = lines > page ? lines - page : 0;
+    int bottom_offset = lines > page ? lines - page : 0;
+    int max_offset = ui->preview_win.wrap && lines > 0 ? lines - 1 : bottom_offset;
     if (delta == INT_MIN) ui->preview_offset = 0;
-    else if (delta == INT_MAX) ui->preview_offset = max_offset;
+    else if (delta == INT_MAX) ui->preview_offset = bottom_offset;
     else {
         long next = (long)ui->preview_offset + delta;
         if (next < 0) next = 0;
