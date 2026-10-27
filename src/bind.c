@@ -63,6 +63,7 @@ static const struct { const char *name; mm_action_t action; } action_table[] = {
     { "change-header", MM_ACT_CHANGE_HEADER },
     { "change-multi", MM_ACT_CHANGE_MULTI },
     { "change-nth", MM_ACT_CHANGE_NTH },
+    { "change-with-nth", MM_ACT_CHANGE_WITH_NTH },
     { "change-pointer", MM_ACT_CHANGE_POINTER },
     { "ignore", MM_ACT_IGNORE },
     { "print", MM_ACT_PRINT },
