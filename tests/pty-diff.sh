@@ -668,12 +668,13 @@ run_long_case 'gap-3-long'          --gap=3
 # A live stream of items: the list grows while the program is running.
 run_stream_case() {
     name=$1
+    stream_input=${2:-$WORK/items.txt}
     printf 'sleep 350\nitem second\nsleep 350\nitem third\nsleep 350\nstdin close\nsleep 350\n' > "$WORK/script.txt"
     python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
-        --stdin-file "$WORK/items.txt" --keep-stdin --screen --color \
+        --stdin-file "$stream_input" --keep-stdin --screen --color \
         --cols 40 --rows 12 > "$WORK/ref.c" 2>/dev/null
     python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
-        --stdin-file "$WORK/items.txt" --keep-stdin --screen --color \
+        --stdin-file "$stream_input" --keep-stdin --screen --color \
         --cols 40 --rows 12 > "$WORK/impl.c" 2>/dev/null
     if compare "$WORK/ref.c" "$WORK/impl.c" "$name"; then
         pass=$((pass + 1)); printf 'PASS %s\n' "$name"
@@ -684,6 +685,8 @@ run_stream_case() {
 }
 
 run_stream_case 'live-stream'
+seq 1 2048 > "$WORK/stream-many.txt"
+run_stream_case 'live-stream-growth' "$WORK/stream-many.txt"
 
 # The navigation direction and the scroll offset.
 run_scroll_case() {
