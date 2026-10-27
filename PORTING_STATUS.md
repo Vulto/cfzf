@@ -120,6 +120,9 @@ logical screen states through `tests/screen.py`.
   yet been executed against the pinned reference.
 - `select-down` and `deselect-up` have interactive dispatcher
   implementations and PTY differential cases. Those cases have not been run.
+- `hide-header`, `show-header`, and `toggle-header` preserve and
+  restore the configured header rather than inventing replacement text.
+  Differential cases are present but not executed.
 - GitHub Actions CI and performance workflow files have been removed; this
   project now uses local-only verification by instruction.
 - fzf shows a spinner in the info line while the input is still being read;
