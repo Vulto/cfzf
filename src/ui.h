@@ -70,6 +70,7 @@ typedef struct {
     char        *pending_track_key; /* identity captured before reload */
     int          offset;    /* first visible row */
     char        *query_buf; /* current query text */
+    char        *last_search_query; /* owned snapshot used by change events */
     size_t       query_len, query_cap;
     bool        *selected;
     bool        *excluded; /* items hidden by exclude actions until reload */
