@@ -389,6 +389,27 @@ key ctrl-h
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --header='test header' --bind=ctrl-h:toggle-header
+run_case 'bind-hide-show-preview' 'sleep 350
+key ctrl-h
+sleep 100
+key ctrl-s
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --preview='printf preview' --bind='ctrl-h:hide-preview,ctrl-s:show-preview'
+run_case 'bind-toggle-preview' 'sleep 350
+key ctrl-h
+sleep 100
+key ctrl-h
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --preview='printf preview' --bind=ctrl-h:toggle-preview
+run_case 'bind-backward-kill-subword' 'sleep 350
+send fooBar
+sleep 100
+key ctrl-w
+sleep 150
+key enter
+sleep 200'                                        "$WORK/items.txt" --bind=ctrl-w:backward-kill-subword
 run_case 'bind-abort'     'sleep 350
 key esc
 sleep 200'                                        "$WORK/items.txt" --bind='esc:abort'
