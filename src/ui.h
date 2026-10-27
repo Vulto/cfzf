@@ -133,6 +133,8 @@ typedef struct {
     char         *become_command; /* expanded command that replaces this process */
     char        **runtime_strings; /* owned strings installed by dynamic actions */
     size_t        runtime_strings_n, runtime_strings_cap;
+    char        **placeholder_files; /* temporary files used by shell placeholders */
+    size_t        placeholder_files_n, placeholder_files_cap;
     mm_history_t *history;   /* --history: the query history file */
     const char  *ghost;       /* --ghost: the prompt placeholder */
     int          height;      /* --height: the inline window height (0 = full screen) */
