@@ -2410,6 +2410,29 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             if (next >= 0) ui->cursor = next;
         }
         break;
+    case MM_ACT_SELECT_DOWN:
+        if (ui->nresults > 0) {
+            int item = ui->results[ui->cursor];
+            int limit = ui->multi ? ui->multi_max : 1;
+            if (!ui->selected[item] &&
+                (limit <= 0 || ui->nselected < limit)) {
+                if (limit == 1) ui_clear_selection(ui);
+                ui_select_item(ui, item);
+            }
+            int step = ui_nav_step(ui, false);
+            int next = ui->cursor + step;
+            if (next >= 0 && next < ui->nresults) ui->cursor = next;
+        }
+        break;
+    case MM_ACT_DESELECT_UP:
+        if (ui->nresults > 0) {
+            int item = ui->results[ui->cursor];
+            ui_deselect_item(ui, item);
+            int step = ui_nav_step(ui, true);
+            int next = ui->cursor + step;
+            if (next >= 0 && next < ui->nresults) ui->cursor = next;
+        }
+        break;
     case MM_ACT_REFRESH_PREVIEW:
         if (ui->preview) ui_preview_restart(ui);
         break;
