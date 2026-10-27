@@ -858,6 +858,14 @@ key down
 sleep 100
 key enter
 sleep 200' "$WORK/items.txt" --query=cherry --bind=ctrl-t:enable-raw
+run_case 'raw-mode-original-position' 'sleep 350
+key down
+sleep 100
+key enter
+sleep 200' "$WORK/items.txt" --raw --query=cherry
+run_case 'raw-gutter-custom' 'sleep 350
+key enter
+sleep 200' "$WORK/items.txt" --raw --query=cherry --gutter-raw=X
 run_case 'bind-disable-raw' 'sleep 350
 key down
 sleep 100
