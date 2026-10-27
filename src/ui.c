@@ -2627,7 +2627,10 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         if (b->arg) ui->prompt = b->arg;
         break;
     case MM_ACT_CHANGE_HEADER:
-        if (b->arg) ui->header = b->arg;
+        if (b->arg) {
+            ui->saved_header = b->arg;
+            ui->header = b->arg;
+        }
         break;
     case MM_ACT_CHANGE_MULTI:
         if (b->arg) {
@@ -2677,6 +2680,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui->nselected = 0;
         break;
     case MM_ACT_HIDE_HEADER:
+        if (ui->header) ui->saved_header = ui->header;
         ui->header = NULL;
         break;
     case MM_ACT_HIDE_PREVIEW:
@@ -2712,7 +2716,15 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         if (b->arg) { query_set(ui, b->arg); ui_search(ui); }
         break;
     case MM_ACT_TOGGLE_HEADER:
-        ui->header = ui->header ? NULL : "> ";
+        if (ui->header) {
+            ui->saved_header = ui->header;
+            ui->header = NULL;
+        } else if (ui->saved_header) {
+            ui->header = ui->saved_header;
+        }
+        break;
+    case MM_ACT_SHOW_HEADER:
+        if (ui->saved_header) ui->header = ui->saved_header;
         break;
     case MM_ACT_TOGGLE_HSCROLL:
         ui->no_hscroll = !ui->no_hscroll;
@@ -2809,6 +2821,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     return true;
 }
 int mm_ui_run(mm_ui_t *ui) {
+    if (!ui->saved_header) ui->saved_header = ui->header;
     int ttyin = open("/dev/tty", O_RDONLY);
     int ttyout = open("/dev/tty", O_WRONLY);
     if (ttyin < 0 || ttyout < 0) {
