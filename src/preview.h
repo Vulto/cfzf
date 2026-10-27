@@ -48,9 +48,10 @@ bool mm_preview_poll(mm_preview_t *p);
 /* The output collected so far (NUL terminated, may be empty). */
 const char *mm_preview_output(mm_preview_t *p);
 
-/* Set the selected items (used by the {+} and {f} placeholders). The string
-   is copied. */
-void mm_preview_set_selected(mm_preview_t *p, const char *selected);
+/* Set selected items in two forms: raw newline-separated records for {f},
+   and shell-quoted arguments for {+}. Both strings are copied. */
+void mm_preview_set_selected(mm_preview_t *p, const char *selected,
+                             const char *selected_shell);
 
 /* Change the preview command template. The string is copied. */
 void mm_preview_set_command(mm_preview_t *p, const char *command);
