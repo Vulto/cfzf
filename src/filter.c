@@ -357,7 +357,8 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
             int ntoks = 1;
             bool heap = false;
 
-            if (input->nth_ranges && input->nth_n > 0) {
+            if ((input->nth_ranges && input->nth_n > 0) ||
+                (input->with_nth_ranges && input->with_nth_n > 0)) {
                 int ntok_in = 0, *tpl = NULL;
                 char **tokens = mm_tokenize(search_line, input->delim, &tpl, &ntok_in);
                 if (!tokens || !tpl) {
@@ -427,7 +428,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                 }
                 for (int k = 0; k < ntok_in; k++) free(tokens[k]);
                 free(tokens); free(tpl);
-                if (input->length_from_transform && !input->with_nth_n) {
+                if (input->length_from_transform) {
                     size_t tot = 0;
                     bool size_overflow = false;
                     for (int k = 0; k < nout; k++) {
@@ -438,8 +439,8 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                         }
                         tot += part;
                     }
-                    joined = size_overflow || tot == SIZE_MAX ? NULL : malloc(tot + 1);
-                    if (!joined) {
+                    char *transformed_length = size_overflow || tot == SIZE_MAX ? NULL : malloc(tot + 1);
+                    if (!transformed_length) {
                         for (int k = 0; k < nout; k++) {
                             mchars_free(&stk_text[k]);
                             free(outs[k]);
@@ -453,12 +454,19 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                         search_failed = true;
                         break;
                     }
-                    joined[0] = 0;
-                    for (int k = 0; k < nout; k++) strcat(joined, outs[k]);
-                    mchars_free(&items[i].text);
-                    mchars_init(&items[i].text, joined);
-                    if (!mchars_decode(&items[i].text)) {
-                        free(joined);
+                    size_t offset = 0;
+                    for (int k = 0; k < nout; k++) {
+                        size_t part = strlen(outs[k]);
+                        memcpy(transformed_length + offset, outs[k], part);
+                        offset += part;
+                    }
+                    transformed_length[offset] = '\0';
+                    if (own_items) {
+                        mchars_free(&items[i].text);
+                        mchars_init(&items[i].text, transformed_length);
+                        if (!mchars_decode(&items[i].text)) {
+                            mchars_free(&items[i].text);
+                            free(transformed_length);
                         for (int k = 0; k < nout; k++) {
                             mchars_free(&stk_text[k]);
                             free(outs[k]);
@@ -469,8 +477,13 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                             free(toks);
                             if (stk_text != stack_text) free(stk_text);
                         }
-                        search_failed = true;
-                        break;
+                            search_failed = true;
+                            break;
+                        }
+                        free(joined);
+                        joined = transformed_length;
+                    } else {
+                        free(transformed_length);
                     }
                 }
                 int score = 0;
