@@ -23,8 +23,6 @@ typedef struct {
     mm_delimiter_t delim;
     const mm_range_t *nth_ranges;
     int nth_n;
-    /* Legacy transformed-length mode. New callers should use with_nth_ranges. */
-    bool length_from_transform;
     /* Independent display/search transformation for --with-nth. */
     const mm_range_t *with_nth_ranges;
     int with_nth_n;
