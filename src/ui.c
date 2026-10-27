@@ -24,6 +24,7 @@
 #include <stdint.h>
 
 #define MM_MIN_HEIGHT 1
+#define MM_DEFAULT_JUMP_LABELS "asdfghjklqwertyuiopzxcvbnm1234567890ASDFGHJKLQWERTYUIOPZXCVBNM`~;:,<.>/?'\"!@#$%^&*()[{]}-_=+"
 
 static volatile sig_atomic_t ui_resize_pending;
 
@@ -1331,6 +1332,9 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
        per wrapped line, and the gap adds blank lines between the items. */
     int nitems = ui->nresults - ui->offset;
     if (nitems < 0) nitems = 0;
+    const char *jump_labels = ui->jump_labels && *ui->jump_labels
+                            ? ui->jump_labels : MM_DEFAULT_JUMP_LABELS;
+    if (ui->jump_mode) ui->jump_label_count = 0;
     int dir = (ui->reverse || ui->layout == 1) ? 1 : -1;
     int y = (dir > 0) ? list_first : list_last;
     int block = 0;
@@ -1343,6 +1347,8 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         } else {
             if (y > list_last) break;
         }
+        if (ui->jump_mode && (size_t)block < strlen(jump_labels))
+            ui->jump_label_count = block + 1;
         {
         int item_idx = ui->results[idx];
         char *single_line_text = NULL;
@@ -1487,9 +1493,14 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         if (visible) {
             /* The current line shows the pointer, the other lines the
                gutter character. */
+            char jump_ptr[2] = {0, 0};
             const char *ptr = cur ? ((ui->pointer) ? ui->pointer
                                                     : (ui->no_unicode ? " " : "\u258c"))
                                       : gutter;
+            if (ui->jump_mode && (size_t)block < strlen(jump_labels)) {
+                jump_ptr[0] = jump_labels[block];
+                ptr = jump_ptr;
+            }
             mm_window_cprint(listwin, pfg, bg, pointer_attr, ptr);
             mm_window_cprint(listwin, mfg, bg, 0, mark);
         }
@@ -3361,6 +3372,12 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             if (q) { query_set(ui, q); ui_search(ui); }
         }
         break;
+    case MM_ACT_JUMP:
+    case MM_ACT_JUMP_ACCEPT:
+        ui->jump_mode = ui->nresults > 0
+                      ? (b->action == MM_ACT_JUMP_ACCEPT ? 2 : 1) : 0;
+        ui->jump_label_count = 0;
+        break;
     case MM_ACT_RELOAD:
     case MM_ACT_RELOAD_SYNC:
         /* This port currently collects reload output synchronously. */
@@ -3705,10 +3722,43 @@ int mm_ui_run(mm_ui_t *ui) {
                 break;
             }
         }
-        /* User bindings take precedence over the built-in behaviour. */
+        /* Jump mode consumes the next unbound key as a visible-row label. */
         {
             const mm_binding_t *found[16];
             int nf = mm_bind_lookup(&ui->keymap, &ev, found, 16);
+            if (ui->jump_mode && nf == 0) {
+                int mode = ui->jump_mode;
+                int target = -1;
+                if (ev.type == MM_EV_RUNE && ev.rune >= 0 && ev.rune < 128) {
+                    const char *label = strchr(ui->jump_labels && *ui->jump_labels
+                                               ? ui->jump_labels : MM_DEFAULT_JUMP_LABELS,
+                                               (int)ev.rune);
+                    if (label) {
+                        size_t offset = (size_t)(label - (ui->jump_labels && *ui->jump_labels
+                                                         ? ui->jump_labels : MM_DEFAULT_JUMP_LABELS));
+                        if (offset < (size_t)ui->jump_label_count &&
+                            offset < (size_t)(ui->nresults - ui->offset))
+                            target = ui->offset + (int)offset;
+                    }
+                }
+                ui->jump_mode = 0;
+                if (target >= 0 && target < ui->nresults) {
+                    ui->cursor = target;
+                    ui_exec_event(ui, "jump");
+                    if (mode == 2) running = false;
+                } else {
+                    ui_exec_event(ui, "jump-cancel");
+                }
+                ui_exec_focus_if_changed(ui, &focused_item);
+                if (ui->preview) ui_preview_restart(ui);
+                if (running) ui_render(ui, &r, &listwin, &promptwin, &infowin);
+                continue;
+            }
+            if (ui->jump_mode && nf > 0) {
+                ui->jump_mode = 0;
+                ui_exec_event(ui, "jump-cancel");
+            }
+            /* User bindings take precedence over the built-in behaviour. */
             if (nf > 0) {
                 bool cont = true;
                 for (int i = 0; i < nf && cont; i++)
