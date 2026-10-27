@@ -492,6 +492,7 @@ run_preview_case 'gap-3'            --gap=3
 run_preview_case 'gap-3-preview'    --gap=3 --preview 'echo hi'
 run_preview_case 'gap-line'         --gap=2 --gap-line=-
 run_preview_case 'preview-wrap'      --preview 'seq 1 30' --preview-window wrap
+run_preview_case 'preview-wrap-word' --preview 'printf "one two three four five six seven eight nine ten\\\\n"' --preview-window='right,30%,wrap-word'
 run_preview_case 'preview-wrap-sign' --preview 'printf "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\\n"' --preview-window='right,30%,wrap' --preview-wrap-sign='>>'
 run_preview_case 'preview-wrap-sign-wide' --preview 'printf "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\\n"' --preview-window='right,30%,wrap' --preview-wrap-sign='·· '
 run_preview_case 'preview-long'     --preview 'seq 1 100'
