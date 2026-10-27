@@ -239,3 +239,5 @@ milestone until the current milestone's exit gate is backed by fresh test
 evidence. Current evidence and its scope are recorded in `BASELINE_EVIDENCE.md`.
 
 - `exclude` and `exclude-multi` now mark current/selected items excluded from subsequent searches, including unfiltered mode; PTY differential cases were added but not executed. Exclusions are held by item index for the session and are not persisted across reload replacement.
+
+- `bg-transform` now launches a shell command asynchronously, captures stdout without blocking key input, and applies the returned action chain at EOF. A new background transform replaces the previous job; `bg-cancel` terminates and clears the active job. PTY differential cases were added but not run.
