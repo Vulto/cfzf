@@ -347,14 +347,6 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                     search_failed = true;
                     break;
                 }
-                mchars_free(&items[i].text);
-                if (!mchars_init(&items[i].text, joined) ||
-                    !mchars_decode(&items[i].text)) {
-                    free(joined);
-                    joined = NULL;
-                    search_failed = true;
-                    break;
-                }
                 search_line = joined;
             }
 
