@@ -167,12 +167,18 @@ static bool parse_key(const char *key, mm_event_type_t *type, wchar_t *rune) {
     *rune = 0;
     if (strcmp(key, "space") == 0) { *type = MM_EV_RUNE; *rune = ' '; return true; }
     if (strcmp(key, "enter") == 0 || strcmp(key, "return") == 0) { *type = MM_EV_ENTER; return true; }
-    if (mm_event_from_name(key, type)) {
-        if (*type == MM_EV_RUNE && key[0] && !key[1]) *rune = (wchar_t)key[0];
+
+    /* Key names are UTF-8 strings; user bindings may use a non-ASCII rune. */
+    mbstate_t state = {0};
+    wchar_t decoded;
+    size_t bytes = mbrtowc(&decoded, key, strlen(key), &state);
+    if (bytes != (size_t)-1 && bytes != (size_t)-2 &&
+        bytes == strlen(key) && decoded != L'\0') {
+        *type = MM_EV_RUNE;
+        *rune = decoded;
         return true;
     }
-    /* A single character is a rune binding. */
-    if (key[0] && !key[1]) { *type = MM_EV_RUNE; *rune = (wchar_t)key[0]; return true; }
+    if (mm_event_from_name(key, type)) return true;
     return false;
 }
 
