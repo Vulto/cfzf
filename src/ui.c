@@ -2608,6 +2608,109 @@ fail:
 /* Replace fzf command placeholders. Values inserted into the shell command
    are quoted as single arguments unless the placeholder explicitly requests
    raw text. */
+/* Create a newline-delimited item file for {f}, {+f}, or {*f}.
+   The returned shell word is quoted; the file remains owned by the UI until
+   shutdown so asynchronous commands may finish reading it. */
+static char *ui_expand_item_file(mm_ui_t *ui, int mode) {
+    char *raw = NULL;
+    size_t raw_len = 0, raw_cap = 0;
+
+    if (mode == 2) {
+        for (int i = 0; i < ui->nresults; i++) {
+            int item = ui->results[i];
+            if (item < 0 || item >= ui->count) continue;
+            const char *line = ui->lines[item] ? ui->lines[item] : "";
+            if (!ui_command_append(&raw, &raw_len, &raw_cap, line, strlen(line)) ||
+                !ui_command_append(&raw, &raw_len, &raw_cap, "\n", 1))
+                goto fail;
+        }
+    } else if (mode == 1 && ui->nselected > 0 &&
+               ui->sel_order && ui->sel_order_n > 0) {
+        for (int i = 0; i < ui->sel_order_n; i++) {
+            int item = ui->sel_order[i];
+            if (item < 0 || item >= ui->count || !ui->selected[item]) continue;
+            const char *line = ui->lines[item] ? ui->lines[item] : "";
+            if (!ui_command_append(&raw, &raw_len, &raw_cap, line, strlen(line)) ||
+                !ui_command_append(&raw, &raw_len, &raw_cap, "\n", 1))
+                goto fail;
+        }
+    } else {
+        int item = ui->nresults > 0 && ui->cursor >= 0 &&
+                   ui->cursor < ui->nresults ? ui->results[ui->cursor] : -1;
+        if (item >= 0 && item < ui->count) {
+            const char *line = ui->lines[item] ? ui->lines[item] : "";
+            if (!ui_command_append(&raw, &raw_len, &raw_cap, line, strlen(line)) ||
+                !ui_command_append(&raw, &raw_len, &raw_cap, "\n", 1))
+                goto fail;
+        }
+    }
+
+    const char *directory = getenv("TMPDIR");
+    if (!directory || !*directory) directory = "/tmp";
+    size_t dir_len = strlen(directory);
+    if (dir_len > SIZE_MAX - 32) goto fail;
+    size_t path_cap = dir_len + 32;
+    char *path = malloc(path_cap);
+    if (!path) goto fail;
+    int written = snprintf(path, path_cap, "%s/cfzf-items-XXXXXX", directory);
+    if (written < 0 || (size_t)written >= path_cap) {
+        free(path);
+        goto fail;
+    }
+
+    int fd = mkstemp(path);
+    if (fd < 0) {
+        free(path);
+        goto fail;
+    }
+    size_t offset = 0;
+    while (offset < raw_len) {
+        ssize_t n = write(fd, raw + offset, raw_len - offset);
+        if (n > 0) {
+            offset += (size_t)n;
+            continue;
+        }
+        if (n < 0 && errno == EINTR) continue;
+        close(fd);
+        unlink(path);
+        free(path);
+        goto fail;
+    }
+    if (close(fd) != 0) {
+        unlink(path);
+        free(path);
+        goto fail;
+    }
+
+    if (ui->placeholder_files_n == ui->placeholder_files_cap) {
+        size_t next_cap = ui->placeholder_files_cap
+                        ? ui->placeholder_files_cap * 2 : 8;
+        if (next_cap < ui->placeholder_files_cap ||
+            next_cap > SIZE_MAX / sizeof(*ui->placeholder_files)) {
+            unlink(path);
+            free(path);
+            goto fail;
+        }
+        char **grown = realloc(ui->placeholder_files,
+                               next_cap * sizeof(*ui->placeholder_files));
+        if (!grown) {
+            unlink(path);
+            free(path);
+            goto fail;
+        }
+        ui->placeholder_files = grown;
+        ui->placeholder_files_cap = next_cap;
+    }
+    ui->placeholder_files[ui->placeholder_files_n++] = path;
+    char *quoted = mm_shell_quote(path);
+    free(raw);
+    return quoted;
+
+fail:
+    free(raw);
+    return NULL;
+}
+
 static char *ui_expand_command(mm_ui_t *ui, const char *cmd, bool force_plus) {
     char *out = NULL;
     size_t length = 0, capacity = 0;
@@ -2622,6 +2725,9 @@ static char *ui_expand_command(mm_ui_t *ui, const char *cmd, bool force_plus) {
             else if (cmd[i + 2] == 'n' && cmd[i + 3] == '}') literal_len = 3;
             else if ((cmd[i + 2] == '+' || cmd[i + 2] == '*') &&
                      cmd[i + 3] == '}') literal_len = 3;
+            else if (cmd[i + 2] == 'f' && cmd[i + 3] == '}') literal_len = 3;
+            else if ((cmd[i + 2] == '+' || cmd[i + 2] == '*') &&
+                     cmd[i + 3] == 'f' && cmd[i + 4] == '}') literal_len = 4;
             if (literal_len) {
                 if (!ui_command_append(&out, &length, &capacity,
                                        cmd + i + 1, literal_len))
@@ -2647,6 +2753,25 @@ static char *ui_expand_command(mm_ui_t *ui, const char *cmd, bool force_plus) {
                 if (!ok) goto fail;
             }
             i++;
+            continue;
+        }
+        if (cmd[i] == '{' && cmd[i + 1] == 'f' && cmd[i + 2] == '}') {
+            char *file = ui_expand_item_file(ui, force_plus ? 1 : 0);
+            if (!file) goto fail;
+            bool ok = ui_command_append(&out, &length, &capacity, file, strlen(file));
+            free(file);
+            if (!ok) goto fail;
+            i += 2;
+            continue;
+        }
+        if (cmd[i] == '{' && (cmd[i + 1] == '+' || cmd[i + 1] == '*') &&
+            cmd[i + 2] == 'f' && cmd[i + 3] == '}') {
+            char *file = ui_expand_item_file(ui, cmd[i + 1] == '*' ? 2 : 1);
+            if (!file) goto fail;
+            bool ok = ui_command_append(&out, &length, &capacity, file, strlen(file));
+            free(file);
+            if (!ok) goto fail;
+            i += 3;
             continue;
         }
         if (cmd[i] == '{' && (cmd[i + 1] == '+' || cmd[i + 1] == '*') &&
@@ -4273,6 +4398,13 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
 
 void mm_ui_free(mm_ui_t *ui) {
     ui_bg_transform_cancel(ui);
+    for (size_t i = 0; i < ui->placeholder_files_n; i++) {
+        if (ui->placeholder_files[i]) {
+            (void)unlink(ui->placeholder_files[i]);
+            free(ui->placeholder_files[i]);
+        }
+    }
+    free(ui->placeholder_files);
     free(ui->become_command);
     for (size_t i = 0; i < ui->runtime_strings_n; i++) free(ui->runtime_strings[i]);
     free(ui->runtime_strings);
