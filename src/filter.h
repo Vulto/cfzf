@@ -23,9 +23,11 @@ typedef struct {
     mm_delimiter_t delim;
     const mm_range_t *nth_ranges;
     int nth_n;
-    /* When true, item length/trim (used by --tiebreak=length) is measured on the
-       transformed text (fzf --with-nth) rather than the original (fzf --nth). */
+    /* Legacy transformed-length mode. New callers should use with_nth_ranges. */
     bool length_from_transform;
+    /* Independent display/search transformation for --with-nth. */
+    const mm_range_t *with_nth_ranges;
+    int with_nth_n;
 } mm_input_t;
 
 /* The rune offsets of the matched characters of one result. */
