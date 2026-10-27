@@ -366,6 +366,13 @@ key esc
 sleep 150
 key enter
 sleep 200' "$WORK/items.txt" --header=before --bind='ctrl-t:jump,jump-cancel:change-header(cancel)' --jump-labels=as
+run_case 'event-jump' 'sleep 350
+key ctrl-t
+sleep 150
+key s
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --header=before --bind='ctrl-t:jump,jump:change-header(jumped)' --jump-labels=as
 run_case 'bind-first-last' 'sleep 350
 key end
 sleep 150
