@@ -17,6 +17,8 @@ fi
 
 printf 'apple\nbanana\ncherry\ndate\nelderberry\n' > "$WORK/items.txt"
 printf '10 alpha\n20 beta\n30 gamma\n' > "$WORK/id-items.txt"
+printf 'path with spaces.txt\n' > "$WORK/space-items.txt"
+printf 'alpha path.txt\nbeta path.txt\n' > "$WORK/space-items-multi.txt"
 printf 'src/main.c\nsrc/util.c\nlib/foo.c\nREADME.md\n' > "$WORK/paths.txt"
 # A longer list, so that the list has to scroll.
 i=0; : > "$WORK/many.txt"
