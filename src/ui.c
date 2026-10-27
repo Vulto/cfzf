@@ -3078,13 +3078,14 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         }
         break;
     case MM_ACT_BECOME:
-        /* Replace this process with the given command. */
+        /* Defer exec until the event loop has restored terminal state. */
         if (b->arg && *b->arg) {
-            fflush(stdout);
-            fflush(stderr);
-            execl("/bin/sh", "sh", "-c", b->arg, (char *)NULL);
-            /* The exec failed: report it and keep running. */
-            fprintf(stderr, "fzf: failed to execute %s\n", b->arg);
+            char *expanded = ui_expand_command(ui, b->arg);
+            if (expanded) {
+                free(ui->become_command);
+                ui->become_command = expanded;
+                return false;
+            }
         }
         break;
     case MM_ACT_IGNORE:
@@ -3563,6 +3564,16 @@ int mm_ui_run(mm_ui_t *ui) {
     close(ttyin);
     close(ttyout);
 
+    if (ui->become_command) {
+        fflush(stdout);
+        fflush(stderr);
+        if (ui->shell && *ui->shell)
+            execl(ui->shell, ui->shell, "-c", ui->become_command, (char *)NULL);
+        else
+            execl("/bin/sh", "sh", "-c", ui->become_command, (char *)NULL);
+        fprintf(stderr, "fzf: failed to execute become command: %s\n", ui->become_command);
+        return 2;
+    }
     if (ui->aborted) {
         /* An aborted session prints nothing and exits with 130. */
         exit_code = 130;
@@ -3760,6 +3771,7 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
 
 void mm_ui_free(mm_ui_t *ui) {
     ui_bg_transform_cancel(ui);
+    free(ui->become_command);
     if (ui->items)
         for (int i = 0; i < ui->count; i++) mm_item_free(&ui->items[i]);
     if (ui->lines) {
