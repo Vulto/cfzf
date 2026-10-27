@@ -286,7 +286,14 @@ static void ui_restore_selected_keys(mm_ui_t *ui, char **keys, int key_count) {
 }
 
 static void ui_search(mm_ui_t *ui) {
-    const char *prev_query = ui->query_buf;
+    const char *current_query = ui->query_buf ? ui->query_buf : "";
+    bool query_changed = ui->last_search_query &&
+                         strcmp(ui->last_search_query, current_query) != 0;
+    char *search_query = strdup(current_query);
+    if (search_query) {
+        free(ui->last_search_query);
+        ui->last_search_query = search_query;
+    }
     int prev_nresults = ui->nresults;
     char *track_key = ui->pending_track_key;
     ui->pending_track_key = NULL;
@@ -320,7 +327,7 @@ static void ui_search(mm_ui_t *ui) {
         if (!restored && ui->cursor >= ui->nresults) ui->cursor = ui->nresults ? ui->nresults - 1 : 0;
         if (ui->offset > ui->cursor) ui->offset = ui->cursor;
         /* Trigger events. */
-        if (strcmp(prev_query, ui->query_buf) != 0)
+        if (query_changed)
             ui_exec_event(ui, "change");
         ui_exec_result_events(ui, prev_nresults);
         return;
@@ -329,7 +336,7 @@ static void ui_search(mm_ui_t *ui) {
     mm_pattern_t *pat = mm_pattern_build(ui->query_buf, ui->fuzzy, ui->extended,
                                          ui->case_mode, !ui->literal, forward, true);
     if (!pat) { ui->nresults = 0; free(track_key); /* Trigger events. */
-        if (strcmp(prev_query, ui->query_buf) != 0) ui_exec_event(ui, "change");
+        if (query_changed) ui_exec_event(ui, "change");
         ui_exec_result_events(ui, prev_nresults);
         return; }
     if (ui->no_sort) mm_pattern_set_sortable(pat, false);
@@ -427,7 +434,7 @@ static void ui_search(mm_ui_t *ui) {
     mm_pattern_free(pat);
 
     /* Trigger events. */
-    if (strcmp(prev_query, ui->query_buf) != 0)
+    if (query_changed)
         ui_exec_event(ui, "change");
     ui_exec_result_events(ui, prev_nresults);
 }
@@ -4087,6 +4094,7 @@ bool mm_ui_read_items(mm_ui_t *ui, int ttyin) {
 
 bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->result_events_initialized = false;
+    ui->last_search_query = NULL;
     /* No descriptor means input was collected before entering the UI.
        Streaming callers install their descriptor after initialization. */
     ui->input_fd = -1;
@@ -4149,6 +4157,7 @@ void mm_ui_free(mm_ui_t *ui) {
     free(ui->results);
     free(ui->search_results);
     free(ui->pending_track_key);
+    free(ui->last_search_query);
     free(ui->query_buf);
     mm_delimiter_free(&ui->delim);
     mm_keymap_free(&ui->keymap);
