@@ -1916,7 +1916,6 @@ int main(int argc, char **argv) {
             fprintf(stderr, "invalid --with-nth: %s\n", with_nth_spec);
             goto interactive_error;
         }
-        ui.length_from_transform = false;
         if (!mm_ui_init(&ui, lines, count, cap)) {
             fprintf(stderr, "fzf: out of memory\n");
             goto interactive_error;
