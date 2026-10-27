@@ -69,6 +69,7 @@ typedef struct {
     char        *query_buf; /* current query text */
     size_t       query_len, query_cap;
     bool        *selected;
+    bool        *excluded; /* items hidden by exclude actions until reload */
     int          nselected;
     /* The items can be read while the program is running, so that a live
        stream shows up immediately (fzf reads the input in the background). */
