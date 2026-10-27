@@ -2956,23 +2956,23 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
 }
 
 /* Start a transform without blocking input. Only one job is active at a time. */
+static void ui_bg_transform_cancel(mm_ui_t *ui);
+
 static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
     if (!cmd || !*cmd) return;
-    if (ui->bg_transform_pid > 0) {
-        if (kill(-ui->bg_transform_pid, SIGKILL) < 0)
-            (void)kill(ui->bg_transform_pid, SIGKILL);
-        while (waitpid(ui->bg_transform_pid, NULL, 0) < 0 && errno == EINTR) {}
-    }
-    if (ui->bg_transform_fd >= 0) close(ui->bg_transform_fd);
-    free(ui->bg_transform_output);
-    ui->bg_transform_output = NULL;
-    ui->bg_transform_len = ui->bg_transform_cap = 0;
-    ui->bg_transform_pid = 0;
-    ui->bg_transform_fd = -1;
+    ui_bg_transform_cancel(ui);
+    size_t placeholder_checkpoint = ui->placeholder_files_n;
     char *expanded = ui_expand_command(ui, cmd, false);
-    if (!expanded) return;
+    if (!expanded) {
+        ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
+        return;
+    }
     int fds[2];
-    if (pipe(fds) != 0) { free(expanded); return; }
+    if (pipe(fds) != 0) {
+        free(expanded);
+        ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
+        return;
+    }
     pid_t pid = fork();
     if (pid == 0) {
         (void)setpgid(0, 0);
@@ -2985,12 +2985,17 @@ static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
     }
     free(expanded);
     close(fds[1]);
-    if (pid < 0) { close(fds[0]); return; }
+    if (pid < 0) {
+        close(fds[0]);
+        ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
+        return;
+    }
     (void)setpgid(pid, pid);
     int flags = fcntl(fds[0], F_GETFL, 0);
     if (flags >= 0) (void)fcntl(fds[0], F_SETFL, flags | O_NONBLOCK);
     ui->bg_transform_pid = pid;
     ui->bg_transform_fd = fds[0];
+    ui->bg_transform_placeholder_start = placeholder_checkpoint;
 }
 
 /* Drain output without blocking; wait for process exit without blocking too. */
@@ -3042,6 +3047,9 @@ static bool ui_bg_transform_poll(mm_ui_t *ui) {
     if (waited == 0 || (waited < 0 && errno == EINTR)) return true;
     if (waited < 0 && errno != ECHILD) return true;
     ui->bg_transform_pid = 0;
+    size_t placeholder_checkpoint = ui->bg_transform_placeholder_start;
+    ui->bg_transform_placeholder_start = ui->placeholder_files_n;
+    ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
     /* Detach the completed job before applying its actions: the returned
        chain may start or cancel another background transform. */
     char *output = ui->bg_transform_output;
@@ -3086,6 +3094,8 @@ static void ui_bg_transform_cancel(mm_ui_t *ui) {
     free(ui->bg_transform_output);
     ui->bg_transform_output = NULL;
     ui->bg_transform_len = ui->bg_transform_cap = 0;
+    ui_cleanup_placeholder_files(ui, ui->bg_transform_placeholder_start);
+    ui->bg_transform_placeholder_start = ui->placeholder_files_n;
 }
 
 /* Preview scrolling operates on output lines and clamps to the available tail. */
@@ -4396,6 +4406,7 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->bg_transform_fd = -1;
     ui->bg_transform_output = NULL;
     ui->bg_transform_len = ui->bg_transform_cap = 0;
+    ui->bg_transform_placeholder_start = 0;
     ui->become_command = NULL;
     ui->runtime_strings = NULL;
     ui->runtime_strings_n = ui->runtime_strings_cap = 0;
