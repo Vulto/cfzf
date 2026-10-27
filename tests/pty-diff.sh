@@ -399,6 +399,13 @@ key ctrl-h
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --header='test header' --bind=ctrl-h:toggle-header
+run_case 'bind-toggle-input' 'sleep 350
+key ctrl-i
+sleep 200' "$WORK/items.txt" --bind=ctrl-i:toggle-input
+run_case 'bind-show-input' 'sleep 350
+key ctrl-i
+sleep 200' "$WORK/items.txt" --no-input --bind=ctrl-i:show-input
+
 run_case 'bind-hide-show-preview' 'sleep 350
 key ctrl-h
 sleep 100
