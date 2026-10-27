@@ -898,6 +898,7 @@ sleep 300
     fi
 }
 run_execute_file_case 'execute-file-placeholder' 'execute' '{f}'
+run_execute_file_case 'execute-multi-explicit-file-placeholder' 'execute-multi' '{f}'
 run_execute_file_case 'execute-selected-file-placeholder' 'execute' '{+f}'
 run_execute_file_case 'execute-matched-file-placeholder' 'execute' '{*f}'
 
