@@ -108,11 +108,12 @@ logical screen states through `tests/screen.py`.
   are inherited inventory claims; the current CI suite covers only the cases
   recorded in `BASELINE_EVIDENCE.md`. Some unsupported options are rejected,
   but exact CLI parity has not been certified.
-- The action inventory currently has 125 rows, with 66 marked implemented but
-  unverified and 59 unstarted; seven IDs are absent from the table. Although
-  `--bind` and action handling exist in the source, no action is currently
-  marked differentially verified in `FEATURES.md`. All 13 events are marked
-  unstarted; infrastructure presence is not equivalent to event parity.
+- The latest source audit finds 128 action rows: 54 marked implemented, 36
+  implemented but unverified, and 38 unstarted. IDs 060, 065, 100, and 123
+  are absent from the inventory and need reconciliation against upstream. No
+  action is marked differentially verified in `FEATURES.md`. All 13 events
+  remain marked unstarted; infrastructure presence is not equivalent to event
+  parity.
 - Interactive `--select-1` / `--exit-0` now auto-exit from the initial
   result set, deferring the decision until asynchronous input is complete.
   PTY regression cases were added; differential execution is still pending.
