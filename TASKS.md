@@ -119,11 +119,12 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   does not silently choose an arbitrary system `fzf`.
 - `tests/batch-diff.sh`, `tests/algo-diff.sh`, and `tests/nth-diff.sh`
   regenerate test corpora and compare output streams and exit status.
-- The last recorded inventory had 131 option rows (77 verified, 20 implemented
-  but unverified, 34 unstarted), 125 action rows (68 implemented but
-  unverified, 57 unstarted), and 13 event rows (all unstarted). Seven action
-  IDs in the 001–132 range were absent before the recent `transform` inventory addition; six remain unresolved. These counts are a warning that the
-  inventory needs reconciliation, not proof of implementation completeness.
+- Latest source inventory audit: 131 option rows (77 labeled verified, 20
+  implemented but unverified, 34 unstarted), 128 action rows (54 implemented,
+  36 implemented but unverified, 38 unstarted), and 13 event rows (all
+  unstarted). Action IDs 060, 065, 100, and 123 are absent from the inventory.
+  These labels and counts are not proof of behavioral parity; only fresh local
+  differential runs can verify the current commit.
 - Historical test totals and benchmark numbers are not current evidence.
   `BASELINE_EVIDENCE.md` must identify the exact tested commit and local run.
 - Interactive `--select-1` / `--exit-0` now check the initial result set and
