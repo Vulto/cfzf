@@ -111,7 +111,28 @@ void mm_preview_free(mm_preview_t *p) {
     free(p);
 }
 
-/* Expand the fzf placeholders in the command template. */
+/* Append bytes to a command string while checking size arithmetic. */
+static bool preview_append(char **out, size_t *length, size_t *capacity,
+                           const char *text, size_t n) {
+    if (n > SIZE_MAX - *length - 1) return false;
+    size_t need = *length + n + 1;
+    if (need > *capacity) {
+        size_t cap = *capacity ? *capacity : 64;
+        while (cap < need) {
+            if (cap > SIZE_MAX / 2) { cap = need; break; }
+            cap *= 2;
+        }
+        char *grown = realloc(*out, cap);
+        if (!grown) return false;
+        *out = grown;
+        *capacity = cap;
+    }
+    if (n) memcpy(*out + *length, text, n);
+    *length += n;
+    (*out)[*length] = '\0';
+    return true;
+}
+
 /* Write all selected records, handling short writes and interrupted calls. */
 static bool preview_write_selected(int fd, const char *selected) {
     size_t len = selected ? strlen(selected) : 0;
@@ -128,8 +149,8 @@ static bool preview_write_selected(int fd, const char *selected) {
     return true;
 }
 
-/* Write the selected items to a temporary file and return its path. The same
-   path can be reused, but its contents must follow the current selection. */
+/* Write selected records to a reusable file; refreshed selections must not
+   leave the contents from the previous invocation. */
 static char *preview_tmpfile(mm_preview_t *p, const char *selected) {
     if (p->tmpfile) {
         int fd = open(p->tmpfile, O_WRONLY | O_TRUNC);
@@ -140,12 +161,11 @@ static char *preview_tmpfile(mm_preview_t *p, const char *selected) {
     }
     const char *dir = getenv("TMPDIR");
     if (!dir || !*dir) dir = "/tmp";
-    size_t n = strlen(dir);
-    if (n > SIZE_MAX - 32) return NULL;
-    n += 32;
-    char *path = malloc(n);
+    size_t dir_len = strlen(dir);
+    if (dir_len > SIZE_MAX - 32) return NULL;
+    char *path = malloc(dir_len + 32);
     if (!path) return NULL;
-    snprintf(path, n, "%s/fzf-preview-XXXXXX", dir);
+    snprintf(path, dir_len + 32, "%s/fzf-preview-XXXXXX", dir);
     int fd = mkstemp(path);
     if (fd < 0) { free(path); return NULL; }
     if (!preview_write_selected(fd, selected)) {
@@ -159,71 +179,85 @@ static char *preview_tmpfile(mm_preview_t *p, const char *selected) {
     return path;
 }
 
+/* Replace preview placeholders with shell-safe arguments. {r} is raw item
+   text, while {n} is its zero-based input index. Backslash escapes a slot. */
 static char *preview_expand(mm_preview_t *p, const char *cmd, const char *item,
                             const char *query, int index) {
-    size_t cap = strlen(cmd) * 2 + 64;
-    char *out = malloc(cap);
-    if (!out) return NULL;
-    size_t o = 0;
+    char *out = NULL;
+    size_t length = 0, capacity = 0;
+    const char *raw_item = item ? item : "";
+    const char *raw_query = query ? query : "";
+
     for (size_t i = 0; cmd[i]; i++) {
+        if (cmd[i] == '\\' && cmd[i + 1] == '{') {
+            size_t literal_len = 0;
+            if (cmd[i + 2] == '}') literal_len = 2;
+            else if ((cmd[i + 2] == 'q' || cmd[i + 2] == '+' ||
+                      cmd[i + 2] == 'f' || cmd[i + 2] == 'r' ||
+                      cmd[i + 2] == 'n') && cmd[i + 3] == '}')
+                literal_len = 3;
+            if (literal_len) {
+                if (!preview_append(&out, &length, &capacity,
+                                    cmd + i + 1, literal_len))
+                    goto fail;
+                i += literal_len;
+                continue;
+            }
+        }
+
+        const char *value = NULL;
+        char *owned = NULL;
+        size_t slot_len = 0;
         if (cmd[i] == '{' && cmd[i + 1] == '}') {
-            const char *rep = item ? item : "";
-            size_t rl = strlen(rep);
-            while (o + rl + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-            memcpy(out + o, rep, rl);
-            o += rl;
-            i++;
-            continue;
-        }
-        if (cmd[i] == '{' && cmd[i + 1] == 'q' && cmd[i + 2] == '}') {
-            size_t rl = query ? strlen(query) : 0;
-            while (o + rl + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-            memcpy(out + o, query ? query : "", rl);
-            o += rl;
+            owned = mm_shell_quote(raw_item);
+            slot_len = 2;
+        } else if (cmd[i] == '{' && cmd[i + 1] == 'q' && cmd[i + 2] == '}') {
+            owned = mm_shell_quote(raw_query);
+            slot_len = 3;
+        } else if (cmd[i] == '{' && cmd[i + 1] == '+' && cmd[i + 2] == '}') {
+            if (p->selected_shell) value = p->selected_shell;
+            else {
+                owned = mm_shell_quote(raw_item);
+                value = owned;
+            }
+            slot_len = 3;
+        } else if (cmd[i] == '{' && cmd[i + 1] == 'f' && cmd[i + 2] == '}') {
+            const char *path = preview_tmpfile(p, p->selected ? p->selected : "");
+            owned = mm_shell_quote(path ? path : "");
+            slot_len = 3;
+        } else if (cmd[i] == '{' && cmd[i + 1] == 'r' && cmd[i + 2] == '}') {
+            value = raw_item;
+            slot_len = 3;
+        } else if (cmd[i] == '{' && cmd[i + 1] == 'n' && cmd[i + 2] == '}') {
+            char number[32];
+            int n = snprintf(number, sizeof(number), "%d", index);
+            if (n < 0 || (size_t)n >= sizeof(number) ||
+                !preview_append(&out, &length, &capacity, number, (size_t)n))
+                goto fail;
             i += 2;
             continue;
-        }
-        if (cmd[i] == '{' && cmd[i + 1] == '+' && cmd[i + 2] == '}') {
-            const char *rep = p->selected ? p->selected : "";
-            size_t rl = strlen(rep);
-            while (o + rl + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-            memcpy(out + o, rep, rl);
-            o += rl;
-            i += 2;
+        } else {
+            if (!preview_append(&out, &length, &capacity, cmd + i, 1))
+                goto fail;
             continue;
         }
-        if (cmd[i] == '{' && cmd[i + 1] == 'f' && cmd[i + 2] == '}') {
-            const char *rep = preview_tmpfile(p, p->selected);
-            size_t rl = rep ? strlen(rep) : 0;
-            while (o + rl + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-            if (rep) memcpy(out + o, rep, rl);
-            o += rl;
-            i += 2;
-            continue;
+
+        if (owned) value = owned;
+        if (!value) { free(owned); goto fail; }
+        if (!preview_append(&out, &length, &capacity, value, strlen(value))) {
+            free(owned);
+            goto fail;
         }
-        if (cmd[i] == '{' && cmd[i + 1] == 'r' && cmd[i + 2] == '}') {
-            /* The 1-based row of the current selection. */
-            char num[32];
-            int nl = snprintf(num, sizeof(num), "%d", index + 1);
-            const char *rep = num;
-            size_t rl = (size_t)nl;
-            while (o + rl + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-            memcpy(out + o, rep, rl); o += rl; i += 2; continue;
-        }
-        if (cmd[i] == '{' && cmd[i + 1] == 'n' && cmd[i + 2] == '}') {
-            char num[32];
-            int nl = snprintf(num, sizeof(num), "%d", index);
-            while (o + (size_t)nl + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-            memcpy(out + o, num, (size_t)nl);
-            o += (size_t)nl;
-            i += 2;
-            continue;
-        }
-        if (o + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-        out[o++] = cmd[i];
+        free(owned);
+        i += slot_len - 1;
     }
-    out[o] = 0;
+
+    if (!out) return strdup("");
     return out;
+
+fail:
+    free(out);
+    return NULL;
 }
 
 void mm_preview_start(mm_preview_t *p, const char *item, const char *query, int index) {
