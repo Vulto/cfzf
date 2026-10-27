@@ -3593,6 +3593,7 @@ int mm_ui_run(mm_ui_t *ui) {
 
     bool running = true;
     int focused_item = -2; /* sentinel forces the initial focus event */
+    ui_exec_focus_if_changed(ui, &focused_item);
     /* Do not auto-accept a transient single result while a producer is still
        feeding the input stream. fzf evaluates --select-1/--exit-0 against the
        completed initial result set, not an arbitrary partial read. */
