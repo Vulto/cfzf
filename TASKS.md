@@ -126,6 +126,9 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   inventory needs reconciliation, not proof of implementation completeness.
 - Historical test totals and benchmark numbers are not current evidence.
   `BASELINE_EVIDENCE.md` must identify the exact tested commit and run.
+- Interactive `--select-1` / `--exit-0` now check the initial result set and
+  wait for asynchronous input completion before auto-exiting; PTY regression
+  cases were added, but have not yet been run against the pinned reference.
 - Refresh these facts from the repository and latest CI before relying on them.
 
 ## Reporting and completion rules
