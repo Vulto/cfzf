@@ -136,3 +136,29 @@ wchar_t mchars_at(mchars_t *c, int i) {
     if (!mchars_decode(c)) return 0;
     return c->runes[i];
 }
+
+/* POSIX single-quote escaping keeps placeholders a single shell argument,
+   including names containing whitespace or shell metacharacters. */
+char *mm_shell_quote(const char *s) {
+    if (!s) s = "";
+    size_t len = strlen(s);
+    if (len > (SIZE_MAX - 3) / 4) return NULL;
+
+    char *quoted = malloc(len * 4 + 3);
+    if (!quoted) return NULL;
+    size_t out = 0;
+    quoted[out++] = '\'';
+    for (size_t i = 0; i < len; i++) {
+        if (s[i] == '\'') {
+            quoted[out++] = '\'';
+            quoted[out++] = '\\';
+            quoted[out++] = '\'';
+            quoted[out++] = '\'';
+        } else {
+            quoted[out++] = s[i];
+        }
+    }
+    quoted[out++] = '\'';
+    quoted[out] = '\0';
+    return quoted;
+}
