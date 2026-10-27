@@ -2646,13 +2646,17 @@ static bool ui_bg_transform_poll(mm_ui_t *ui) {
     if (waited == 0 || (waited < 0 && errno == EINTR)) return true;
     if (waited < 0 && errno != ECHILD) return true;
     ui->bg_transform_pid = 0;
-    if (!ui->bg_transform_output) ui->bg_transform_output = calloc(1, 1);
-    bool keep = true;
-    if (ui->bg_transform_output)
-        keep = ui_apply_transform_output(ui, ui->bg_transform_output, ui->bg_transform_len);
-    free(ui->bg_transform_output);
+    /* Detach the completed job before applying its actions: the returned
+       chain may start or cancel another background transform. */
+    char *output = ui->bg_transform_output;
+    size_t output_len = ui->bg_transform_len;
     ui->bg_transform_output = NULL;
     ui->bg_transform_len = ui->bg_transform_cap = 0;
+    if (!output) output = calloc(1, 1);
+    bool keep = true;
+    if (output)
+        keep = ui_apply_transform_output(ui, output, output_len);
+    free(output);
     return keep;
 }
 
