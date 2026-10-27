@@ -1982,7 +1982,6 @@ int main(int argc, char **argv) {
         goto fail;
     }
 
-    bool length_from_transform = false;
     char **ansi_lines = NULL;
     char **search_lines = lines;
     if (ansi && count > 0) {
@@ -2045,7 +2044,6 @@ int main(int argc, char **argv) {
     mm_input_t input = {
         .lines = search_lines, .count = count, .items = NULL, .base = 0,
         .delim = delim, .nth_ranges = nth, .nth_n = nth_n,
-        .length_from_transform = length_from_transform,
         .with_nth_ranges = wnth, .with_nth_n = wnth_n
     };
     int n = 0;
