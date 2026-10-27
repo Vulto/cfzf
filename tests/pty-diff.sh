@@ -1010,6 +1010,17 @@ sleep 200' "$WORK/change-nth.txt" --query=apple --nth=1
 run_case 'interactive-nth-second-field' 'sleep 350
 key enter
 sleep 200' "$WORK/change-nth.txt" --query=apple --nth=2
+run_case 'interactive-with-nth-display' 'sleep 350
+key enter
+sleep 200' "$WORK/change-nth.txt" --query=apple --with-nth=2
+run_case 'interactive-nth-after-with-nth' 'sleep 350
+key enter
+sleep 200' "$WORK/change-nth.txt" --query=beta --nth=1 --with-nth=2
+run_case 'bind-change-with-nth' 'sleep 350
+key ctrl-t
+sleep 200
+key enter
+sleep 200' "$WORK/change-nth.txt" --query=apple --bind='ctrl-t:change-with-nth(2)'
 run_case 'bind-change-border-label' 'sleep 350
 key ctrl-t
 sleep 150
