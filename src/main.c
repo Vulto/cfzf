@@ -1907,8 +1907,10 @@ int main(int argc, char **argv) {
                 ui.preview_win.border_left_only = false;
             }
         }
-        if (with_nth_spec && !mm_parse_ranges(with_nth_spec, &ui.nth, &ui.nth_n)) {
-            fprintf(stderr, "invalid --with-nth: %s\n", with_nth_spec);
+        const char *ui_nth_spec = nth_spec ? nth_spec : with_nth_spec;
+        if (ui_nth_spec && !mm_parse_ranges(ui_nth_spec, &ui.nth, &ui.nth_n)) {
+            fprintf(stderr, "invalid %s: %s\n",
+                    nth_spec ? "--nth" : "--with-nth", ui_nth_spec);
             goto interactive_error;
         }
         ui.length_from_transform = (!nth_spec && with_nth_spec);
