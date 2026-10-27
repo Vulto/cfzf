@@ -170,7 +170,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-005 | `backward-delete-char` | src/bind.c, src/ui.c | tests/pty-diff.sh:query-cursor-backspace | implemented but unverified |
 | ACT-006 | `backward-kill-subword` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-kill-subword | implemented but unverified |
 | ACT-007 | `backward-kill-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-kill-word | implemented but unverified |
-| ACT-008 | `backward-subword` | - | - | unstarted |
+| ACT-008 | `backward-subword` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-subword | implemented but unverified |
 | ACT-009 | `backward-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-word | implemented but unverified |
 | ACT-010 | `become` | src/bind.c, src/ui.c, src/ui.h | tests/pty-diff.sh:bind-become-command | implemented but unverified |
 | ACT-011 | `bell` | - | - | unstarted |
