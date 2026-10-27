@@ -174,7 +174,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-009 | `backward-word` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-backward-word | implemented but unverified |
 | ACT-010 | `become` | src/bind.c, src/ui.c, src/ui.h | tests/pty-diff.sh:bind-become-command | implemented but unverified |
 | ACT-011 | `bell` | src/bind.c, src/ui.c | - | implemented but unverified |
-| ACT-012 | `best` | - | - | unstarted |
+| ACT-012 | `best` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-best | implemented but unverified |
 | ACT-013 | `bg-cancel` | src/bind.c, src/ui.c, src/ui.h | tests/pty-diff.sh:bind-bg-cancel | implemented but unverified |
 | ACT-014 | `cancel` | src/bind.c, src/ui.c | - | implemented but unverified |
 | ACT-015 | `change-border-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-border-label | implemented but unverified |
