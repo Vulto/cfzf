@@ -2403,62 +2403,8 @@ static void ui_run_command(mm_ui_t *ui, const char *cmd, bool silent) {
     }
 }
 
-/* Run transform(command), parse its stdout as a normal fzf action chain, and
-   execute the resulting actions in order. The command's output is bounded only
-   by available memory, and a failed child or malformed action is ignored. */
-static bool ui_transform(mm_ui_t *ui, const char *cmd) {
-    if (!cmd || !*cmd) return true;
-    char *expanded = ui_expand_command(ui, cmd);
-    if (!expanded) return true;
-
-    int fds[2];
-    if (pipe(fds) != 0) {
-        free(expanded);
-        return true;
-    }
-    pid_t pid = fork();
-    if (pid == 0) {
-        close(fds[0]);
-        if (dup2(fds[1], STDOUT_FILENO) < 0) _exit(127);
-        close(fds[1]);
-        if (ui->shell && *ui->shell)
-            execl(ui->shell, ui->shell, "-c", expanded, (char *)NULL);
-        else
-            execl("/bin/sh", "sh", "-c", expanded, (char *)NULL);
-        _exit(127);
-    }
-    free(expanded);
-    close(fds[1]);
-    if (pid < 0) {
-        close(fds[0]);
-        return true;
-    }
-
-    size_t len = 0, cap = 256;
-    char *output = malloc(cap);
-    if (!output) {
-        close(fds[0]);
-        while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
-        return true;
-    }
-    for (;;) {
-        if (len + 128 + 1 > cap) {
-            if (cap > SIZE_MAX / 2) break;
-            size_t next_cap = cap * 2;
-            char *grown = realloc(output, next_cap);
-            if (!grown) break;
-            output = grown;
-            cap = next_cap;
-        }
-        ssize_t n = read(fds[0], output + len, cap - len - 1);
-        if (n > 0) { len += (size_t)n; continue; }
-        if (n < 0 && errno == EINTR) continue;
-        break;
-    }
-    close(fds[0]);
-    while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
-    output[len] = '\0';
-
+/* Apply action-chain text produced by transform or bg-transform. */
+static bool ui_apply_transform_output(mm_ui_t *ui, char *output, size_t len) {
     size_t first = 0;
     while (first < len && isspace((unsigned char)output[first])) first++;
     while (len > first && isspace((unsigned char)output[len - 1])) len--;
@@ -2487,8 +2433,144 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
             free(spec);
         }
     }
-    free(output);
     return keep_running;
+}
+
+/* Run transform(command), capture stdout, then execute the returned action chain. */
+static bool ui_transform(mm_ui_t *ui, const char *cmd) {
+    if (!cmd || !*cmd) return true;
+    char *expanded = ui_expand_command(ui, cmd);
+    if (!expanded) return true;
+    int fds[2];
+    if (pipe(fds) != 0) { free(expanded); return true; }
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fds[0]);
+        if (dup2(fds[1], STDOUT_FILENO) < 0) _exit(127);
+        close(fds[1]);
+        if (ui->shell && *ui->shell) execl(ui->shell, ui->shell, "-c", expanded, (char *)NULL);
+        else execl("/bin/sh", "sh", "-c", expanded, (char *)NULL);
+        _exit(127);
+    }
+    free(expanded);
+    close(fds[1]);
+    if (pid < 0) { close(fds[0]); return true; }
+    size_t len = 0, cap = 256;
+    char *output = malloc(cap);
+    if (!output) {
+        close(fds[0]);
+        while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+        return true;
+    }
+    for (;;) {
+        if (len + 128 + 1 > cap) {
+            if (cap > SIZE_MAX / 2) break;
+            char *grown = realloc(output, cap * 2);
+            if (!grown) break;
+            output = grown; cap *= 2;
+        }
+        ssize_t n = read(fds[0], output + len, cap - len - 1);
+        if (n > 0) { len += (size_t)n; continue; }
+        if (n < 0 && errno == EINTR) continue;
+        break;
+    }
+    close(fds[0]);
+    while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
+    output[len] = '\0';
+    bool keep = ui_apply_transform_output(ui, output, len);
+    free(output);
+    return keep;
+}
+
+/* Start a transform without blocking input. Only one job is active at a time. */
+static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
+    if (!cmd || !*cmd) return;
+    if (ui->bg_transform_pid > 0) {
+        kill(ui->bg_transform_pid, SIGTERM);
+        while (waitpid(ui->bg_transform_pid, NULL, 0) < 0 && errno == EINTR) {}
+    }
+    if (ui->bg_transform_fd >= 0) close(ui->bg_transform_fd);
+    free(ui->bg_transform_output);
+    ui->bg_transform_output = NULL;
+    ui->bg_transform_len = ui->bg_transform_cap = 0;
+    ui->bg_transform_pid = 0;
+    ui->bg_transform_fd = -1;
+    char *expanded = ui_expand_command(ui, cmd);
+    if (!expanded) return;
+    int fds[2];
+    if (pipe(fds) != 0) { free(expanded); return; }
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fds[0]);
+        if (dup2(fds[1], STDOUT_FILENO) < 0) _exit(127);
+        close(fds[1]);
+        if (ui->shell && *ui->shell) execl(ui->shell, ui->shell, "-c", expanded, (char *)NULL);
+        else execl("/bin/sh", "sh", "-c", expanded, (char *)NULL);
+        _exit(127);
+    }
+    free(expanded);
+    close(fds[1]);
+    if (pid < 0) { close(fds[0]); return; }
+    int flags = fcntl(fds[0], F_GETFL, 0);
+    if (flags >= 0) (void)fcntl(fds[0], F_SETFL, flags | O_NONBLOCK);
+    ui->bg_transform_pid = pid;
+    ui->bg_transform_fd = fds[0];
+}
+
+/* Drain background output; apply its action chain only after EOF. */
+static bool ui_bg_transform_poll(mm_ui_t *ui) {
+    if (ui->bg_transform_pid <= 0 || ui->bg_transform_fd < 0) return true;
+    char buf[4096];
+    bool eof = false;
+    for (;;) {
+        ssize_t n = read(ui->bg_transform_fd, buf, sizeof(buf));
+        if (n > 0) {
+            if ((size_t)n > SIZE_MAX - ui->bg_transform_len - 1) { eof = true; break; }
+            size_t need = ui->bg_transform_len + (size_t)n + 1;
+            if (need > ui->bg_transform_cap) {
+                size_t cap = ui->bg_transform_cap ? ui->bg_transform_cap : 256;
+                while (cap < need && cap <= SIZE_MAX / 2) cap *= 2;
+                if (cap < need) { eof = true; break; }
+                char *grown = realloc(ui->bg_transform_output, cap);
+                if (!grown) { eof = true; break; }
+                ui->bg_transform_output = grown; ui->bg_transform_cap = cap;
+            }
+            memcpy(ui->bg_transform_output + ui->bg_transform_len, buf, (size_t)n);
+            ui->bg_transform_len += (size_t)n;
+            ui->bg_transform_output[ui->bg_transform_len] = '\0';
+            continue;
+        }
+        if (n < 0 && errno == EINTR) continue;
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return true;
+        eof = true;
+        break;
+    }
+    if (!eof) return true;
+    close(ui->bg_transform_fd);
+    ui->bg_transform_fd = -1;
+    while (waitpid(ui->bg_transform_pid, NULL, 0) < 0 && errno == EINTR) {}
+    ui->bg_transform_pid = 0;
+    if (!ui->bg_transform_output) ui->bg_transform_output = calloc(1, 1);
+    bool keep = true;
+    if (ui->bg_transform_output)
+        keep = ui_apply_transform_output(ui, ui->bg_transform_output, ui->bg_transform_len);
+    free(ui->bg_transform_output);
+    ui->bg_transform_output = NULL;
+    ui->bg_transform_len = ui->bg_transform_cap = 0;
+    return keep;
+}
+
+static void ui_bg_transform_cancel(mm_ui_t *ui) {
+    if (ui->bg_transform_pid > 0) {
+        (void)kill(ui->bg_transform_pid, SIGTERM);
+        while (waitpid(ui->bg_transform_pid, NULL, 0) < 0 && errno == EINTR) {}
+    }
+    ui->bg_transform_pid = 0;
+    if (ui->bg_transform_fd >= 0) close(ui->bg_transform_fd);
+    ui->bg_transform_fd = -1;
+    free(ui->bg_transform_output);
+    ui->bg_transform_output = NULL;
+    ui->bg_transform_len = ui->bg_transform_cap = 0;
 }
 
 /* Preview scrolling operates on output lines and clamps to the available tail. */
@@ -2878,6 +2960,12 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_TRANSFORM:
         return ui_transform(ui, b->arg);
+    case MM_ACT_BG_TRANSFORM:
+        ui_bg_transform_start(ui, b->arg);
+        break;
+    case MM_ACT_BG_CANCEL:
+        ui_bg_transform_cancel(ui);
+        break;
     case MM_ACT_EXCLUDE:
     case MM_ACT_EXCLUDE_MULTI: {
         bool multi_action = b->action == MM_ACT_EXCLUDE_MULTI;
@@ -3235,6 +3323,7 @@ int mm_ui_run(mm_ui_t *ui) {
             /* Timed out: read the items that arrived in the meantime and
                give the preview a chance to produce output. */
             bool more = mm_ui_read_items(ui, ttyin);
+            if (!ui_bg_transform_poll(ui)) running = false;
             if (more) { ui_search(ui); }
             input_complete = ui->input_fd < 0 || ui->input_done;
             if (input_complete &&
@@ -3617,6 +3706,7 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     /* No descriptor means input was collected before entering the UI.
        Streaming callers install their descriptor after initialization. */
     ui->input_fd = -1;
+    ui->bg_transform_fd = -1;
     ui->lines = lines;
     ui->count = 0;
     ui->lines_cap = cap;
@@ -3645,6 +3735,7 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
 }
 
 void mm_ui_free(mm_ui_t *ui) {
+    ui_bg_transform_cancel(ui);
     if (ui->items)
         for (int i = 0; i < ui->count; i++) mm_item_free(&ui->items[i]);
     if (ui->lines) {
