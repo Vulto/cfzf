@@ -760,3 +760,66 @@ fail:
     free(prefix);
     return NULL;
 }
+
+/* Apply with-nth to a complete record, preserving each transformed token's
+   delimiter/prefix bytes exactly as mm_transform defines them. */
+char *mm_transform_line(const char *line, mm_delimiter_t delim,
+                        const mm_range_t *ranges, int nranges) {
+    if (!line) return NULL;
+    if (!ranges || nranges <= 0) return strdup(line);
+
+    int token_count = 0;
+    int *prefix_lengths = NULL;
+    char **tokens = mm_tokenize(line, delim, &prefix_lengths, &token_count);
+    if (!tokens || !prefix_lengths) {
+        if (tokens) {
+            for (int i = 0; i < token_count; i++) free(tokens[i]);
+        }
+        free(tokens);
+        free(prefix_lengths);
+        return NULL;
+    }
+
+    int output_count = 0;
+    int *output_prefixes = NULL;
+    char **outputs = mm_transform(tokens, token_count, prefix_lengths,
+                                  ranges, nranges, &output_prefixes,
+                                  &output_count);
+    for (int i = 0; i < token_count; i++) free(tokens[i]);
+    free(tokens);
+    free(prefix_lengths);
+    if (!outputs || !output_prefixes) {
+        if (outputs) {
+            for (int i = 0; i < output_count; i++) free(outputs[i]);
+        }
+        free(outputs);
+        free(output_prefixes);
+        return NULL;
+    }
+
+    size_t total = 0;
+    bool overflow = false;
+    for (int i = 0; i < output_count; i++) {
+        size_t length = strlen(outputs[i]);
+        if (length > SIZE_MAX - total) {
+            overflow = true;
+            break;
+        }
+        total += length;
+    }
+    char *joined = !overflow && total < SIZE_MAX ? malloc(total + 1) : NULL;
+    if (joined) {
+        size_t offset = 0;
+        for (int i = 0; i < output_count; i++) {
+            size_t length = strlen(outputs[i]);
+            memcpy(joined + offset, outputs[i], length);
+            offset += length;
+        }
+        joined[offset] = '\0';
+    }
+
+    for (int i = 0; i < output_count; i++) free(outputs[i]);
+    free(outputs);
+    free(output_prefixes);
+    return joined;
+}
