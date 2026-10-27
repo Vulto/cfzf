@@ -1193,7 +1193,16 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         }
         {
         int item_idx = ui->results[idx];
+        char *single_line_text = NULL;
         const char *text = ui->lines[item_idx];
+        if (ui->no_multi_line && strchr(text, '\n')) {
+            single_line_text = strdup(text);
+            if (single_line_text) {
+                for (char *q = single_line_text; *q; q++)
+                    if (*q == '\n') *q = ' ';
+                text = single_line_text;
+            }
+        }
         const mm_match_pos_t *matched = (ui->match_pos && idx < ui->match_pos_n)
                                           ? &ui->match_pos[idx] : NULL;
         bool cur = (idx == ui->cursor);
@@ -1375,6 +1384,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                             area_x + content_x + list_border_inset + 2 + text_width, clear_bg);
         }
         free(fitted);
+        free(single_line_text);
         if (pieces) {
             for (int c = 0; c < n_pieces; c++) free(pieces[c]);
             free(pieces);
@@ -2958,6 +2968,9 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_TOGGLE_INPUT:
         ui->no_input = !ui->no_input;
+        break;
+    case MM_ACT_TOGGLE_MULTI_LINE:
+        ui->no_multi_line = !ui->no_multi_line;
         break;
     case MM_ACT_TOGGLE_HSCROLL:
         ui->no_hscroll = !ui->no_hscroll;
