@@ -3323,6 +3323,7 @@ int mm_ui_run(mm_ui_t *ui) {
             /* Timed out: read the items that arrived in the meantime and
                give the preview a chance to produce output. */
             bool more = mm_ui_read_items(ui, ttyin);
+            bool bg_transform_active = ui->bg_transform_pid > 0;
             if (!ui_bg_transform_poll(ui)) running = false;
             if (more) { ui_search(ui); }
             input_complete = ui->input_fd < 0 || ui->input_done;
@@ -3330,7 +3331,7 @@ int mm_ui_run(mm_ui_t *ui) {
                 ((ui->select_1 && ui->nresults == 1) ||
                  (ui->exit_0 && ui->nresults == 0)))
                 running = false;
-            if ((more || (ui->preview && mm_preview_poll(ui->preview))) && running) {
+            if ((more || bg_transform_active || (ui->preview && mm_preview_poll(ui->preview))) && running) {
                 ui_render(ui, &r, &listwin, &promptwin, &infowin);
             }
             continue;
