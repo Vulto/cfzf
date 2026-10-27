@@ -2,6 +2,11 @@
 
 Date: 2026-10-25
 
+> This is historical evidence from a GitHub-hosted performance workflow run
+> before the workflows were disabled. It is not evidence for the current HEAD.
+> Per project instruction, do not run GitHub Actions; append fresh local-only
+> verification records when the relevant tests can be executed locally.
+
 ## Environment and revisions
 
 - Performance workflow run: https://github.com/Vulto/cfzf/actions/runs/40192337634
