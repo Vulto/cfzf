@@ -167,6 +167,8 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - Implemented synchronous `transform(command)`: captures child stdout, trims it,
   parses it as a regular `--bind` action chain, and executes the actions in order.
   Added a PTY regression case that transforms into `change-query(cherry)`; not run.
+- Implemented `show-input` and `toggle-input` to control runtime prompt/query
+  visibility and cursor placement. Added PTY differential cases; not executed.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
