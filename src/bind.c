@@ -213,13 +213,13 @@ bool mm_bind_unbind(mm_keymap_t *km, const char *keys) {
     while (*p) {
         const char *end = strchr(p, ',');
         size_t len = end ? (size_t)(end - p) : strlen(p);
-        while (len && (*p == ' ' || *p == '\\t')) { p++; len--; }
-        while (len && (p[len - 1] == ' ' || p[len - 1] == '\\t')) len--;
+        while (len && (*p == ' ' || *p == '\t')) { p++; len--; }
+        while (len && (p[len - 1] == ' ' || p[len - 1] == '\t')) len--;
         if (len == 0) return false;
         char *name = malloc(len + 1);
         if (!name) return false;
         memcpy(name, p, len);
-        name[len] = '\\0';
+        name[len] = '\0';
         mm_event_type_t type;
         wchar_t rune;
         bool valid = parse_key(name, &type, &rune);
