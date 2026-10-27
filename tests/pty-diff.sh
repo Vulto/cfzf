@@ -866,6 +866,21 @@ sleep 100
 key enter
 sleep 200' "$WORK/items.txt" --bind="ctrl-t:bg-transform(sleep 3; printf 'change-query(cherry)'),ctrl-c:bg-cancel"
 
+run_case 'bind-reload-sync' 'sleep 350
+key ctrl-r
+sleep 250
+key enter
+sleep 200' "$WORK/items.txt" --bind="ctrl-r:reload-sync(printf 'cherry\\napple\\n')"
+run_case 'bind-select-current' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --multi --bind=ctrl-t:select
+run_case 'bind-toggle-out' 'sleep 350
+key ctrl-t
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --layout=reverse --bind=ctrl-t:toggle-out
 run_case 'bind-put-query' 'sleep 350
 key ctrl-p
 sleep 150
