@@ -424,6 +424,14 @@ key ctrl-h
 sleep 150
 key enter
 sleep 200'                                        "$WORK/items.txt" --preview='printf preview' --bind=ctrl-h:toggle-preview
+run_case 'bind-backward-subword' 'sleep 350
+send fooBar
+key ctrl-e
+key ctrl-b
+send X
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --print-query --bind=ctrl-b:backward-subword
 run_case 'bind-backward-kill-subword' 'sleep 350
 send fooBar
 sleep 100
