@@ -115,6 +115,9 @@ logical screen states through `tests/screen.py`.
 - Interactive `--select-1` / `--exit-0` now auto-exit from the initial
   result set, deferring the decision until asynchronous input is complete.
   PTY regression cases were added; differential execution is still pending.
+- Preview `wrap-word` and `toggle-preview-wrap-word` now distinguish
+  word-boundary wrapping from character wrapping. The new PTY cases have not
+  yet been executed against the pinned reference.
 - fzf shows a spinner in the info line while the input is still being read;
   the C23 port reads the input synchronously and never shows one, so the
   spinner colour is excluded from the palette comparison.
