@@ -2520,38 +2520,54 @@ static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
     ui->bg_transform_fd = fds[0];
 }
 
-/* Drain background output; apply its action chain only after EOF. */
+/* Drain output without blocking; wait for process exit without blocking too. */
 static bool ui_bg_transform_poll(mm_ui_t *ui) {
-    if (ui->bg_transform_pid <= 0 || ui->bg_transform_fd < 0) return true;
-    char buf[4096];
-    bool eof = false;
-    for (;;) {
-        ssize_t n = read(ui->bg_transform_fd, buf, sizeof(buf));
-        if (n > 0) {
-            if ((size_t)n > SIZE_MAX - ui->bg_transform_len - 1) { eof = true; break; }
-            size_t need = ui->bg_transform_len + (size_t)n + 1;
-            if (need > ui->bg_transform_cap) {
-                size_t cap = ui->bg_transform_cap ? ui->bg_transform_cap : 256;
-                while (cap < need && cap <= SIZE_MAX / 2) cap *= 2;
-                if (cap < need) { eof = true; break; }
-                char *grown = realloc(ui->bg_transform_output, cap);
-                if (!grown) { eof = true; break; }
-                ui->bg_transform_output = grown; ui->bg_transform_cap = cap;
+    if (ui->bg_transform_pid <= 0) return true;
+    if (ui->bg_transform_fd >= 0) {
+        char buf[4096];
+        for (;;) {
+            ssize_t n = read(ui->bg_transform_fd, buf, sizeof(buf));
+            if (n > 0) {
+                if ((size_t)n > SIZE_MAX - ui->bg_transform_len - 1) {
+                    close(ui->bg_transform_fd);
+                    ui->bg_transform_fd = -1;
+                    break;
+                }
+                size_t need = ui->bg_transform_len + (size_t)n + 1;
+                if (need > ui->bg_transform_cap) {
+                    size_t cap = ui->bg_transform_cap ? ui->bg_transform_cap : 256;
+                    while (cap < need && cap <= SIZE_MAX / 2) cap *= 2;
+                    if (cap < need) {
+                        close(ui->bg_transform_fd);
+                        ui->bg_transform_fd = -1;
+                        break;
+                    }
+                    char *grown = realloc(ui->bg_transform_output, cap);
+                    if (!grown) {
+                        close(ui->bg_transform_fd);
+                        ui->bg_transform_fd = -1;
+                        break;
+                    }
+                    ui->bg_transform_output = grown;
+                    ui->bg_transform_cap = cap;
+                }
+                memcpy(ui->bg_transform_output + ui->bg_transform_len, buf, (size_t)n);
+                ui->bg_transform_len += (size_t)n;
+                ui->bg_transform_output[ui->bg_transform_len] = '\0';
+                continue;
             }
-            memcpy(ui->bg_transform_output + ui->bg_transform_len, buf, (size_t)n);
-            ui->bg_transform_len += (size_t)n;
-            ui->bg_transform_output[ui->bg_transform_len] = '\0';
-            continue;
+            if (n < 0 && errno == EINTR) continue;
+            if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return true;
+            close(ui->bg_transform_fd);
+            ui->bg_transform_fd = -1;
+            break;
         }
-        if (n < 0 && errno == EINTR) continue;
-        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return true;
-        eof = true;
-        break;
     }
-    if (!eof) return true;
-    close(ui->bg_transform_fd);
-    ui->bg_transform_fd = -1;
-    while (waitpid(ui->bg_transform_pid, NULL, 0) < 0 && errno == EINTR) {}
+
+    int status;
+    pid_t waited = waitpid(ui->bg_transform_pid, &status, WNOHANG);
+    if (waited == 0 || (waited < 0 && errno == EINTR)) return true;
+    if (waited < 0 && errno != ECHILD) return true;
     ui->bg_transform_pid = 0;
     if (!ui->bg_transform_output) ui->bg_transform_output = calloc(1, 1);
     bool keep = true;
