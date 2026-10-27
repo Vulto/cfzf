@@ -177,20 +177,20 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-012 | `best` | - | - | unstarted |
 | ACT-013 | `bg-cancel` | src/bind.c, src/ui.c, src/ui.h | tests/pty-diff.sh:bind-bg-cancel | implemented but unverified |
 | ACT-014 | `cancel` | - | - | unstarted |
-| ACT-015 | `change-border-label` | - | - | unstarted |
-| ACT-016 | `change-footer` | - | - | unstarted |
+| ACT-015 | `change-border-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-border-label | implemented but unverified |
+| ACT-016 | `change-footer` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-footer | implemented but unverified |
 | ACT-017 | `change-footer-label` | - | - | unstarted |
-| ACT-018 | `change-ghost` | - | - | unstarted |
+| ACT-018 | `change-ghost` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-ghost | implemented but unverified |
 | ACT-019 | `change-header` | - | - | unstarted |
-| ACT-020 | `change-header-label` | - | - | unstarted |
+| ACT-020 | `change-header-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-header-label | implemented but unverified |
 | ACT-021 | `change-header-lines` | - | - | unstarted |
-| ACT-022 | `change-input-label` | - | - | unstarted |
-| ACT-023 | `change-list-label` | - | - | unstarted |
+| ACT-022 | `change-input-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-input-label | implemented but unverified |
+| ACT-023 | `change-list-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-list-label | implemented but unverified |
 | ACT-024 | `change-multi` | - | - | unstarted |
 | ACT-025 | `change-nth` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-nth | implemented but unverified |
 | ACT-026 | `change-pointer` | - | - | unstarted |
 | ACT-027 | `change-preview` | src/bind.c, src/ui.c | - | implemented |
-| ACT-028 | `change-preview-label` | - | - | unstarted |
+| ACT-028 | `change-preview-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-preview-label | implemented but unverified |
 | ACT-029 | `change-preview-window` | src/bind.c, src/ui.c | - | implemented |
 | ACT-030 | `change-prompt` | - | - | unstarted |
 | ACT-031 | `change-query` | - | - | unstarted |
