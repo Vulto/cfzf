@@ -518,6 +518,49 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                 continue;
             }
 
+            if (input->with_nth_ranges && input->with_nth_n > 0) {
+                mchars_t transformed_text;
+                if (!mchars_init(&transformed_text, joined) ||
+                    !mchars_decode(&transformed_text)) {
+                    mchars_free(&transformed_text);
+                    free(joined);
+                    search_failed = true;
+                    break;
+                }
+                mm_text_t transformed = {
+                    transformed_text.runes, transformed_text.length
+                };
+                int score = 0;
+                int *pos = NULL, npos = 0;
+                bool ok = mm_pattern_match(pat, &transformed, &score, &pos, &npos);
+                if (ok) {
+                    int minb = 0xFFFF, mine = 0xFFFF, maxe = 0, valid = false;
+                    if (pos && npos > 0) {
+                        minb = pos[0];
+                        for (int k = 0; k < npos; k++) {
+                            if (pos[k] < minb) minb = pos[k];
+                            if (pos[k] + 1 < mine) mine = pos[k] + 1;
+                            if (pos[k] + 1 > maxe) maxe = pos[k] + 1;
+                        }
+                        valid = true;
+                    }
+                    mm_item_t transformed_item = items[i];
+                    transformed_item.text = transformed_text;
+                    mm_result_set_bounds(&results[n], &transformed_item, score,
+                                         minb, mine, maxe, valid, crit);
+                    results[n].item = own_items ? &items[i] : &items[i];
+                    if (npos > 1) qsort(pos, (size_t)npos, sizeof(*pos), mm_int_compare);
+                    results[n].pos = pos;
+                    results[n].npos = npos;
+                    pos = NULL;
+                    n++;
+                }
+                free(pos);
+                mchars_free(&transformed_text);
+                free(joined);
+                continue;
+            }
+
             mm_text_t t = { items[i].text.runes, items[i].text.length };
             int score = 0;
             int *pos = NULL, npos = 0;
