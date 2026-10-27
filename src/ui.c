@@ -3049,6 +3049,17 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             if (!ui->header_hidden) ui->header = b->arg;
         }
         break;
+    case MM_ACT_CHANGE_NTH: {
+        mm_range_t *ranges = NULL;
+        int nranges = 0;
+        if (b->arg && mm_parse_ranges(b->arg, &ranges, &nranges)) {
+            free(ui->nth);
+            ui->nth = ranges;
+            ui->nth_n = nranges;
+            ui_search(ui);
+        }
+        break;
+    }
     case MM_ACT_CHANGE_MULTI:
         if (b->arg) {
             int m = atoi(b->arg);
