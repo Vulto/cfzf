@@ -123,6 +123,7 @@ typedef struct {
     const char  *gutter;     /* --gutter: the marker of the other lines */
     const char  *marker;     /* --marker: the multi-select marker */
     const char  *shell;      /* --with-shell: the shell used by execute */
+    char         *become_command; /* expanded command that replaces this process */
     mm_history_t *history;   /* --history: the query history file */
     const char  *ghost;       /* --ghost: the prompt placeholder */
     int          height;      /* --height: the inline window height (0 = full screen) */
