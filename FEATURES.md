@@ -61,7 +61,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-032 | `\-\-ghost` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:ghost-missing | implemented but unverified |
 | OPT-033 | `--graph` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-034 | `--gutter` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
-| OPT-035 | `--gutter-raw` | src/main.c | tests/pty-diff.sh | verified |
+| OPT-035 | `--gutter-raw` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:raw-gutter-custom | implemented but unverified |
 | OPT-036 | `--header` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:no-header, tests/batch-diff.sh:header-missing | implemented but unverified |
 | OPT-037 | `--header-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-038 | `--header-first` | src/ui.c | tests/pty-diff.sh | verified |
@@ -131,7 +131,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-102 | `--print-query` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-103 | `--prompt` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:prompt-missing | implemented but unverified |
 | OPT-104 | `--query` | src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:query-missing | implemented but unverified |
-| OPT-105 | `--raw` | src/main.c | - | implemented |
+| OPT-105 | `--raw` | src/main.c, src/ui.c | tests/pty-diff.sh:raw-mode-original-position | implemented but unverified |
 | OPT-106 | `--read0` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-107 | `--reverse` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-108 | `--scheme` | src/result.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:scheme-missing | implemented but unverified |
