@@ -2424,47 +2424,90 @@ static bool ui_print_selection(mm_ui_t *ui, FILE *out) {
     return false;
 }
 
-/* Replace the fzf placeholders in a command string: {} (current item),
-   {q} (query), {n} (index of the current item). Returns a malloc'd string. */
+/* Append bytes to a command under construction, growing it safely. */
+static bool ui_command_append(char **out, size_t *length, size_t *capacity,
+                              const char *text, size_t n) {
+    if (n > SIZE_MAX - *length - 1) return false;
+    size_t need = *length + n + 1;
+    if (need > *capacity) {
+        size_t cap = *capacity ? *capacity : 64;
+        while (cap < need) {
+            if (cap > SIZE_MAX / 2) { cap = need; break; }
+            cap *= 2;
+        }
+        char *grown = realloc(*out, cap);
+        if (!grown) return false;
+        *out = grown;
+        *capacity = cap;
+    }
+    if (n) memcpy(*out + *length, text, n);
+    *length += n;
+    (*out)[*length] = '\0';
+    return true;
+}
+
+/* Replace fzf command placeholders. Values inserted into the shell command
+   are quoted as single arguments unless the placeholder explicitly requests
+   raw text. */
 static char *ui_expand_command(mm_ui_t *ui, const char *cmd) {
-    size_t cap = strlen(cmd) * 2 + 64;
-    char *out = malloc(cap);
-    if (!out) return NULL;
-    size_t o = 0;
+    char *out = NULL;
+    size_t length = 0, capacity = 0;
     int idx = ui->nresults > 0 ? ui->results[ui->cursor] : -1;
+
     for (size_t i = 0; cmd[i]; i++) {
+        /* A backslash escapes a recognized placeholder instead of expanding it. */
+        if (cmd[i] == '\\' && cmd[i + 1] == '{') {
+            size_t literal_len = 0;
+            if (cmd[i + 2] == '}') literal_len = 2;
+            else if (cmd[i + 2] == 'q' && cmd[i + 3] == '}') literal_len = 3;
+            else if (cmd[i + 2] == 'n' && cmd[i + 3] == '}') literal_len = 3;
+            if (literal_len) {
+                if (!ui_command_append(&out, &length, &capacity,
+                                       cmd + i + 1, literal_len))
+                    goto fail;
+                i += literal_len;
+                continue;
+            }
+        }
+
         if (cmd[i] == '{' && cmd[i + 1] == '}') {
-            const char *rep = idx >= 0 ? ui->lines[idx] : "";
-            size_t rl = strlen(rep);
-            while (o + rl + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-            memcpy(out + o, rep, rl);
-            o += rl;
+            const char *value = idx >= 0 && idx < ui->count ? ui->lines[idx] : "";
+            char *quoted = mm_shell_quote(value);
+            if (!quoted) goto fail;
+            bool ok = ui_command_append(&out, &length, &capacity, quoted, strlen(quoted));
+            free(quoted);
+            if (!ok) goto fail;
             i++;
             continue;
         }
         if (cmd[i] == '{' && cmd[i + 1] == 'q' && cmd[i + 2] == '}') {
-            size_t rl = ui->query_len;
-            while (o + rl + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-            memcpy(out + o, ui->query_buf, rl);
-            o += rl;
+            const char *query = ui->query_buf ? ui->query_buf : "";
+            char *quoted = mm_shell_quote(query);
+            if (!quoted) goto fail;
+            bool ok = ui_command_append(&out, &length, &capacity, quoted, strlen(quoted));
+            free(quoted);
+            if (!ok) goto fail;
             i += 2;
             continue;
         }
         if (cmd[i] == '{' && cmd[i + 1] == 'n' && cmd[i + 2] == '}') {
             char num[32];
-            int n = idx >= 0 ? idx : 0;
-            int nl = snprintf(num, sizeof(num), "%d", n);
-            while (o + (size_t)nl + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-            memcpy(out + o, num, (size_t)nl);
-            o += (size_t)nl;
+            int n = snprintf(num, sizeof(num), "%d", idx >= 0 ? idx : 0);
+            if (n < 0 || (size_t)n >= sizeof(num) ||
+                !ui_command_append(&out, &length, &capacity, num, (size_t)n))
+                goto fail;
             i += 2;
             continue;
         }
-        if (o + 2 > cap) { cap *= 2; out = realloc(out, cap); }
-        out[o++] = cmd[i];
+        if (!ui_command_append(&out, &length, &capacity, cmd + i, 1))
+            goto fail;
     }
-    out[o] = 0;
+    if (!out) return strdup("");
     return out;
+
+fail:
+    free(out);
+    return NULL;
 }
 
 /* Run a command with the system shell, waiting for it to finish. */
