@@ -250,3 +250,5 @@ evidence. Current evidence and its scope are recorded in `BASELINE_EVIDENCE.md`.
 - Implemented `change-nth(spec)` to parse and replace the active field ranges, rerun search, and retain the previous configuration on invalid specifications. A PTY differential case changes matching from field 1 to field 2; it has not been executed.
 
 - Implemented seven runtime label/content actions: `change-border-label`, `change-footer`, `change-ghost`, `change-header-label`, `change-input-label`, `change-list-label`, and `change-preview-label`. PTY differential cases were added but not executed.
+
+- Dynamic label/content actions now duplicate their arguments into UI-owned storage, preventing dangling pointers when actions are produced by `transform()` and its temporary keymap is freed. Added a PTY regression case for a transformed `change-ghost`; it has not been run.
