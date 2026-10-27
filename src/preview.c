@@ -1,6 +1,7 @@
 /* preview.c - run the preview command and collect its output. */
 #define _POSIX_C_SOURCE 200809L
 #include "preview.h"
+#include "util.h"
 
 #include <fcntl.h>
 #include <signal.h>
@@ -14,8 +15,9 @@
 struct mm_preview_t {
     char *command;
     char *shell;
-    char *selected;   /* the selected items, space separated ({+}) */
-    char *tmpfile;    /* a file holding the selected items ({f}) */
+    char *selected;        /* raw newline-separated items for {f} */
+    char *selected_shell;   /* shell-quoted arguments for {+} */
+    char *tmpfile;          /* a file holding the selected items ({f}) */
     pid_t pid;
     int   fd;          /* read end of the pipe, -1 when idle */
     char *buf;
