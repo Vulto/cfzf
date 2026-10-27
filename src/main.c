@@ -1907,13 +1907,16 @@ int main(int argc, char **argv) {
                 ui.preview_win.border_left_only = false;
             }
         }
-        const char *ui_nth_spec = nth_spec ? nth_spec : with_nth_spec;
-        if (ui_nth_spec && !mm_parse_ranges(ui_nth_spec, &ui.nth, &ui.nth_n)) {
-            fprintf(stderr, "invalid %s: %s\n",
-                    nth_spec ? "--nth" : "--with-nth", ui_nth_spec);
+        if (nth_spec && !mm_parse_ranges(nth_spec, &ui.nth, &ui.nth_n)) {
+            fprintf(stderr, "invalid --nth: %s\n", nth_spec);
             goto interactive_error;
         }
-        ui.length_from_transform = (!nth_spec && with_nth_spec);
+        if (with_nth_spec &&
+            !mm_parse_ranges(with_nth_spec, &ui.with_nth, &ui.with_nth_n)) {
+            fprintf(stderr, "invalid --with-nth: %s\n", with_nth_spec);
+            goto interactive_error;
+        }
+        ui.length_from_transform = false;
         if (!mm_ui_init(&ui, lines, count, cap)) {
             fprintf(stderr, "fzf: out of memory\n");
             goto interactive_error;
@@ -1979,11 +1982,7 @@ int main(int argc, char **argv) {
         goto fail;
     }
 
-    /* fzf: when --nth is absent, the search range defaults to --with-nth. */
-    if (!nth && wnth) { nth = wnth; nth_n = wnth_n; }
-
     bool length_from_transform = false;
-    if (!nth_spec && with_nth_spec) length_from_transform = true;
     char **ansi_lines = NULL;
     char **search_lines = lines;
     if (ansi && count > 0) {
@@ -2043,7 +2042,12 @@ int main(int argc, char **argv) {
         }
         search_lines = ansi_lines;
     }
-    mm_input_t input = { search_lines, count, NULL, 0, delim, nth, nth_n, length_from_transform };
+    mm_input_t input = {
+        .lines = search_lines, .count = count, .items = NULL, .base = 0,
+        .delim = delim, .nth_ranges = nth, .nth_n = nth_n,
+        .length_from_transform = length_from_transform,
+        .with_nth_ranges = wnth, .with_nth_n = wnth_n
+    };
     int n = 0;
     int *out = mm_batch_search(&input, pat, &crit, tac, &n, NULL);
     (void)no_sort; /* handled by pat->sortable */
