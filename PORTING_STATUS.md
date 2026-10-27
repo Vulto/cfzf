@@ -253,7 +253,7 @@ evidence. Current evidence and its scope are recorded in `BASELINE_EVIDENCE.md`.
 
 - Dynamic label/content actions now duplicate their arguments into UI-owned storage, preventing dangling pointers when actions are produced by `transform()` and its temporary keymap is freed. Added a PTY regression case for a transformed `change-ghost`; it has not been run.
 
-- Implemented `disable-raw` and `enable-raw`, and corrected `toggle-raw` to toggle the raw-results mode instead of ANSI parsing. Raw mode now displays unmatched items after the ranked matches while respecting exclusions. Three PTY differential cases were added but not run.
+- Implemented `disable-raw` and `enable-raw`, and corrected `toggle-raw` to toggle the raw-results mode instead of ANSI parsing. Raw mode preserves non-matching items at their original positions, ranks matches into the original matching slots, dims non-matches, and respects exclusions. Three PTY differential cases were added but not run.
 
 - Implemented `best` as navigation to the top-ranked result and added a PTY differential case. Raw-mode result allocation now guards multiplication overflow. Neither change has been locally verified.
 
