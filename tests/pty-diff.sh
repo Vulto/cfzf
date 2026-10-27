@@ -818,6 +818,13 @@ key ctrl-x
 sleep 200
 key enter
 sleep 200' "$WORK/items.txt" --multi --bind='ctrl-x:exclude-multi'
+run_case 'bind-exclude-reset-on-reload' 'sleep 350
+key ctrl-x
+sleep 150
+key ctrl-r
+sleep 250
+key enter
+sleep 200' "$WORK/items.txt" --bind="ctrl-x:exclude,ctrl-r:reload(printf 'cherry\\napple\\n')"
 
 run_case 'bind-change-query' 'sleep 350
 key ctrl-t
