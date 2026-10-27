@@ -4365,6 +4365,8 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->become_command = NULL;
     ui->runtime_strings = NULL;
     ui->runtime_strings_n = ui->runtime_strings_cap = 0;
+    ui->placeholder_files = NULL;
+    ui->placeholder_files_n = ui->placeholder_files_cap = 0;
     ui->lines = lines;
     ui->count = 0;
     ui->lines_cap = cap;
