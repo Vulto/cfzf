@@ -91,6 +91,10 @@ typedef struct {
     mm_keymap_t  disabled_keymap; /* keys temporarily removed by unbind */
     mm_event_map_t events;   /* --bind event bindings */
     mm_preview_t *preview;   /* preview runner (NULL when disabled) */
+    pid_t        bg_transform_pid;
+    int          bg_transform_fd;
+    char        *bg_transform_output;
+    size_t       bg_transform_len, bg_transform_cap;
     bool         preview_hidden; /* visibility toggled without destroying command */
     int          preview_offset; /* first preview output line to display */
     int          preview_page_size; /* visible preview content rows */
