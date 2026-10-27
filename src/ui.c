@@ -3636,11 +3636,29 @@ int mm_ui_run(mm_ui_t *ui) {
     int exit_code = 0;
     if (ui->preview) ui_preview_restart(ui);
 
+    struct sigaction resize_action = {0};
+    struct sigaction previous_resize_action;
+    bool resize_handler_installed = false;
+    resize_action.sa_handler = ui_handle_sigwinch;
+    (void)sigemptyset(&resize_action.sa_mask);
+    ui_resize_pending = 0;
+    if (sigaction(SIGWINCH, &resize_action, &previous_resize_action) == 0)
+        resize_handler_installed = true;
+
     while (running) {
         mm_event_t ev;
         /* A cancellable read lets us poll the preview command while waiting
            for the next key press. */
-        if (!mm_read_event(ttyin, &input, &ev, true)) break;
+        bool got_event = mm_read_event(ttyin, &input, &ev, true);
+        if (ui_resize_pending) {
+            ui_resize_pending = 0;
+            mm_renderer_update_size(&r);
+            ui->page_size = mm_renderer_max_y(&r) > 3
+                          ? mm_renderer_max_y(&r) - 3 : 1;
+            ui_exec_event(ui, "resize");
+            ui_render(ui, &r, &listwin, &promptwin, &infowin);
+        }
+        if (!got_event) break;
         if (ev.type == MM_EV_INVALID) {
             /* Timed out: read the items that arrived in the meantime and
                give the preview a chance to produce output. */
@@ -3857,6 +3875,9 @@ int mm_ui_run(mm_ui_t *ui) {
         if (ui->preview) ui_preview_restart(ui);
         if (running) ui_render(ui, &r, &listwin, &promptwin, &infowin);
     }
+
+    if (resize_handler_installed)
+        (void)sigaction(SIGWINCH, &previous_resize_action, NULL);
 
     /* Record the query in the history file. */
     if (ui->history) mm_history_append(ui->history, ui->query_buf);
