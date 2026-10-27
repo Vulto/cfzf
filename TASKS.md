@@ -122,7 +122,7 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - The last recorded inventory had 131 option rows (77 verified, 20 implemented
   but unverified, 34 unstarted), 125 action rows (64 implemented but
   unverified, 61 unstarted), and 13 event rows (all unstarted). Seven action
-  IDs in the 001–132 range were absent. These counts are a warning that the
+  IDs in the 001–132 range were absent before the recent `transform` inventory addition; six remain unresolved. These counts are a warning that the
   inventory needs reconciliation, not proof of implementation completeness.
 - Historical test totals and benchmark numbers are not current evidence.
   `BASELINE_EVIDENCE.md` must identify the exact tested commit and local run.
