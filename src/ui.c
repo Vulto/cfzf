@@ -2630,7 +2630,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_CHANGE_HEADER:
         if (b->arg) {
             ui->saved_header = b->arg;
-            ui->header = b->arg;
+            if (!ui->header_hidden) ui->header = b->arg;
         }
         break;
     case MM_ACT_CHANGE_MULTI:
@@ -2682,6 +2682,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_HIDE_HEADER:
         if (ui->header) ui->saved_header = ui->header;
+        ui->header_hidden = true;
         ui->header = NULL;
         break;
     case MM_ACT_HIDE_PREVIEW:
@@ -2717,15 +2718,13 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         if (b->arg) { query_set(ui, b->arg); ui_search(ui); }
         break;
     case MM_ACT_TOGGLE_HEADER:
-        if (ui->header) {
-            ui->saved_header = ui->header;
-            ui->header = NULL;
-        } else if (ui->saved_header) {
-            ui->header = ui->saved_header;
-        }
+        if (ui->header) ui->saved_header = ui->header;
+        ui->header_hidden = !ui->header_hidden;
+        ui->header = ui->header_hidden ? NULL : ui->saved_header;
         break;
     case MM_ACT_SHOW_HEADER:
-        if (ui->saved_header) ui->header = ui->saved_header;
+        ui->header_hidden = false;
+        ui->header = ui->saved_header;
         break;
     case MM_ACT_TOGGLE_HSCROLL:
         ui->no_hscroll = !ui->no_hscroll;
