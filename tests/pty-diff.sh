@@ -812,6 +812,13 @@ key ctrl-d
 sleep 150
 key enter
 sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border --bind='ctrl-d:preview-page-down'
+run_case 'preview-scroll-half-page-up' 'sleep 350
+key ctrl-d
+sleep 200
+key ctrl-u
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border --bind='ctrl-d:preview-bottom,ctrl-u:preview-half-page-up'
 run_case 'preview-scroll-bottom' 'sleep 350
 key ctrl-d
 sleep 150
