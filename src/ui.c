@@ -1700,15 +1700,20 @@ static void ui_preview_pad(mm_window_t *win, mm_ui_t *ui, int content_w, int use
    shown when the output does not fit into the window. */
 static void ui_preview_scrollbar(mm_ui_t *ui, mm_window_t *win, int x, int y, int w,
                                   int content_x, int content_y, int content_w,
-                                  int content_h, int nlines) {
+                                  int content_h, int nlines, int offset) {
     (void)x;
     (void)y;
     (void)w;
     if (nlines <= content_h || content_h <= 0) return;
     int bar_len = content_h * content_h / nlines;
     if (bar_len < 1) bar_len = 1;
+    int max_offset = nlines - content_h;
+    if (max_offset < 1) max_offset = 1;
+    if (offset < 0) offset = 0;
+    if (offset > max_offset) offset = max_offset;
+    int bar_start = (content_h - bar_len) * offset / max_offset;
     for (int i = 0; i < bar_len; i++) {
-        int r = content_y + i;
+        int r = content_y + bar_start + i;
         if (r >= content_y + content_h) break;
         mm_window_move(win, r, content_x + content_w);
         mm_window_cprint(win, ui_theme_color(ui, ui->theme.scrollbar, MM_THEME_BORDER),
@@ -1716,7 +1721,9 @@ static void ui_preview_scrollbar(mm_ui_t *ui, mm_window_t *win, int x, int y, in
                          ui->no_unicode ? "|" : "\u2502");
     }
     char info[32];
-    int n = snprintf(info, sizeof(info), "1/%d", nlines);
+    int shown = offset + 1;
+    if (shown > nlines) shown = nlines;
+    int n = snprintf(info, sizeof(info), "%d/%d", shown, nlines);
     if (n > 0 && content_w - 2 - n >= 0) {
         mm_window_move(win, content_y, content_x + content_w - n);
         mm_window_cprint(win, ui_theme_color(ui, ui->theme.info, MM_THEME_INFO),
@@ -1899,7 +1906,7 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
             size_t olen = strlen(out);
             if (olen > 0 && out[olen - 1] == '\n') nlines--;
             ui_preview_scrollbar(ui, win, x, y, w, content_x, content_y, content_w,
-                                 content_h, nlines);
+                                 content_h, nlines, 0);
         }
         return;
     }
@@ -1912,6 +1919,13 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
         size_t olen = strlen(out);
         if (olen > 0 && out[olen - 1] == '\n') nlines--;
         const char *p = out;
+        int skipped = 0;
+        while (*p && skipped < ui->preview_offset) {
+            const char *nl = strchr(p, '\n');
+            if (!nl) { p += strlen(p); break; }
+            p = nl + 1;
+            skipped++;
+        }
         while (*p && row < content_y + content_h) {
             const char *nl = strchr(p, '\n');
             size_t len = nl ? (size_t)(nl - p) : strlen(p);
@@ -1942,7 +1956,7 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
         }
 
         ui_preview_scrollbar(ui, win, x, y, w, content_x, content_y, content_w,
-                             content_h, nlines);
+                             content_h, nlines, ui->preview_offset);
     }
 }
 
@@ -2189,6 +2203,7 @@ static void ui_preview_restart(mm_ui_t *ui) {
     }
     mm_preview_set_selected(ui->preview, sel ? sel : "");
     free(sel);
+    ui->preview_offset = 0;
     mm_preview_start(ui->preview, ui->lines[idx], ui->query_buf, idx);
 }
 
@@ -2343,6 +2358,32 @@ static void ui_run_command(mm_ui_t *ui, const char *cmd, bool silent) {
         /* Re-enter the alternate screen and repaint. */
         mm_renderer_init(ui->renderer, ui->renderer->ttyin, ui->renderer->ttyout,
                          false, 8, true, true);
+    }
+}
+
+/* Preview scrolling operates on output lines and clamps to the available tail. */
+static int ui_preview_line_count(const mm_ui_t *ui) {
+    const char *out = ui->preview ? mm_preview_output(ui->preview) : NULL;
+    if (!out || !*out) return 0;
+    int n = 1;
+    for (const char *p = out; *p; p++) if (*p == '\n') n++;
+    size_t len = strlen(out);
+    if (len && out[len - 1] == '\n') n--;
+    return n;
+}
+
+static void ui_preview_scroll(mm_ui_t *ui, int delta) {
+    if (!ui->preview || ui->preview_hidden) return;
+    int lines = ui_preview_line_count(ui);
+    int page = ui->page_size > 1 ? ui->page_size - 1 : 1;
+    int max_offset = lines > page ? lines - page : 0;
+    if (delta == INT_MIN) ui->preview_offset = 0;
+    else if (delta == INT_MAX) ui->preview_offset = max_offset;
+    else {
+        long next = (long)ui->preview_offset + delta;
+        if (next < 0) next = 0;
+        if (next > max_offset) next = max_offset;
+        ui->preview_offset = (int)next;
     }
 }
 
@@ -2847,6 +2888,22 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             /* Change the preview window options. */
             mm_preview_window_parse(b->arg, &ui->preview_win);
         }
+        break;
+    case MM_ACT_PREVIEW_TOP: ui_preview_scroll(ui, INT_MIN); break;
+    case MM_ACT_PREVIEW_BOTTOM: ui_preview_scroll(ui, INT_MAX); break;
+    case MM_ACT_PREVIEW_UP: ui_preview_scroll(ui, -1); break;
+    case MM_ACT_PREVIEW_DOWN: ui_preview_scroll(ui, 1); break;
+    case MM_ACT_PREVIEW_PAGE_UP:
+        ui_preview_scroll(ui, -(ui->page_size > 1 ? ui->page_size - 1 : 1));
+        break;
+    case MM_ACT_PREVIEW_PAGE_DOWN:
+        ui_preview_scroll(ui, ui->page_size > 1 ? ui->page_size - 1 : 1);
+        break;
+    case MM_ACT_PREVIEW_HALF_PAGE_UP:
+        ui_preview_scroll(ui, -(ui->page_size > 2 ? (ui->page_size - 1) / 2 : 1));
+        break;
+    case MM_ACT_PREVIEW_HALF_PAGE_DOWN:
+        ui_preview_scroll(ui, ui->page_size > 2 ? (ui->page_size - 1) / 2 : 1);
         break;
     case MM_ACT_PREVIEW:
         /* A preview command is configured separately; this action only
