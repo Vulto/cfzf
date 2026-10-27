@@ -1000,21 +1000,23 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
 
     /* Prompt. */
     mm_window_move(promptwin, prompt_row, area_x + content_x);
-    const char *pr = ui->prompt ? ui->prompt : "> ";
+    const char *pr = ui->no_input ? "" : (ui->prompt ? ui->prompt : "> ");
     mm_window_cprint(promptwin, ui_theme_color(ui, ui->theme.prompt, MM_THEME_PROMPT),
                      MM_COL_DEFAULT, ui->no_bold ? 0 : MM_BOLD, pr);
     /* The query is drawn in the prompt colour, like the reference does. */
-    mm_window_cprint(promptwin, ui_theme_color(ui, ui->theme.prompt, MM_THEME_PROMPT),
-                     MM_COL_DEFAULT, 0, ui->query_buf);
-    int used = ui_str_width(pr) + ui_str_width(ui->query_buf);
-    if (ui->ghost && *ui->ghost && !ui->query_len) {
+    if (!ui->no_input) {
+        mm_window_cprint(promptwin, ui_theme_color(ui, ui->theme.prompt, MM_THEME_PROMPT),
+                         MM_COL_DEFAULT, 0, ui->query_buf);
+    }
+    int used = ui_str_width(pr) + (ui->no_input ? 0 : ui_str_width(ui->query_buf));
+    if (!ui->no_input && ui->ghost && *ui->ghost && !ui->query_len) {
         mm_window_cprint(promptwin, ui_theme_color(ui, ui->theme.ghost, MM_COL_DEFAULT),
                          MM_COL_DEFAULT, MM_DIM, ui->ghost);
         used += ui_str_width(ui->ghost);
     }
     ui_clear_to_eol(promptwin, list_w, used, MM_COL_DEFAULT);
     /* Keep the terminal cursor aligned with the UTF-8 query insertion point. */
-    int query_cursor_width = ui_query_cursor_width(ui);
+    int query_cursor_width = ui->no_input ? 0 : ui_query_cursor_width(ui);
     mm_window_move(promptwin, prompt_row,
                    area_x + content_x + ui_str_width(pr) + query_cursor_width);
 
@@ -1649,10 +1651,10 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     }
 
     /* Leave the terminal cursor at the query insertion point. */
-    const char *pr2 = ui->prompt ? ui->prompt : "> ";
+    const char *pr2 = ui->no_input ? "" : (ui->prompt ? ui->prompt : "> ");
     mm_renderer_move(r, prompt_row,
                      area_x + content_x + ui_str_width(pr2) +
-                     ui_query_cursor_width(ui));
+                     (ui->no_input ? 0 : ui_query_cursor_width(ui)));
 
     mm_renderer_flush(r);
 }
@@ -2950,6 +2952,12 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_SHOW_HEADER:
         ui->header_hidden = false;
         ui->header = ui->saved_header;
+        break;
+    case MM_ACT_SHOW_INPUT:
+        ui->no_input = false;
+        break;
+    case MM_ACT_TOGGLE_INPUT:
+        ui->no_input = !ui->no_input;
         break;
     case MM_ACT_TOGGLE_HSCROLL:
         ui->no_hscroll = !ui->no_hscroll;
