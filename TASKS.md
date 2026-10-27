@@ -149,6 +149,9 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
 - Implemented runtime `unbind(key[,key...])` and `unbind(*)` by removing
   bindings from the active keymap; wired the action into the dispatcher and
   added a PTY regression case. Differential execution remains pending.
+- Implemented `put(text)` as cursor-position insertion into the query and
+  routed `reload-sync` through the existing synchronous reload implementation.
+  Added a PTY case for `put`; differential execution is pending.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
