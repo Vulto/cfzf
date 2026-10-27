@@ -657,7 +657,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
        The preview is placed inside the border, so its share is computed from
        the area between the border edges. */
     int pv_x = 0, pv_y = 0, pv_w = 0, pv_h = 0;
-    bool has_preview = ui->preview != NULL;
+    bool has_preview = ui->preview != NULL && !ui->preview_hidden;
     /* A left border costs two columns (the border and the gap after it). */
     bool full_component_style = ui->style_full && !ui->header_first;
     bool draw_list_box = full_component_style ||
@@ -2754,10 +2754,11 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui->header = NULL;
         break;
     case MM_ACT_HIDE_PREVIEW:
-        if (ui->preview) {
-            mm_preview_free(ui->preview);
-            ui->preview = NULL;
-        }
+        ui->preview_hidden = true;
+        break;
+    case MM_ACT_SHOW_PREVIEW:
+        ui->preview_hidden = false;
+        if (ui->preview) ui_preview_restart(ui);
         break;
     case MM_ACT_OFFSET_DOWN:
         if (ui->nresults > 0) {
@@ -2799,8 +2800,8 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_TOGGLE_PREVIEW:
         if (ui->preview) {
-            mm_preview_free(ui->preview);
-            ui->preview = NULL;
+            ui->preview_hidden = !ui->preview_hidden;
+            if (!ui->preview_hidden) ui_preview_restart(ui);
         }
         break;
     case MM_ACT_TOGGLE_PREVIEW_WRAP:
@@ -2825,12 +2826,11 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         }
         break;
     case MM_ACT_PREVIEW:
-        /* Toggle the preview window for the current item. */
+        /* A preview command is configured separately; this action only
+           changes visibility and never destroys the configured runner. */
         if (ui->preview) {
-            mm_preview_free(ui->preview);
-            ui->preview = NULL;
-        } else {
-            /* Preview would need a command; no-op without one. */
+            ui->preview_hidden = !ui->preview_hidden;
+            if (!ui->preview_hidden) ui_preview_restart(ui);
         }
         break;
     case MM_ACT_TOGGLE_RAW:
