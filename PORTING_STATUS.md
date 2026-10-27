@@ -112,7 +112,9 @@ logical screen states through `tests/screen.py`.
   `--bind` and action handling exist in the source, no action is currently
   marked differentially verified in `FEATURES.md`. All 13 events are marked
   unstarted; infrastructure presence is not equivalent to event parity.
-- `--select-1` / `--exit-0` are parsed but not acted on in interactive mode.
+- Interactive `--select-1` / `--exit-0` now auto-exit from the initial
+  result set, deferring the decision until asynchronous input is complete.
+  PTY regression cases were added; differential execution is still pending.
 - fzf shows a spinner in the info line while the input is still being read;
   the C23 port reads the input synchronously and never shows one, so the
   spinner colour is excluded from the palette comparison.
