@@ -103,11 +103,7 @@ logical screen states through `tests/screen.py`.
 
 ## Known mismatches / open gaps
 
-- The current `FEATURES.md` inventory marks 34 CLI options unstarted and
-  20 implemented without differential verification. Its 77 `verified` labels
-  are inherited inventory claims; the current CI suite covers only the cases
-  recorded in `BASELINE_EVIDENCE.md`. Some unsupported options are rejected,
-  but exact CLI parity has not been certified.
+- The current `FEATURES.md` inventory has 51 options labeled verified, 50 implemented but unverified, 14 implemented, 12 unstarted, and 4 not applicable. These labels are inventory claims; only fresh local differential runs can establish current behavior. The raw mode and raw gutter paths have new cases but remain unverified.
 - The latest source audit finds 127 action rows: 54 marked implemented, 69
   implemented but unverified, and 4 unstarted. IDs 060, 065, 100, 122, and 123
   are absent from the inventory and need reconciliation against upstream. No
