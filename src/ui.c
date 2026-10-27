@@ -31,6 +31,31 @@ static mm_color_t ui_theme_color(const mm_ui_t *ui, mm_color_attr_t entry,
 static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
                             int x, int y, int w, int h);
 
+/* Keep dynamic action arguments alive after temporary action maps are freed. */
+static bool ui_set_runtime_string(mm_ui_t *ui, const char **target, const char *value) {
+    if (!value) return false;
+    char *copy = strdup(value);
+    if (!copy) return false;
+    if (ui->runtime_strings_n == ui->runtime_strings_cap) {
+        size_t cap = ui->runtime_strings_cap ? ui->runtime_strings_cap * 2 : 8;
+        if (cap < ui->runtime_strings_cap ||
+            cap > SIZE_MAX / sizeof(*ui->runtime_strings)) {
+            free(copy);
+            return false;
+        }
+        char **grown = realloc(ui->runtime_strings, cap * sizeof(*grown));
+        if (!grown) {
+            free(copy);
+            return false;
+        }
+        ui->runtime_strings = grown;
+        ui->runtime_strings_cap = cap;
+    }
+    ui->runtime_strings[ui->runtime_strings_n++] = copy;
+    *target = copy;
+    return true;
+}
+
 /* --- query buffer helpers --- */
 static void query_set(mm_ui_t *ui, const char *s) {
     size_t n = strlen(s);
@@ -2778,7 +2803,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         if (ui->preview) ui_preview_restart(ui);
         break;
     case MM_ACT_CHANGE_POINTER:
-        if (b->arg) ui->pointer = b->arg;
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->pointer, b->arg);
         break;
     case MM_ACT_CLEAR_QUERY:
         query_set(ui, "");
@@ -3038,36 +3063,36 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         }
         break;
     case MM_ACT_CHANGE_BORDER_LABEL:
-        if (b->arg) ui->border_label = b->arg;
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->border_label, b->arg);
         break;
     case MM_ACT_CHANGE_FOOTER:
-        if (b->arg) ui->footer = b->arg;
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->footer, b->arg);
         break;
     case MM_ACT_CHANGE_GHOST:
-        if (b->arg) ui->ghost = b->arg;
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->ghost, b->arg);
         break;
     case MM_ACT_CHANGE_HEADER_LABEL:
-        if (b->arg) ui->header_label = b->arg;
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->header_label, b->arg);
         break;
     case MM_ACT_CHANGE_INPUT_LABEL:
-        if (b->arg) ui->input_label = b->arg;
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->input_label, b->arg);
         break;
     case MM_ACT_CHANGE_LIST_LABEL:
-        if (b->arg) ui->list_label = b->arg;
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->list_label, b->arg);
         break;
     case MM_ACT_CHANGE_PREVIEW_LABEL:
-        if (b->arg) ui->preview_label = b->arg;
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->preview_label, b->arg);
         break;
     case MM_ACT_CHANGE_QUERY:
         if (b->arg) { query_set(ui, b->arg); ui_search(ui); }
         break;
     case MM_ACT_CHANGE_PROMPT:
-        if (b->arg) ui->prompt = b->arg;
+        if (b->arg) (void)ui_set_runtime_string(ui, &ui->prompt, b->arg);
         break;
     case MM_ACT_CHANGE_HEADER:
         if (b->arg) {
-            ui->saved_header = b->arg;
-            if (!ui->header_hidden) ui->header = b->arg;
+            if (ui_set_runtime_string(ui, &ui->saved_header, b->arg) && !ui->header_hidden)
+                ui->header = ui->saved_header;
         }
         break;
     case MM_ACT_CHANGE_NTH: {
@@ -3119,6 +3144,8 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             char *expanded = ui_expand_command(ui, b->arg);
             if (expanded) {
                 free(ui->become_command);
+    for (size_t i = 0; i < ui->runtime_strings_n; i++) free(ui->runtime_strings[i]);
+    free(ui->runtime_strings);
                 ui->become_command = expanded;
                 return false;
             }
@@ -3779,6 +3806,8 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->bg_transform_output = NULL;
     ui->bg_transform_len = ui->bg_transform_cap = 0;
     ui->become_command = NULL;
+    ui->runtime_strings = NULL;
+    ui->runtime_strings_n = ui->runtime_strings_cap = 0;
     ui->lines = lines;
     ui->count = 0;
     ui->lines_cap = cap;
