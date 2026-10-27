@@ -202,12 +202,12 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-037 | `delete-char` | src/bind.c, src/ui.c | tests/pty-diff.sh | implemented but unverified |
 | ACT-038 | `deselect` | src/bind.c, src/ui.c | - | implemented |
 | ACT-039 | `deselect-all` | src/bind.c, src/ui.c | - | implemented |
-| ACT-040 | `disable-raw` | - | - | unstarted |
+| ACT-040 | `disable-raw` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-disable-raw | implemented but unverified |
 | ACT-041 | `disable-search` | src/bind.c, src/ui.c | tests/pty-diff.sh:disable-search-action | implemented but unverified |
 | ACT-042 | `down` | src/bind.c, src/ui.c | - | implemented |
 | ACT-043 | `down-match` | src/bind.c, src/ui.c | - | implemented |
 | ACT-044 | `down-selected` | src/bind.c, src/ui.c | - | implemented |
-| ACT-045 | `enable-raw` | - | - | unstarted |
+| ACT-045 | `enable-raw` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-enable-raw | implemented but unverified |
 | ACT-046 | `enable-search` | src/bind.c, src/ui.c | tests/pty-diff.sh:disabled-enable-search-action | implemented but unverified |
 | ACT-047 | `end-of-line` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-end-of-line | implemented but unverified |
 | ACT-048 | `exclude` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-exclude-current | implemented but unverified |
