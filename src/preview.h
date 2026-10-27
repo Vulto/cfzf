@@ -21,6 +21,7 @@ typedef struct {
     bool border_left_only; /* --preview-window=border-left */
     bool info;        /* show the info line in the preview */
     bool wrap;        /* wrap the preview text instead of clipping it */
+    bool wrap_word;   /* break wrapped preview lines at word boundaries */
     bool cycle;       /* cycle preview scrolling */
 } mm_preview_win_t;
 
