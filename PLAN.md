@@ -1,6 +1,6 @@
 # Mission: Build a Behaviorally Identical, High-Performance C23 Reimplementation of fzf
 
-Execution tracking: `TASKS.md` is the authoritative milestone checklist; `BASELINE_EVIDENCE.md` records commit-specific CI evidence. Do not treat this mission specification or historical reports as proof that a task is complete.
+Execution tracking: `TASKS.md` is the authoritative milestone checklist; `BASELINE_EVIDENCE.md` records commit-specific local verification evidence. GitHub Actions workflows are intentionally disabled; do not use GitHub CI. Do not treat this mission specification or historical reports as proof that a task is complete.
 
 ## 1. Role and objective
 
