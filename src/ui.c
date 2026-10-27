@@ -4172,6 +4172,8 @@ int mm_ui_run(mm_ui_t *ui) {
     if (ui->become_command) {
         fflush(stdout);
         fflush(stderr);
+        /* The replacement command must be able to read any {f}/{+f}/{*f}
+           files created during expansion. Do not unlink them on exec failure. */
         if (ui->shell && *ui->shell)
             execl(ui->shell, ui->shell, "-c", ui->become_command, (char *)NULL);
         else
