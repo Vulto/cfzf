@@ -357,49 +357,52 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
             int ntoks = 1;
             bool heap = false;
 
-            if ((input->nth_ranges && input->nth_n > 0) ||
-                (input->with_nth_ranges && input->with_nth_n > 0)) {
+            if (input->nth_ranges && input->nth_n > 0) {
                 int ntok_in = 0, *tpl = NULL;
                 char **tokens = mm_tokenize(search_line, input->delim, &tpl, &ntok_in);
                 if (!tokens || !tpl) {
                     for (int k = 0; k < ntok_in; k++) free(tokens ? tokens[k] : NULL);
                     free(tokens);
                     free(tpl);
+                    free(joined);
                     search_failed = true;
                     break;
                 }
+
                 int nout = 0, *opl = NULL;
-                char **outs = mm_transform(tokens, ntok_in, tpl, input->nth_ranges, input->nth_n, &opl, &nout);
+                char **outs = mm_transform(tokens, ntok_in, tpl, input->nth_ranges,
+                                            input->nth_n, &opl, &nout);
+                for (int k = 0; k < ntok_in; k++) free(tokens[k]);
+                free(tokens);
+                free(tpl);
                 if (!outs || !opl) {
-                    for (int k = 0; k < ntok_in; k++) free(tokens[k]);
-                    free(tokens);
-                    free(tpl);
                     if (outs) {
                         for (int k = 0; k < nout; k++) free(outs[k]);
-                        free(outs);
                     }
+                    free(outs);
                     free(opl);
+                    free(joined);
                     search_failed = true;
                     break;
                 }
+
                 ntoks = nout;
                 if (ntoks > 32) {
                     toks = malloc((size_t)ntoks * sizeof(*toks));
                     stk_text = calloc((size_t)ntoks, sizeof(*stk_text));
                     heap = true;
                     if (!toks || !stk_text) {
-                        free(toks == stack_toks ? NULL : toks);
-                        free(stk_text == stack_text ? NULL : stk_text);
-                        for (int k = 0; k < ntok_in; k++) free(tokens[k]);
-                        free(tokens);
-                        free(tpl);
+                        free(toks);
+                        free(stk_text);
                         for (int k = 0; k < nout; k++) free(outs[k]);
                         free(outs);
                         free(opl);
+                        free(joined);
                         search_failed = true;
                         break;
                     }
                 }
+
                 int decoded_count = 0;
                 bool decoded_ok = true;
                 for (int k = 0; k < nout; k++) {
@@ -411,84 +414,26 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                     }
                     toks[k].text.runes = stk_text[k].runes;
                     toks[k].text.length = stk_text[k].length;
-                    toks[k].prefix_length = opl ? opl[k] : 0;
+                    toks[k].prefix_length = opl[k];
                 }
                 if (!decoded_ok) {
                     for (int k = 0; k < decoded_count; k++) mchars_free(&stk_text[k]);
-                    for (int k = 0; k < ntok_in; k++) free(tokens[k]);
-                    free(tokens); free(tpl);
                     for (int k = 0; k < nout; k++) free(outs[k]);
-                    free(outs); free(opl);
+                    free(outs);
+                    free(opl);
                     if (heap) {
                         free(toks);
-                        if (stk_text != stack_text) free(stk_text);
+                        free(stk_text);
                     }
+                    free(joined);
                     search_failed = true;
                     break;
                 }
-                for (int k = 0; k < ntok_in; k++) free(tokens[k]);
-                free(tokens); free(tpl);
-                if (input->length_from_transform) {
-                    size_t tot = 0;
-                    bool size_overflow = false;
-                    for (int k = 0; k < nout; k++) {
-                        size_t part = strlen(outs[k]);
-                        if (part > SIZE_MAX - tot) {
-                            size_overflow = true;
-                            break;
-                        }
-                        tot += part;
-                    }
-                    char *transformed_length = size_overflow || tot == SIZE_MAX ? NULL : malloc(tot + 1);
-                    if (!transformed_length) {
-                        for (int k = 0; k < nout; k++) {
-                            mchars_free(&stk_text[k]);
-                            free(outs[k]);
-                        }
-                        free(outs);
-                        free(opl);
-                        if (heap) {
-                            free(toks);
-                            if (stk_text != stack_text) free(stk_text);
-                        }
-                        search_failed = true;
-                        break;
-                    }
-                    size_t offset = 0;
-                    for (int k = 0; k < nout; k++) {
-                        size_t part = strlen(outs[k]);
-                        memcpy(transformed_length + offset, outs[k], part);
-                        offset += part;
-                    }
-                    transformed_length[offset] = '\0';
-                    if (own_items) {
-                        mchars_free(&items[i].text);
-                        mchars_init(&items[i].text, transformed_length);
-                        if (!mchars_decode(&items[i].text)) {
-                            mchars_free(&items[i].text);
-                            free(transformed_length);
-                        for (int k = 0; k < nout; k++) {
-                            mchars_free(&stk_text[k]);
-                            free(outs[k]);
-                        }
-                        free(outs);
-                        free(opl);
-                        if (heap) {
-                            free(toks);
-                            if (stk_text != stack_text) free(stk_text);
-                        }
-                            search_failed = true;
-                            break;
-                        }
-                        free(joined);
-                        joined = transformed_length;
-                    } else {
-                        free(transformed_length);
-                    }
-                }
+
                 int score = 0;
                 int *pos = NULL, npos = 0;
-                bool ok = mm_pattern_match_tokens(pat, toks, ntoks, &score, &pos, &npos);
+                bool ok = mm_pattern_match_tokens(pat, toks, ntoks,
+                                                  &score, &pos, &npos);
                 if (ok) {
                     int minb = 0xFFFF, mine = 0xFFFF, maxe = 0, valid = false;
                     if (pos && npos > 0) {
@@ -500,7 +445,8 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                         }
                         valid = true;
                     }
-                    mm_result_set_bounds(&results[n], &items[i], score, minb, mine, maxe, valid, crit);
+                    mm_result_set_bounds(&results[n], &items[i], score,
+                                         minb, mine, maxe, valid, crit);
                     if (npos > 1) qsort(pos, (size_t)npos, sizeof(*pos), mm_int_compare);
                     results[n].pos = pos;
                     results[n].npos = npos;
@@ -508,11 +454,15 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                     n++;
                 }
                 free(pos);
-                for (int k = 0; k < nout; k++) { mchars_free(&stk_text[k]); free(outs[k]); }
-                free(outs); free(opl);
+                for (int k = 0; k < nout; k++) {
+                    mchars_free(&stk_text[k]);
+                    free(outs[k]);
+                }
+                free(outs);
+                free(opl);
                 if (heap) {
                     free(toks);
-                    if (stk_text != stack_text) free(stk_text);
+                    free(stk_text);
                 }
                 free(joined);
                 continue;
