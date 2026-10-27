@@ -444,6 +444,29 @@ static void ui_exec_focus_if_changed(mm_ui_t *ui, int *last_item) {
     ui_exec_event(ui, "focus");
 }
 
+/* Match fzf's list-update events: result on result-count changes, one/zero
+   when a finalized list enters those states, and result-final after a completed
+   input list. Mark initialization before invoking actions to avoid recursion
+   when an event action itself changes the query. */
+static void ui_exec_result_events(mm_ui_t *ui, int previous_count) {
+    bool count_changed = previous_count != ui->nresults;
+    bool complete = ui->input_fd < 0 || ui->input_done;
+    bool initial_final = complete && !ui->result_events_initialized;
+
+    if (complete) ui->result_events_initialized = true;
+    if (count_changed) ui_exec_event(ui, "result");
+
+    if (!complete || (!count_changed && !initial_final)) return;
+
+    if (ui->nresults == 0) ui_exec_event(ui, "zero");
+    else if (ui->nresults == 1) ui_exec_event(ui, "one");
+
+    const mm_event_binding_t *found[1];
+    if (mm_event_lookup(&ui->events, "result", found, 1) > 0 ||
+        mm_event_lookup(&ui->events, "result-final", found, 1) > 0)
+        ui_exec_event(ui, "result-final");
+}
+
 /* --- rendering --- */
 /* fzf 0.74 default (fullscreen) layout, from bottom to top:
      - prompt on the last line
