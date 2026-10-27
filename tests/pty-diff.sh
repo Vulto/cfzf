@@ -771,6 +771,30 @@ sleep 300
 
 run_execute_case 'bind-execute' 'ctrl-t'
 
+run_case 'preview-scroll-down' 'sleep 350
+key ctrl-d
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border --bind='ctrl-d:preview-down'
+run_case 'preview-scroll-page-down' 'sleep 350
+key ctrl-d
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border --bind='ctrl-d:preview-page-down'
+run_case 'preview-scroll-bottom' 'sleep 350
+key ctrl-d
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border --bind='ctrl-d:preview-bottom'
+run_case 'preview-scroll-top' 'sleep 350
+key ctrl-d
+sleep 150
+key ctrl-d
+sleep 150
+key enter
+sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border --bind='ctrl-d:preview-bottom,ctrl-d:preview-top'
+
+
 run_case 'bind-change-query' 'sleep 350
 key ctrl-t
 sleep 250'                                        "$WORK/items.txt" --bind='ctrl-t:change-query(cherry)'
