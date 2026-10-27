@@ -30,7 +30,6 @@ typedef struct {
     int              nth_n;
     mm_range_t       *with_nth;
     int              with_nth_n;
-    bool             length_from_transform;
     bool             extended;
     bool             fuzzy;
     mm_case_t        case_mode;
