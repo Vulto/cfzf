@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 
 static const struct { const char *name; mm_action_t action; } action_table[] = {
     { "accept", MM_ACT_ACCEPT },
