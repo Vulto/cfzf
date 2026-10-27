@@ -156,6 +156,9 @@ unverified behaviors are explicitly reported, not mislabeled as parity.
   `unbind(*)` preserve removed bindings, while `rebind(key[,key...])` and
   `rebind(*)` restore them. Added PTY coverage for unbind/rebind; tests remain
   unexecuted.
+- Implemented `select` for the current item (respecting multi-select and
+  its limit), plus `toggle-in` / `toggle-out` layout-aware dispatch. Added
+  PTY cases for select and toggle-in; differential execution is pending.
 - GitHub Actions CI and performance workflows were removed at the user's
   request. Continue using local build and differential tests only; never
   trigger GitHub Actions.
