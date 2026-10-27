@@ -3936,8 +3936,12 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->items = calloc(alloc, sizeof(mm_item_t));
     if (!ui->items) return false;
     for (int i = 0; i < count; i++) {
-        mm_item_init(&ui->items[i], lines[i], i);
+        if (!mm_item_init(&ui->items[i], lines[i], i)) {
+            ui->count = i;
+            return false;
+        }
         if (!mchars_decode(&ui->items[i].text)) {
+            mm_item_free(&ui->items[i]);
             ui->count = i;
             return false;
         }
