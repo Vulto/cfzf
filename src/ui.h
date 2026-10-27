@@ -95,6 +95,8 @@ typedef struct {
     mm_keymap_t  disabled_keymap; /* keys temporarily removed by unbind */
     mm_event_map_t events;   /* --bind event bindings */
     bool result_events_initialized; /* final result-count events were emitted */
+    int jump_mode; /* 0 disabled, 1 jump, 2 jump-and-accept */
+    int jump_label_count; /* visible jump labels in the current layout */
     mm_preview_t *preview;   /* preview runner (NULL when disabled) */
     pid_t        bg_transform_pid;
     int          bg_transform_fd;
