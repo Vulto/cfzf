@@ -349,7 +349,6 @@ static void ui_search(mm_ui_t *ui) {
     mm_input_t input = {
         .lines = ui->lines, .count = ui->count, .items = ui->items, .base = 0,
         .delim = ui->delim, .nth_ranges = ui->nth, .nth_n = ui->nth_n,
-        .length_from_transform = false,
         .with_nth_ranges = ui->with_nth, .with_nth_n = ui->with_nth_n
     };
     int n = 0;
