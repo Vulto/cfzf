@@ -869,6 +869,38 @@ run_execute_list_case 'execute-multi-placeholder' 'execute-multi' '{}'
 run_execute_list_case 'execute-selected-placeholder' 'execute' '{+}'
 run_execute_list_case 'execute-matched-placeholder' 'execute' '{*}'
 
+# These cases compare the content passed through fzf's temporary-file
+# placeholders, not their intentionally unique temporary paths.
+run_execute_file_case() {
+    name=$1; action=$2; placeholder=$3
+    rm -f "$WORK/exec-ref.txt" "$WORK/exec-impl.txt"
+    printf 'sleep 350
+key tab
+sleep 100
+key up
+sleep 100
+key tab
+sleep 100
+key ctrl-t
+sleep 300
+' > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/space-items-multi.txt" --screen \
+        -- --multi --bind="tab:toggle,ctrl-t:$action(cat $placeholder > $WORK/exec-ref.txt)" > "$WORK/ref.txt" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" \
+        --stdin-file "$WORK/space-items-multi.txt" --screen \
+        -- --multi --bind="tab:toggle,ctrl-t:$action(cat $placeholder > $WORK/exec-impl.txt)" > "$WORK/impl.txt" 2>/dev/null
+    if cmp -s "$WORK/exec-ref.txt" "$WORK/exec-impl.txt"; then
+        pass=$((pass + 1)); printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1)); printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/exec-ref.txt" "$WORK/exec-impl.txt" | head -12
+    fi
+}
+run_execute_file_case 'execute-file-placeholder' 'execute' '{f}'
+run_execute_file_case 'execute-selected-file-placeholder' 'execute' '{+f}'
+run_execute_file_case 'execute-matched-file-placeholder' 'execute' '{*f}'
+
 run_case 'preview-scroll-down' 'sleep 350
 key ctrl-d
 sleep 150
