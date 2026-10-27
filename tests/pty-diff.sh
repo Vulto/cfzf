@@ -961,6 +961,13 @@ key ctrl-t
 sleep 150
 key enter
 sleep 200' "$WORK/items.txt" --footer=old --bind="ctrl-t:change-footer-label(new)"
+run_case 'bind-bg-cancel-ignores-term' 'sleep 350
+key ctrl-t
+sleep 100
+key ctrl-c
+sleep 200
+key enter
+sleep 150' "$WORK/items.txt" --bind="ctrl-t:bg-transform(trap '' TERM; sleep 3; printf 'change-query(cherry)'),ctrl-c:bg-cancel"
 
 run_case 'bind-reload-sync' 'sleep 350
 key ctrl-r
