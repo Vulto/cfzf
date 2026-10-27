@@ -202,6 +202,37 @@ static void keymap_remove_key(mm_keymap_t *km, mm_event_type_t type, wchar_t run
     km->n = w;
 }
 
+bool mm_bind_unbind(mm_keymap_t *km, const char *keys) {
+    if (!km || !keys || !*keys) return false;
+    if (strcmp(keys, "*") == 0) {
+        for (int i = 0; i < km->n; i++) free(km->items[i].arg);
+        km->n = 0;
+        return true;
+    }
+    const char *p = keys;
+    while (*p) {
+        const char *end = strchr(p, ',');
+        size_t len = end ? (size_t)(end - p) : strlen(p);
+        while (len && (*p == ' ' || *p == '\\t')) { p++; len--; }
+        while (len && (p[len - 1] == ' ' || p[len - 1] == '\\t')) len--;
+        if (len == 0) return false;
+        char *name = malloc(len + 1);
+        if (!name) return false;
+        memcpy(name, p, len);
+        name[len] = '\\0';
+        mm_event_type_t type;
+        wchar_t rune;
+        bool valid = parse_key(name, &type, &rune);
+        free(name);
+        if (!valid) return false;
+        keymap_remove_key(km, type, rune);
+        if (!end) break;
+        p = end + 1;
+        if (!*p) return false;
+    }
+    return true;
+}
+
 bool mm_bind_parse(mm_keymap_t *km, const char *spec, bool replace, const char **err) {
     if (!spec || !*spec) { *err = "bind action required"; return false; }
 
