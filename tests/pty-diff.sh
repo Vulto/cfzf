@@ -789,10 +789,10 @@ sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,bor
 run_case 'preview-scroll-top' 'sleep 350
 key ctrl-d
 sleep 150
-key ctrl-d
+key ctrl-u
 sleep 150
 key enter
-sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border --bind='ctrl-d:preview-bottom,ctrl-d:preview-top'
+sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border --bind='ctrl-d:preview-bottom,ctrl-u:preview-top'
 
 
 run_case 'bind-change-query' 'sleep 350
