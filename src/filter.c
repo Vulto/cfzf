@@ -123,6 +123,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
        below the threshold and uses the ordinary single-threaded implementation. */
     if (!pat->sortable && total >= 10000) {
         int nthreads = mm_filter_thread_count(total);
+        if (input->with_nth_ranges && input->with_nth_n > 0) nthreads = 1;
         if (nthreads > total / 2) nthreads = total / 2;
         if (nthreads > 1) {
             mm_filter_worker_t *workers = calloc((size_t)nthreads, sizeof(*workers));
@@ -337,6 +338,25 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
             }
             items_initialized = i + 1;
             char *joined = NULL;
+            const char *search_line = input->lines[i];
+            if (input->with_nth_ranges && input->with_nth_n > 0) {
+                joined = mm_transform_line(input->lines[i], input->delim,
+                                           input->with_nth_ranges,
+                                           input->with_nth_n);
+                if (!joined) {
+                    search_failed = true;
+                    break;
+                }
+                mchars_free(&items[i].text);
+                if (!mchars_init(&items[i].text, joined) ||
+                    !mchars_decode(&items[i].text)) {
+                    free(joined);
+                    joined = NULL;
+                    search_failed = true;
+                    break;
+                }
+                search_line = joined;
+            }
 
             mm_token_t stack_toks[32];
             mm_token_t *toks = stack_toks;
@@ -347,7 +367,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
 
             if (input->nth_ranges && input->nth_n > 0) {
                 int ntok_in = 0, *tpl = NULL;
-                char **tokens = mm_tokenize(input->lines[i], input->delim, &tpl, &ntok_in);
+                char **tokens = mm_tokenize(search_line, input->delim, &tpl, &ntok_in);
                 if (!tokens || !tpl) {
                     for (int k = 0; k < ntok_in; k++) free(tokens ? tokens[k] : NULL);
                     free(tokens);
@@ -415,7 +435,7 @@ static int *mm_batch_search_internal(mm_input_t *input, mm_pattern_t *pat,
                 }
                 for (int k = 0; k < ntok_in; k++) free(tokens[k]);
                 free(tokens); free(tpl);
-                if (input->length_from_transform) {
+                if (input->length_from_transform && !input->with_nth_n) {
                     size_t tot = 0;
                     bool size_overflow = false;
                     for (int k = 0; k < nout; k++) {
