@@ -28,6 +28,8 @@ typedef struct {
     const char       *id_nth_spec; /* --id-nth identity expression */
     mm_range_t       *nth;
     int              nth_n;
+    mm_range_t       *with_nth;
+    int              with_nth_n;
     bool             length_from_transform;
     bool             extended;
     bool             fuzzy;
