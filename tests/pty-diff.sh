@@ -806,6 +806,19 @@ key enter
 sleep 200' "$WORK/items.txt" --preview='seq 1 40' --preview-window=right,50%,border --bind='ctrl-d:preview-bottom,ctrl-u:preview-top'
 
 
+run_case 'bind-exclude-current' 'sleep 350
+key ctrl-x
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --bind='ctrl-x:exclude'
+run_case 'bind-exclude-multi-selected' 'sleep 350
+key ctrl-space
+sleep 100
+key ctrl-x
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --multi --bind='ctrl-x:exclude-multi'
+
 run_case 'bind-change-query' 'sleep 350
 key ctrl-t
 sleep 250'                                        "$WORK/items.txt" --bind='ctrl-t:change-query(cherry)'
