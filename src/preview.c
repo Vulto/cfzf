@@ -105,26 +105,54 @@ void mm_preview_free(mm_preview_t *p) {
     free(p->command);
     free(p->shell);
     free(p->selected);
+    free(p->selected_shell);
     if (p->tmpfile) { unlink(p->tmpfile); free(p->tmpfile); }
     free(p->buf);
     free(p);
 }
 
 /* Expand the fzf placeholders in the command template. */
-/* Write the selected items to a temporary file and return its path. */
+/* Write all selected records, handling short writes and interrupted calls. */
+static bool preview_write_selected(int fd, const char *selected) {
+    size_t len = selected ? strlen(selected) : 0;
+    size_t written = 0;
+    while (written < len) {
+        ssize_t n = write(fd, selected + written, len - written);
+        if (n > 0) {
+            written += (size_t)n;
+            continue;
+        }
+        if (n < 0 && errno == EINTR) continue;
+        return false;
+    }
+    return true;
+}
+
+/* Write the selected items to a temporary file and return its path. The same
+   path can be reused, but its contents must follow the current selection. */
 static char *preview_tmpfile(mm_preview_t *p, const char *selected) {
-    if (p->tmpfile) return p->tmpfile;
+    if (p->tmpfile) {
+        int fd = open(p->tmpfile, O_WRONLY | O_TRUNC);
+        if (fd < 0) return NULL;
+        bool ok = preview_write_selected(fd, selected);
+        close(fd);
+        return ok ? p->tmpfile : NULL;
+    }
     const char *dir = getenv("TMPDIR");
     if (!dir || !*dir) dir = "/tmp";
-    size_t n = strlen(dir) + 32;
+    size_t n = strlen(dir);
+    if (n > SIZE_MAX - 32) return NULL;
+    n += 32;
     char *path = malloc(n);
     if (!path) return NULL;
     snprintf(path, n, "%s/fzf-preview-XXXXXX", dir);
     int fd = mkstemp(path);
     if (fd < 0) { free(path); return NULL; }
-    if (selected && *selected) {
-        size_t len = strlen(selected);
-        if (write(fd, selected, len) < 0) { /* best effort */ }
+    if (!preview_write_selected(fd, selected)) {
+        close(fd);
+        unlink(path);
+        free(path);
+        return NULL;
     }
     close(fd);
     p->tmpfile = path;
@@ -267,10 +295,15 @@ const char *mm_preview_output(mm_preview_t *p) {
     return p->buf;
 }
 
-void mm_preview_set_selected(mm_preview_t *p, const char *selected) {
+void mm_preview_set_selected(mm_preview_t *p, const char *selected,
+                             const char *selected_shell) {
     if (!p) return;
+    char *raw_copy = selected ? strdup(selected) : NULL;
+    char *shell_copy = selected_shell ? strdup(selected_shell) : NULL;
     free(p->selected);
-    p->selected = selected ? strdup(selected) : NULL;
+    free(p->selected_shell);
+    p->selected = raw_copy;
+    p->selected_shell = shell_copy;
 }
 
 void mm_preview_set_command(mm_preview_t *p, const char *command) {
