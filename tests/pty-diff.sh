@@ -906,6 +906,11 @@ sleep 200'                                        "$WORK/items.txt" --bind='ctrl
 run_case 'bind-become-command' 'sleep 350
 key ctrl-t
 sleep 300' "$WORK/items.txt" --bind="ctrl-t:become(printf 'became')"
+run_case 'bind-transform-owned-string' 'sleep 350
+key ctrl-t
+sleep 200
+key enter
+sleep 200' "$WORK/items.txt" --ghost=old --bind="ctrl-t:transform(printf 'change-ghost(new)')"
 run_case 'bind-transform-change-query' 'sleep 350
 key ctrl-t
 sleep 200
