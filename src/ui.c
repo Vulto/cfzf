@@ -1748,6 +1748,7 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
        or right edge. */
     int content_w = w - (full_border ? 4 : (bordered ? 2 : 0));
     int content_h = h - (full_border ? 2 : 0);
+    ui->preview_page_size = content_h > 0 ? content_h : 1;
 
     /* With a gap the reference pads the preview content with the border
        colour. */
@@ -2375,7 +2376,7 @@ static int ui_preview_line_count(const mm_ui_t *ui) {
 static void ui_preview_scroll(mm_ui_t *ui, int delta) {
     if (!ui->preview || ui->preview_hidden) return;
     int lines = ui_preview_line_count(ui);
-    int page = ui->page_size > 1 ? ui->page_size - 1 : 1;
+    int page = ui->preview_page_size > 1 ? ui->preview_page_size : 1;
     int max_offset = lines > page ? lines - page : 0;
     if (delta == INT_MIN) ui->preview_offset = 0;
     else if (delta == INT_MAX) ui->preview_offset = max_offset;
@@ -2894,16 +2895,16 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_PREVIEW_UP: ui_preview_scroll(ui, -1); break;
     case MM_ACT_PREVIEW_DOWN: ui_preview_scroll(ui, 1); break;
     case MM_ACT_PREVIEW_PAGE_UP:
-        ui_preview_scroll(ui, -(ui->page_size > 1 ? ui->page_size - 1 : 1));
+        ui_preview_scroll(ui, -(ui->preview_page_size > 1 ? ui->preview_page_size : 1));
         break;
     case MM_ACT_PREVIEW_PAGE_DOWN:
-        ui_preview_scroll(ui, ui->page_size > 1 ? ui->page_size - 1 : 1);
+        ui_preview_scroll(ui, ui->preview_page_size > 1 ? ui->preview_page_size : 1);
         break;
     case MM_ACT_PREVIEW_HALF_PAGE_UP:
-        ui_preview_scroll(ui, -(ui->page_size > 2 ? (ui->page_size - 1) / 2 : 1));
+        ui_preview_scroll(ui, ui->preview_page_size > 2 ? ui->preview_page_size / 2 : 1);
         break;
     case MM_ACT_PREVIEW_HALF_PAGE_DOWN:
-        ui_preview_scroll(ui, ui->page_size > 2 ? (ui->page_size - 1) / 2 : 1);
+        ui_preview_scroll(ui, ui->preview_page_size > 2 ? ui->preview_page_size / 2 : 1);
         break;
     case MM_ACT_PREVIEW:
         /* A preview command is configured separately; this action only
