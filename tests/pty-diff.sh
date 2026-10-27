@@ -81,6 +81,8 @@ run_case() {
 }
 
 run_case 'initial'      'sleep 400'            "$WORK/items.txt"
+run_case 'select-1-single-initial-match' 'sleep 400' "$WORK/items.txt" --select-1 --query=apple
+run_case 'exit-0-initial-no-match' 'sleep 400' "$WORK/items.txt" --exit-0 --query=missing
 run_case 'accept-nth-interactive-template' 'sleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --accept-nth='{n}: {1}'
 run_case 'hscroll-match-visible' 'sleep 250\nsend needle\nsleep 250' "$WORK/scroll.txt"
 run_case 'no-hscroll-match-visible' 'sleep 250\nsend needle\nsleep 250' "$WORK/scroll.txt" --no-hscroll
