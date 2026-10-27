@@ -850,6 +850,18 @@ key ctrl-t
 sleep 200
 key enter
 sleep 200' "$WORK/items.txt" --bind="ctrl-t:transform(printf 'change-query(cherry)')"
+run_case 'bind-bg-transform-change-query' 'sleep 350
+key ctrl-t
+sleep 450
+key enter
+sleep 200' "$WORK/items.txt" --bind="ctrl-t:bg-transform(sleep 0.1; printf 'change-query(cherry)')"
+run_case 'bind-bg-cancel' 'sleep 350
+key ctrl-t
+sleep 100
+key ctrl-c
+sleep 100
+key enter
+sleep 200' "$WORK/items.txt" --bind="ctrl-t:bg-transform(sleep 3; printf 'change-query(cherry)'),ctrl-c:bg-cancel"
 
 run_case 'bind-put-query' 'sleep 350
 key ctrl-p
