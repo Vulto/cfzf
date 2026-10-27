@@ -4461,6 +4461,12 @@ void mm_ui_free(mm_ui_t *ui) {
     free(ui->become_command);
     for (size_t i = 0; i < ui->runtime_strings_n; i++) free(ui->runtime_strings[i]);
     free(ui->runtime_strings);
+    free(ui->nth);
+    free(ui->with_nth);
+    ui->nth = NULL;
+    ui->with_nth = NULL;
+    ui->nth_n = 0;
+    ui->with_nth_n = 0;
     if (ui->items)
         for (int i = 0; i < ui->count; i++) mm_item_free(&ui->items[i]);
     if (ui->lines) {
