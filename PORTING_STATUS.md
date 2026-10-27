@@ -124,6 +124,12 @@ logical screen states through `tests/screen.py`.
 - `hide-header`, `show-header`, and `toggle-header` preserve and
   restore the configured header rather than inventing replacement text.
   Differential cases are present but not executed.
+- Preview visibility actions now hide/show the preview pane without
+  destroying its command runner; PTY differential cases are present but not
+  executed.
+- `backward-kill-subword` and `forward-subword` now move/delete by UTF-8
+  codepoint boundaries, punctuation separators, and camel-case transitions.
+  Differential execution remains pending.
 - GitHub Actions CI and performance workflow files have been removed; this
   project now uses local-only verification by instruction.
 - fzf shows a spinner in the info line while the input is still being read;
