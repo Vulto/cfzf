@@ -3622,6 +3622,7 @@ int mm_ui_run(mm_ui_t *ui) {
                 ((ui->select_1 && ui->nresults == 1) ||
                  (ui->exit_0 && ui->nresults == 0)))
                 running = false;
+            if (more) ui_exec_focus_if_changed(ui, &focused_item);
             if ((more || bg_transform_active || (ui->preview && mm_preview_poll(ui->preview))) && running) {
                 ui_render(ui, &r, &listwin, &promptwin, &infowin);
             }
@@ -3644,6 +3645,7 @@ int mm_ui_run(mm_ui_t *ui) {
                 for (int i = 0; i < nf && cont; i++)
                     cont = ui_execute_action(ui, found[i]);
                 if (!cont) { running = false; break; }
+                ui_exec_focus_if_changed(ui, &focused_item);
                 if (ui->preview) ui_preview_restart(ui);
                 if (running) ui_render(ui, &r, &listwin, &promptwin, &infowin);
                 continue;
@@ -3820,6 +3822,7 @@ int mm_ui_run(mm_ui_t *ui) {
         default:
             break;
         }
+        ui_exec_focus_if_changed(ui, &focused_item);
         if (ui->preview) ui_preview_restart(ui);
         if (running) ui_render(ui, &r, &listwin, &promptwin, &infowin);
     }
