@@ -130,6 +130,8 @@ logical screen states through `tests/screen.py`.
 - `backward-kill-subword` and `forward-subword` now move/delete by UTF-8
   codepoint boundaries, punctuation separators, and camel-case transitions.
   Differential execution remains pending.
+- `unbind(key[,key...])` and `unbind(*)` now remove active key bindings;
+  a PTY differential case was added but has not been run.
 - GitHub Actions CI and performance workflow files have been removed; this
   project now uses local-only verification by instruction.
 - fzf shows a spinner in the info line while the input is still being read;
