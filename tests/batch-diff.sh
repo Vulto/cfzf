@@ -290,6 +290,8 @@ check_invalid_option "threads-missing-value" 'invalid --threads value' --filter=
 check_invalid_option "header-lines-invalid" 'invalid --header-lines value' --filter=a --header-lines=bad
 check_invalid_option "header-lines-negative" 'invalid --header-lines value' --filter=a --header-lines=-1
 check_invalid_option "header-lines-missing-value" 'invalid --header-lines value' --filter=a --header-lines
+check_invalid_option "footer-label-pos-invalid" 'invalid position' --filter=a --footer-label-pos=bad
+check_invalid_option "footer-label-missing" '--footer-label requires a value' --filter=a --footer-label
 check_invalid_option "multi-max-invalid" 'invalid --multi-max value' --filter=a --multi-max=bad
 check_invalid_option "multi-max-negative" 'invalid --multi-max value' --filter=a --multi-max=-1
 check_invalid_option "gap-invalid" 'invalid --gap value' --filter=a --gap=bad
