@@ -1635,7 +1635,7 @@ int main(int argc, char **argv) {
     while (p < data + len) {
         char *nl = memchr(p, sep, (size_t)(data + len - p));
         size_t llen = nl ? (size_t)(nl - p) : (size_t)(data + len - p);
-        if (!read0 && nl && llen > 0 && p[llen - 1] == '\r') llen--;
+        if (!read0 && llen > 0 && p[llen - 1] == '\r') llen--;
         char *line = malloc(llen + 1);
         if (!line) { fprintf(stderr, "fzf: out of memory\n"); return 2; }
         memcpy(line, p, llen);
