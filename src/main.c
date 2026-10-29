@@ -1122,6 +1122,7 @@ int main(int argc, char **argv) {
                 return 2;
             }
         }
+        else if (!strcmp(a, "--no-footer-label")) footer_label = NULL;
         else if (ARG_EQ("--preview-label")) preview_label = a + strlen("--preview-label") + 1;
         else if (!strcmp(a, "--preview-label")) {
             if (i + 1 < argc) preview_label = argv[++i];
@@ -1345,7 +1346,6 @@ int main(int argc, char **argv) {
                  !strcmp(a, "--no-header-border") ||
                  !strcmp(a, "--no-header-label") ||
                  !strcmp(a, "--no-footer-border") ||
-                 !strcmp(a, "--no-footer-label") ||
                  !strcmp(a, "--no-input-border") ||
                  !strcmp(a, "--no-input-label") ||
                  !strcmp(a, "--no-border-label") ||
