@@ -1093,9 +1093,13 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         }
         if (ui->footer_label && *ui->footer_label) {
             int label_width = ui_str_width(ui->footer_label);
-            int label_x = ui->footer_label_pos == 0
-                        ? area_x + (area_w - label_width) / 2
-                        : area_x + ui->footer_label_pos - 1;
+            int label_x;
+            if (ui->footer_label_pos == 0)
+                label_x = area_x + (area_w - label_width) / 2;
+            else if (ui->footer_label_pos > 0)
+                label_x = area_x + ui->footer_label_pos - 1;
+            else
+                label_x = area_x + area_w - label_width + ui->footer_label_pos;
             if (label_x < area_x) label_x = area_x;
             if (label_x + label_width > area_x + area_w)
                 label_x = area_x + area_w - label_width;
