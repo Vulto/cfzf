@@ -770,6 +770,7 @@ run_case 'footer'          'sleep 200'                                       "$W
 run_case 'footer-label'     'sleep 200'                                       "$WORK/items.txt" --footer=FOOT --footer-label=STATUS
 run_case 'footer-label-left' 'sleep 200'                                      "$WORK/items.txt" --footer=FOOT --footer-label=STATUS --footer-label-pos=2
 run_case 'footer-label-right' 'sleep 200'                                     "$WORK/items.txt" --footer=FOOT --footer-label=STATUS --footer-label-pos=-2
+run_case 'footer-label-disabled' 'sleep 200'                                 "$WORK/items.txt" --footer=FOOT --footer-label=STATUS --no-footer-label
 run_case 'gutter'          'sleep 200'                                       "$WORK/items.txt" --gutter=+
 run_case 'gutter-raw'      'sleep 200'                                       "$WORK/items.txt" --gutter-raw=:
 run_case 'padding-1'       'sleep 200'                                       "$WORK/items.txt" --padding=1
