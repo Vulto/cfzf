@@ -1113,6 +1113,7 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "invalid position: %s\n", a + strlen("--footer-label-pos") + 1);
                 return 2;
             }
+            (void)bottom;
         }
         else if (!strcmp(a, "--footer-label-pos")) {
             const char *value = required_cli_arg(argc, argv, &i, "--footer-label-pos");
@@ -1121,6 +1122,7 @@ int main(int argc, char **argv) {
                 if (value) fprintf(stderr, "invalid position: %s\n", value);
                 return 2;
             }
+            (void)bottom;
         }
         else if (!strcmp(a, "--no-footer-label")) footer_label = NULL;
         else if (ARG_EQ("--preview-label")) preview_label = a + strlen("--preview-label") + 1;
