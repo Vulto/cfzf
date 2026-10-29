@@ -52,8 +52,8 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-023 | `--fish` | src/main.c | - | implemented |
 | OPT-024 | `--footer` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-025 | `--footer-border` | - | - | unstarted |
-| OPT-026 | `--footer-label` | src/main.c, src/ui.c | tests/pty-diff.sh:footer-label | implemented but unverified |
-| OPT-027 | `--footer-label-pos` | src/main.c, src/ui.c | tests/pty-diff.sh:footer-label-left, tests/pty-diff.sh:footer-label-right | implemented but unverified |
+| OPT-026 | `--footer-label` | src/main.c, src/ui.c | tests/pty-diff.sh:footer-label, tests/pty-diff.sh:footer-label-disabled, tests/batch-diff.sh:footer-label-missing | implemented but unverified |
+| OPT-027 | `--footer-label-pos` | src/main.c, src/ui.c | tests/pty-diff.sh:footer-label-left, tests/pty-diff.sh:footer-label-right, tests/batch-diff.sh:footer-label-pos-invalid | implemented but unverified |
 | OPT-028 | `--freeze-left` | - | - | unstarted |
 | OPT-029 | `--freeze-right` | - | - | unstarted |
 | OPT-030 | `\-\-gap` | src/ui.c, src/main.c | tests/pty-diff.sh:gap-default-layout, tests/pty-diff.sh:gap-disabled-layout, tests/batch-diff.sh:gap-default, tests/batch-diff.sh:gap-explicit-value, tests/batch-diff.sh:no-gap | implemented but unverified |
