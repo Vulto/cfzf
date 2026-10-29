@@ -655,6 +655,8 @@ int main(int argc, char **argv) {
     const char *header_lines_text = NULL;
     int header_lines = 0;
     const char *footer_spec = NULL;
+    const char *footer_label = NULL;
+    int footer_label_pos = 0;
     const char *gutter_spec = NULL;
     const char *gutter_raw_spec = NULL;
     bool ansi = false;
@@ -1099,10 +1101,27 @@ int main(int argc, char **argv) {
                 }
             } else { fprintf(stderr, "--header-label-pos requires a value\n"); return 2; }
         }
-        else if (ARG_EQ("--footer-label")) { }
-        else if (!strcmp(a, "--footer-label")) { if (i+1<argc) i++; }
-        else if (ARG_EQ("--footer-label-pos")) { }
-        else if (!strcmp(a, "--footer-label-pos")) { if (i+1<argc) i++; }
+        else if (ARG_EQ("--footer-label")) footer_label = a + strlen("--footer-label") + 1;
+        else if (!strcmp(a, "--footer-label")) {
+            footer_label = required_cli_arg(argc, argv, &i, "--footer-label");
+            if (!footer_label) return 2;
+        }
+        else if (ARG_EQ("--footer-label-pos")) {
+            bool bottom = false;
+            if (!mm_parse_label_pos(a + strlen("--footer-label-pos") + 1,
+                                    &footer_label_pos, &bottom)) {
+                fprintf(stderr, "invalid position: %s\n", a + strlen("--footer-label-pos") + 1);
+                return 2;
+            }
+        }
+        else if (!strcmp(a, "--footer-label-pos")) {
+            const char *value = required_cli_arg(argc, argv, &i, "--footer-label-pos");
+            bool bottom = false;
+            if (!value || !mm_parse_label_pos(value, &footer_label_pos, &bottom)) {
+                if (value) fprintf(stderr, "invalid position: %s\n", value);
+                return 2;
+            }
+        }
         else if (ARG_EQ("--preview-label")) preview_label = a + strlen("--preview-label") + 1;
         else if (!strcmp(a, "--preview-label")) {
             if (i + 1 < argc) preview_label = argv[++i];
@@ -1762,6 +1781,8 @@ int main(int argc, char **argv) {
         ui.prompt = prompt;
         ui.header = header;
         ui.header_lines = header_lines_text;
+        ui.footer_label = footer_label;
+        ui.footer_label_pos = footer_label_pos;
         ui.query = query;
         ui.print_query = print_query;
         ui.expect = expect;
