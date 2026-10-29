@@ -2386,6 +2386,8 @@ int mm_ui_height(const char *spec, int rows, int min_height) {
 }
 
 /* Start (or restart) the preview command for the current item. */
+static bool ui_command_append(char **out, size_t *length, size_t *capacity,
+                              const char *text, size_t n);
 static void ui_preview_restart(mm_ui_t *ui) {
     if (!ui->preview) return;
     int idx = ui->nresults > 0 ? ui->results[ui->cursor] : -1;

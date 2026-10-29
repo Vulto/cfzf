@@ -136,7 +136,7 @@ static char *accept_nth_fields(const char *line, mm_delimiter_t delim,
 char *mm_accept_nth_expand(const char *spec, const char *line,
                                mm_delimiter_t delim, int index) {
     if (mm_accept_nth_chars(spec))
-        return accept_nth_fields(line, delim, spec, false);
+        return accept_nth_fields(line, delim, spec, true);
 
     char *out = NULL;
     size_t length = 0, capacity = 0;

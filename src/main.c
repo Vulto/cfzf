@@ -898,7 +898,6 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-footer")) footer_spec = NULL;
         /* --disabled initially shows all items; search can be enabled by action. */
         else if (!strcmp(a, "--disabled")) disabled = true;
-        else if (!strcmp(a, "--no-disabled")) disabled = false;
         else if (!strcmp(a, "--wrap")) wrap = true;
         else if (!strcmp(a, "--no-wrap")) wrap = false;
         else if (!strcmp(a, "--wrap-word")) { wrap = true; wrap_word = true; }
@@ -1635,7 +1634,6 @@ int main(int argc, char **argv) {
     while (p < data + len) {
         char *nl = memchr(p, sep, (size_t)(data + len - p));
         size_t llen = nl ? (size_t)(nl - p) : (size_t)(data + len - p);
-        if (!read0 && llen > 0 && p[llen - 1] == '\r') llen--;
         char *line = malloc(llen + 1);
         if (!line) { fprintf(stderr, "fzf: out of memory\n"); return 2; }
         memcpy(line, p, llen);
@@ -1658,7 +1656,7 @@ int main(int argc, char **argv) {
         p = nl + 1;
     }
 
-    if (header_lines > 0 && !stream_input && count > 0) {
+    if (header_lines > 0 && !stream_input && count > 0 && !filter) {
         int h = header_lines;
         if (h > count) h = count;
         if (!filter) {
@@ -2072,7 +2070,8 @@ int main(int argc, char **argv) {
     char osep = print0 ? '\0' : '\n';
     if (print_query) { fputs(filter, stdout); fputc(osep, stdout); }
     for (int i = 0; i < n; i++) {
-        const char *line = lines[out[i]];
+        if (header_lines > 0 && (int)out[i] < header_lines) continue;
+        const char *line = search_lines[out[i]];
         if (accept_nth_spec) {
             char *accepted = mm_accept_nth_expand(accept_nth_spec, line, delim,
                                                 out[i]);
