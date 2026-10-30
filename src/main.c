@@ -1210,10 +1210,42 @@ int main(int argc, char **argv) {
         if (!id_nth_spec) return 2;
     }
     else if (!strcmp(a, "--no-id-nth")) id_nth_spec = NULL;
-    else if (ARG_EQ("--freeze-left")) { /* accepted */ }
-    else if (!strcmp(a, "--freeze-left")) { if (i+1<argc) i++; }
-    else if (ARG_EQ("--freeze-right")) { /* accepted */ }
-    else if (!strcmp(a, "--freeze-right")) { if (i+1<argc) i++; }
+    else if (ARG_EQ("--freeze-left")) {
+        int freeze_fields;
+        if (!parse_nonnegative_int(a + sizeof("--freeze-left=") - 1,
+                                   &freeze_fields)) {
+            fprintf(stderr, "invalid --freeze-left value: %s\\n",
+                    a + sizeof("--freeze-left=") - 1);
+            return 2;
+        }
+    }
+    else if (!strcmp(a, "--freeze-left")) {
+        int freeze_fields;
+        const char *value = required_cli_arg(argc, argv, &i, "--freeze-left");
+        if (!value) return 2;
+        if (!parse_nonnegative_int(value, &freeze_fields)) {
+            fprintf(stderr, "invalid --freeze-left value: %s\\n", value);
+            return 2;
+        }
+    }
+    else if (ARG_EQ("--freeze-right")) {
+        int freeze_fields;
+        if (!parse_nonnegative_int(a + sizeof("--freeze-right=") - 1,
+                                   &freeze_fields)) {
+            fprintf(stderr, "invalid --freeze-right value: %s\\n",
+                    a + sizeof("--freeze-right=") - 1);
+            return 2;
+        }
+    }
+    else if (!strcmp(a, "--freeze-right")) {
+        int freeze_fields;
+        const char *value = required_cli_arg(argc, argv, &i, "--freeze-right");
+        if (!value) return 2;
+        if (!parse_nonnegative_int(value, &freeze_fields)) {
+            fprintf(stderr, "invalid --freeze-right value: %s\\n", value);
+            return 2;
+        }
+    }
     else if (ARG_EQ("--preview-wrap-sign")) preview_wrap_sign = a + strlen("--preview-wrap-sign") + 1;
     else if (!strcmp(a, "--preview-wrap-sign")) {
         if (i + 1 < argc) preview_wrap_sign = argv[++i];
