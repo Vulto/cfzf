@@ -338,6 +338,16 @@ check_invalid_option "tail-zero" 'invalid --tail value' --filter=a --tail=0
 check_invalid_option "margin-missing" '--margin requires a value' --filter=a --margin
 check_invalid_option "padding-missing" '--padding requires a value' --filter=a --padding
 check_invalid_option "walker-root-missing" '--walker-root requires a value' --filter=a --walker-root
+check_invalid_option "freeze-left-missing" '--freeze-left requires a value' --filter=a --freeze-left
+check_invalid_option "freeze-left-invalid" 'invalid --freeze-left value' --filter=a --freeze-left=bad
+check_invalid_option "freeze-left-negative" 'invalid --freeze-left value' --filter=a --freeze-left=-1
+check_invalid_option "freeze-right-missing" '--freeze-right requires a value' --filter=a --freeze-right
+check_invalid_option "freeze-right-invalid" 'invalid --freeze-right value' --filter=a --freeze-right=bad
+check_invalid_option "freeze-right-negative" 'invalid --freeze-right value' --filter=a --freeze-right=-1
+check "freeze-left-inline-valid" --filter=a --freeze-left=1
+check "freeze-left-separate-valid" --filter=a --freeze-left 1
+check "freeze-right-inline-valid" --filter=a --freeze-right=1
+check "freeze-right-separate-valid" --filter=a --freeze-right 1
 
 # Input record boundaries.
 EMPTY="$WORK/empty.txt"
