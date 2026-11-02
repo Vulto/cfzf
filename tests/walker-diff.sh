@@ -14,10 +14,11 @@ mkdir -p "$WORK"
 
 TREE="$WORK/tree"
 rm -rf "$TREE"
-mkdir -p "$TREE/src" "$TREE/lib/sub" "$TREE/.hidden"
+mkdir -p "$TREE/src" "$TREE/lib/sub" "$TREE/.hidden" "$TREE/mylib/sub"
 touch "$TREE/b.txt" "$TREE/a.txt" "$TREE/z.txt" "$TREE/.dotfile" \
       "$TREE/src/main.c" "$TREE/src/util.c" "$TREE/lib/x.c" "$TREE/lib/sub/y.c" \
-      "$TREE/.hidden/h.txt" "$TREE/README.md"
+      "$TREE/mylib/sub/keep.c" \
+      "$TREE/.hidden/h.txt" "$TREE/README.md" "$TREE/src/lib"
 ln -sf a.txt "$TREE/link.txt"
 ln -sf src "$TREE/linkdir"
 
@@ -50,6 +51,8 @@ check 'walker=file,dir'     --walker=file,dir
 check 'walker=hidden'       --walker=hidden
 check 'walker=all'          --walker=file,dir,follow,hidden
 check 'walker-skip'         --walker-skip=lib
+check 'walker-skip-path'    --walker-skip=lib/sub
+check 'walker-skip-absolute' --walker-root="$TREE" --walker-skip="$TREE/lib"
 check 'walker-root'         --walker-root=.
 
 printf '\n%d/%d walker cases matched\n' "$pass" "$((pass + fail))"
