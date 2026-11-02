@@ -19,6 +19,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <pthread.h>
 #include <signal.h>
 #include <ctype.h>
@@ -474,9 +475,15 @@ static bool mm_expand_default_options(int *argc, char ***argv) {
 
 typedef struct {
     int fd;
-    char *root;
+    const char **roots;
+    int root_count;
     mm_walker_opts_t opts;
 } mm_walk_thread_arg_t;
+
+static bool mm_is_directory(const char *path) {
+    struct stat st;
+    return path && stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
 
 static void *walk_thread_fn(void *arg) {
     mm_walk_thread_arg_t *a = arg;
@@ -484,8 +491,8 @@ static void *walk_thread_fn(void *arg) {
     (void)sigemptyset(&blocked_signals);
     (void)sigaddset(&blocked_signals, SIGPIPE);
     (void)pthread_sigmask(SIG_BLOCK, &blocked_signals, NULL);
-    mm_walk_stream(a->fd, a->root, &a->opts);
-    free(a->root);
+    mm_walk_stream_many(a->fd, a->roots, a->root_count, &a->opts);
+    free(a->roots);
     free(a);
     return NULL;
 }
@@ -621,7 +628,9 @@ int main(int argc, char **argv) {
     mm_walker_opts_t walker;
     mm_walker_default(&walker);
     const char *walker_spec = NULL;
-    const char *walker_root = ".";
+    const char *walker_roots[argc > 0 ? argc : 1];
+    int walker_root_count = 1;
+    walker_roots[0] = ".";
     const char *walker_skip = NULL;
     int  multi_max = 0;
     int  padding = 0;
@@ -837,15 +846,27 @@ int main(int argc, char **argv) {
             if (!walker_spec) return 2;
         }
         else if (ARG_EQ("--walker-root")) {
-            walker_root = a + 14;
-            if (!*walker_root) {
-                fprintf(stderr, "--walker-root requires a value\\n");
+            const char *root = a + 14;
+            if (!*root || !mm_is_directory(root)) {
+                fprintf(stderr, "invalid --walker-root directory: %s\\n", root);
                 return 2;
             }
+            walker_root_count = 0;
+            walker_roots[walker_root_count++] = root;
+            while (i + 1 < argc && mm_is_directory(argv[i + 1]))
+                walker_roots[walker_root_count++] = argv[++i];
         }
         else if (!strcmp(a, "--walker-root")) {
-            walker_root = required_cli_arg(argc, argv, &i, "--walker-root");
-            if (!walker_root) return 2;
+            const char *root = required_cli_arg(argc, argv, &i, "--walker-root");
+            if (!root) return 2;
+            if (!mm_is_directory(root)) {
+                fprintf(stderr, "invalid --walker-root directory: %s\\n", root);
+                return 2;
+            }
+            walker_root_count = 0;
+            walker_roots[walker_root_count++] = root;
+            while (i + 1 < argc && mm_is_directory(argv[i + 1]))
+                walker_roots[walker_root_count++] = argv[++i];
         }
         else if (ARG_EQ("--walker-skip")) walker_skip = a + 14;
         else if (!strcmp(a, "--walker-skip")) {
@@ -1591,7 +1612,7 @@ int main(int argc, char **argv) {
             if (header_lines > 0) {
                 char **paths = NULL;
                 int npaths = 0;
-                if (!mm_walk(walker_root, &walker, &paths, &npaths)) {
+                if (!mm_walk_many(walker_roots, walker_root_count, &walker, &paths, &npaths)) {
                     fprintf(stderr, "fzf: out of memory\n");
                     goto fail;
                 }
@@ -1630,10 +1651,19 @@ int main(int argc, char **argv) {
                 mm_walk_thread_arg_t *arg = malloc(sizeof(*arg));
                 if (!arg) { close(pipefd[0]); close(pipefd[1]); goto fail; }
                 arg->fd = pipefd[1];
-                arg->root = strdup(walker_root ? walker_root : ".");
+                arg->roots = malloc((size_t)walker_root_count * sizeof(*arg->roots));
+                if (!arg->roots) {
+                    free(arg);
+                    close(pipefd[0]);
+                    close(pipefd[1]);
+                    goto fail;
+                }
+                memcpy(arg->roots, walker_roots,
+                       (size_t)walker_root_count * sizeof(*arg->roots));
+                arg->root_count = walker_root_count;
                 arg->opts = walker;
                 if (pthread_create(&walk_thread, NULL, walk_thread_fn, arg) != 0) {
-                    free(arg->root);
+                    free(arg->roots);
                     free(arg);
                     close(pipefd[0]);
                     close(pipefd[1]);
