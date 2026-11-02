@@ -848,7 +848,7 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--walker-root")) {
             const char *root = a + 14;
             if (!*root || !mm_is_directory(root)) {
-                fprintf(stderr, "invalid --walker-root directory: %s\\n", root);
+                fprintf(stderr, "invalid --walker-root directory: %s\n", root);
                 return 2;
             }
             walker_root_count = 0;
