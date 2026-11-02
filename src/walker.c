@@ -432,6 +432,7 @@ bool mm_walk_many(const char *const *roots, int root_count,
 
 bool mm_walk(const char *root, const mm_walker_opts_t *opts,
              char ***out_paths, int *out_n) {
+    if (!root || !*root) return false;
     const char *roots[] = { root };
     return mm_walk_many(roots, 1, opts, out_paths, out_n);
 }
