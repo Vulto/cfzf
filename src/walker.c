@@ -203,6 +203,38 @@ static bool path_is_ancestor(const char *ancestor, const char *path) {
     return true;
 }
 
+/* Match the directory ignore rules used by fzf's reader.go:
+   - a name without a separator matches every directory with that basename;
+   - a relative path matches that exact path and paths ending in /path;
+   - an absolute path is matched as a suffix, as in reader.go's ignoresSuffix.
+   Files are deliberately never filtered by --walker-skip. */
+static bool walk_skip_dir(const mm_walker_opts_t *opts,
+                          const char *path, const char *name) {
+    if (!opts || !opts->skip) return false;
+    for (int i = 0; i < opts->nskip; i++) {
+        const char *ignore = opts->skip[i];
+        if (!ignore || !*ignore) continue;
+        if (!strchr(ignore, '/')) {
+            if (!strcmp(ignore, name)) return true;
+            continue;
+        }
+        size_t path_len = strlen(path);
+        size_t ignore_len = strlen(ignore);
+        if (path_len >= ignore_len &&
+            !memcmp(path + path_len - ignore_len, ignore, ignore_len))
+            return true;
+        if (ignore[0] != '/') {
+            if (path_len > ignore_len &&
+                path[path_len - ignore_len - 1] == '/' &&
+                !memcmp(path + path_len - ignore_len, ignore, ignore_len))
+                return true;
+            if (path_len == ignore_len && !memcmp(path, ignore, ignore_len))
+                return true;
+        }
+    }
+    return false;
+}
+
 /* Build "path/name", omitting the "./" prefix when the walker starts at ".". */
 static char *join_path(const char *path, const char *name) {
     if (path[0] == '.' && path[1] == '\0')
@@ -250,18 +282,6 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
     while ((de = readdir(d)) != NULL) {
         const char *entry_name = de->d_name;
         if (!strcmp(entry_name, ".") || !strcmp(entry_name, "..")) continue;
-
-        /* Prune excluded names before allocating a full path or issuing any
-           metadata syscalls. The previous post-sort check did this work for
-           every entry inside excluded trees such as node_modules and .git. */
-        bool excluded = false;
-        for (int k = 0; opts->skip && k < opts->nskip; k++) {
-            if (!strcmp(opts->skip[k], entry_name)) {
-                excluded = true;
-                break;
-            }
-        }
-        if (excluded) continue;
 
         if (n == cap) {
             if (cap > INT_MAX / 2 || (size_t)(cap ? cap * 2 : 64) > SIZE_MAX / sizeof(*ents)) {
@@ -334,31 +354,34 @@ static void walk_dir(const char *path, const mm_walker_opts_t *opts,
     for (int i = 0; i < n; i++) {
         if (stream && stream->failed) break;
         const char *name = walk_entry_name(&ents[i]);
-        /* fzf's "hidden" walker option only controls whether hidden
-           directories are traversed; hidden files are always listed. */
-        bool skip = !opts->hidden && ents[i].is_dir && name[0] == '.';
-        for (int k = 0; !skip && opts->skip && k < opts->nskip; k++) {
-            if (!strcmp(opts->skip[k], name)) skip = true;
+        /* A symlink to a directory is not listed when it is not followed. */
+        if (ents[i].link_to_dir && !ents[i].is_dir) {
+            free(ents[i].name);
+            ents[i].name = NULL;
+            continue;
         }
-        /* A symlink to a directory is not listed when it is not followed,
-           and a loop back to the walker root is discarded. */
-        if (ents[i].link_to_dir && !ents[i].is_dir) skip = true;
-        if (!skip) {
-            char *child = join_path(path, name);
-            if (!child) {
-                if (pl) pl->failed = true;
-                free(ents[i].name);
-                ents[i].name = NULL;
-                continue;
-            }
-            if (ents[i].is_dir) {
+
+        char *child = join_path(path, name);
+        if (!child) {
+            if (pl) pl->failed = true;
+            free(ents[i].name);
+            ents[i].name = NULL;
+            continue;
+        }
+
+        if (ents[i].is_dir) {
+            /* fzf's hidden and ignore options prune directories only;
+               same-named files remain visible. */
+            bool skip = (!opts->hidden && name[0] == '.') ||
+                        walk_skip_dir(opts, child, name);
+            if (!skip) {
                 if (opts->dir) emit_dir(pl, out_fd, stream, child);
                 walk_dir(child, opts, pl, out_fd, stream, root_abs, depth + 1);
-            } else if (opts->file) {
-                emit_path(pl, out_fd, stream, child);
             }
-            free(child);
+        } else if (opts->file) {
+            emit_path(pl, out_fd, stream, child);
         }
+        free(child);
         free(ents[i].name);
         ents[i].name = NULL;
     }
