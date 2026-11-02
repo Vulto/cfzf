@@ -220,16 +220,16 @@ static bool walk_skip_dir(const mm_walker_opts_t *opts,
         }
         size_t path_len = strlen(path);
         size_t ignore_len = strlen(ignore);
-        if (path_len >= ignore_len &&
-            !memcmp(path + path_len - ignore_len, ignore, ignore_len))
-            return true;
-        if (ignore[0] != '/') {
-            if (path_len > ignore_len &&
-                path[path_len - ignore_len - 1] == '/' &&
+        if (ignore[0] == '/') {
+            if (path_len >= ignore_len &&
                 !memcmp(path + path_len - ignore_len, ignore, ignore_len))
                 return true;
-            if (path_len == ignore_len && !memcmp(path, ignore, ignore_len))
-                return true;
+        } else if (path_len == ignore_len) {
+            if (!memcmp(path, ignore, ignore_len)) return true;
+        } else if (path_len > ignore_len &&
+                   path[path_len - ignore_len - 1] == '/' &&
+                   !memcmp(path + path_len - ignore_len, ignore, ignore_len)) {
+            return true;
         }
     }
     return false;
