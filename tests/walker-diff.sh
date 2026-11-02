@@ -54,6 +54,7 @@ check 'walker-skip'         --walker-skip=lib
 check 'walker-skip-path'    --walker-skip=lib/sub
 check 'walker-skip-absolute' --walker-root="$TREE" --walker-skip="$TREE/lib"
 check 'walker-root'         --walker-root=.
+check 'walker-root-multiple' --walker-root="$TREE/src" "$TREE/lib"
 
 printf '\n%d/%d walker cases matched\n' "$pass" "$((pass + fail))"
 [ "$fail" -eq 0 ]
