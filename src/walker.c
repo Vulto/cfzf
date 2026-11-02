@@ -54,8 +54,7 @@ void mm_walker_default(mm_walker_opts_t *opts) {
 bool mm_walker_parse(const char *spec, mm_walker_opts_t *opts) {
     if (!opts) return false;
     opts->file = opts->dir = opts->follow = opts->hidden = false;
-    opts->skip = NULL;
-    opts->nskip = 0;
+    /* Skip rules belong to reader options, not the --walker mode parser. */
     if (!spec || !*spec) return true;
     const char *p = spec;
     while (*p) {
