@@ -29,10 +29,15 @@ bool mm_walker_parse(const char *spec, mm_walker_opts_t *opts);
    failure. */
 bool mm_walk(const char *root, const mm_walker_opts_t *opts,
               char ***out_paths, int *out_n);
+bool mm_walk_many(const char *const *roots, int root_count,
+                  const mm_walker_opts_t *opts,
+                  char ***out_paths, int *out_n);
 
 /* Walk `root` recursively, writing each path followed by a newline to `fd`.
    The descriptor is closed before returning. */
 void mm_walk_stream(int fd, const char *root, const mm_walker_opts_t *opts);
+void mm_walk_stream_many(int fd, const char *const *roots, int root_count,
+                         const mm_walker_opts_t *opts);
 
 /* Free the result of mm_walk. */
 void mm_walk_free(char **paths, int n);
