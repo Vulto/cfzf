@@ -14,11 +14,12 @@ mkdir -p "$WORK"
 
 TREE="$WORK/tree"
 rm -rf "$TREE"
-mkdir -p "$TREE/src" "$TREE/lib/sub" "$TREE/.hidden" "$TREE/mylib/sub"
+mkdir -p "$TREE/src" "$TREE/lib/sub" "$TREE/.hidden" "$TREE/mylib/sub" "$TREE/.git" "$TREE/node_modules/pkg"
 touch "$TREE/b.txt" "$TREE/a.txt" "$TREE/z.txt" "$TREE/.dotfile" \
       "$TREE/src/main.c" "$TREE/src/util.c" "$TREE/lib/x.c" "$TREE/lib/sub/y.c" \
       "$TREE/mylib/sub/keep.c" \
-      "$TREE/.hidden/h.txt" "$TREE/README.md" "$TREE/src/lib"
+      "$TREE/.hidden/h.txt" "$TREE/README.md" "$TREE/src/lib" \
+      "$TREE/.git/config" "$TREE/node_modules/pkg/index.js"
 ln -sf a.txt "$TREE/link.txt"
 ln -sf src "$TREE/linkdir"
 
