@@ -406,32 +406,43 @@ static void root_absolute(const char *root, char *out, size_t cap) {
     }
 }
 
-bool mm_walk(const char *root, const mm_walker_opts_t *opts,
-             char ***out_paths, int *out_n) {
-    if (!root || !*root || !opts || !out_paths || !out_n) return false;
+bool mm_walk_many(const char *const *roots, int root_count,
+                  const mm_walker_opts_t *opts,
+                  char ***out_paths, int *out_n) {
+    if (!roots || root_count < 1 || !opts || !out_paths || !out_n)
+        return false;
     *out_paths = NULL;
     *out_n = 0;
     mm_pathlist_t pl = {0};
-    char root_abs[4096];
-    root_absolute(root, root_abs, sizeof(root_abs));
-    /* The root itself is not emitted; only its contents. */
-    walk_dir(root, opts, &pl, -1, NULL, root_abs, 0);
-    if (pl.failed) {
-        mm_walk_free(pl.items, pl.n);
-        return false;
+    for (int i = 0; i < root_count; i++) {
+        if (!roots[i] || !*roots[i]) continue;
+        char root_abs[4096];
+        root_absolute(roots[i], root_abs, sizeof(root_abs));
+        /* Each root is walked independently, matching reader.go's loop. */
+        walk_dir(roots[i], opts, &pl, -1, NULL, root_abs, 0);
+        if (pl.failed) {
+            mm_walk_free(pl.items, pl.n);
+            return false;
+        }
     }
     *out_paths = pl.items;
     *out_n = pl.n;
     return true;
 }
 
-void mm_walk_stream(int fd, const char *root, const mm_walker_opts_t *opts) {
+bool mm_walk(const char *root, const mm_walker_opts_t *opts,
+             char ***out_paths, int *out_n) {
+    const char *roots[] = { root };
+    return mm_walk_many(roots, 1, opts, out_paths, out_n);
+}
+
+void mm_walk_stream_many(int fd, const char *const *roots, int root_count,
+                         const mm_walker_opts_t *opts) {
     if (fd < 0) return;
-    if (!root || !*root || !opts) {
+    if (!roots || root_count < 1 || !opts) {
         close(fd);
         return;
     }
-    char root_abs[4096];
     char buffer[MM_WALK_STREAM_BUFFER_SIZE];
     mm_walk_stream_t stream = {
         .fd = fd,
@@ -440,10 +451,19 @@ void mm_walk_stream(int fd, const char *root, const mm_walker_opts_t *opts) {
         .cap = sizeof(buffer),
         .failed = false
     };
-    root_absolute(root, root_abs, sizeof(root_abs));
-    walk_dir(root, opts, NULL, fd, &stream, root_abs, 0);
+    for (int i = 0; i < root_count && !stream.failed; i++) {
+        if (!roots[i] || !*roots[i]) continue;
+        char root_abs[4096];
+        root_absolute(roots[i], root_abs, sizeof(root_abs));
+        walk_dir(roots[i], opts, NULL, fd, &stream, root_abs, 0);
+    }
     if (!stream.failed) (void)stream_flush(&stream);
     close(fd);
+}
+
+void mm_walk_stream(int fd, const char *root, const mm_walker_opts_t *opts) {
+    const char *roots[] = { root };
+    mm_walk_stream_many(fd, roots, 1, opts);
 }
 
 void mm_walk_free(char **paths, int n) {
