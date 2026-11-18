@@ -7,6 +7,7 @@
 #include "walker.h"
 #include "preview.h"
 #include "history.h"
+#include "tmux.h"
 #include "color.h"
 #include "tokenizer.h"
 #include "ansi.h"
@@ -23,11 +24,197 @@
 #include <signal.h>
 #include <ctype.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/wait.h>
 
 static void usage(FILE *out) {
-    static const char text[] = "fzf is an interactive filter program for any kind of list.\n\nIt implements a \"fuzzy\" matching algorithm, so you can quickly type in patterns\nwith omitted characters and still get the results you want.\n\nProject URL: https://github.com/junegunn/fzf\nAuthor: Junegunn Choi <junegunn.c@gmail.com>\n\n* See man page for more information: fzf --man\n\nUsage: fzf [options]\n\n  SEARCH\n    -e, --exact              Enable exact-match\n    +x, --no-extended        Disable extended-search mode\n    -i, --ignore-case        Case-insensitive match\n    +i, --no-ignore-case     Case-sensitive match\n        --smart-case         Smart-case match (default)\n    --scheme=SCHEME          Scoring scheme [default|path|history]\n    -n, --nth=N[,..]         Comma-separated list of field index expressions\n                             for limiting search scope. Each can be a non-zero\n                             integer or a range expression ([BEGIN]..[END]).\n    --with-nth=N[,..]        Transform the presentation of each line using\n                             field index expressions\n    --accept-nth=N[,..]      Define which fields to print on accept\n    -d, --delimiter=STR      Field delimiter regex (default: AWK-style)\n    +s, --no-sort            Do not sort the result\n    --literal                Do not normalize latin script letters\n    --tail=NUM               Maximum number of items to keep in memory\n    --disabled               Do not perform search\n    --tiebreak=CRI[,..]      Comma-separated list of sort criteria to apply\n                             when the scores are tied\n                             [length|chunk|pathname|begin|end|index] (default: length)\n\n  INPUT/OUTPUT\n    --read0                  Read input delimited by ASCII NUL characters\n    --print0                 Print output delimited by ASCII NUL characters\n    --ansi                   Enable processing of ANSI color codes\n    --sync                   Synchronous search for multi-staged filtering\n\n  GLOBAL STYLE\n    --style=PRESET           Apply a style preset [default|minimal|full[:BORDER_STYLE]\n    --color=COLSPEC          Base scheme (dark|light|base16|bw) and/or custom colors\n    --no-color               Disable colors\n    --no-bold                Do not use bold text\n\n  DISPLAY MODE\n    --height=[~][-]HEIGHT[%] Display fzf window below the cursor with the given\n                             height instead of using fullscreen.\n                             A negative value is calculated as the terminal height\n                             minus the given value.\n                             If prefixed with '~', fzf will determine the height\n                             according to the input size.\n    --min-height=HEIGHT[+]   Minimum height when --height is given as a percentage.\n                             Add '+' to automatically increase the value\n                             according to the other layout options (default: 10+).\n    --popup[=OPTS]           Start fzf in a floating pane (requires tmux 3.3+ or Zellij 0.44+)\n                             [center|top|bottom|left|right][,SIZE[%]][,SIZE[%]]\n                             [,border-native] (default: center,50%)\n    --tmux[=OPTS]            Alias for --popup\n\n  LAYOUT\n    --layout=LAYOUT          Choose layout: [default|reverse|reverse-list]\n    --margin=MARGIN          Screen margin (TRBL | TB,RL | T,RL,B | T,R,B,L)\n    --padding=PADDING        Padding inside border (TRBL | TB,RL | T,RL,B | T,R,B,L)\n    --border[=STYLE]         Draw border around the finder\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|none] (default: rounded)\n    --border-label=LABEL     Label to print on the border\n    --border-label-pos=COL   Position of the border label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  LIST SECTION\n    -m, --multi[=MAX]        Enable multi-select with tab/shift-tab\n    --highlight-line         Highlight the whole current line\n    --cycle                  Enable cyclic scroll\n    --wrap[=MODE]            Enable line wrap (char|word, default: char)\n    --wrap-sign=STR          Indicator for wrapped lines\n    --no-multi-line          Disable multi-line display of items when using --read0\n    --raw                    Enable raw mode (show non-matching items)\n    --track                  Track the current selection when the result is updated\n    --id-nth=N[,..]          Define item identity fields for cross-reload operations\n    --tac                    Reverse the order of the input\n    --gap[=N]                Render empty lines between each item\n    --gap-line[=STR]         Draw horizontal line on each gap using the string\n                             (default: '┈' or '-')\n    --freeze-left=N          Number of fields to freeze on the left\n    --freeze-right=N         Number of fields to freeze on the right\n    --keep-right             Keep the right end of the line visible on overflow\n    --scroll-off=LINES       Number of screen lines to keep above or below when\n                             scrolling to the top or to the bottom (default: 0)\n    --no-hscroll             Disable horizontal scroll\n    --hscroll-off=COLS       Number of screen columns to keep to the right of the\n                             highlighted substring (default: 10)\n    --jump-labels=CHARS      Label characters for jump mode\n    --gutter=CHAR            Character used for the gutter column (default: '▌')\n    --gutter-raw=CHAR        Character used for the gutter column in raw mode (default: '▖')\n    --pointer=STR            Pointer to the current line (default: '▌' or '>')\n    --marker=STR             Multi-select marker (default: '┃' or '>')\n    --marker-multi-line=STR  Multi-select marker for multi-line entries;\n                             3 elements for top, middle, and bottom (default: '╻┃╹')\n    --ellipsis=STR           Ellipsis to show when line is truncated (default: '··')\n    --tabstop=SPACES         Number of spaces for a tab character (default: 8)\n    --scrollbar[=C1[C2]]     Scrollbar character(s)\n                             (each for list section and preview window)\n    --no-scrollbar           Hide scrollbar\n    --list-border[=STYLE]    Draw border around the list section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|none] (default: rounded)\n    --list-label=LABEL       Label to print on the list border\n    --list-label-pos=COL     Position of the list label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  INPUT SECTION\n    --no-input               Disable and hide the input section\n    --prompt=STR             Input prompt (default: '> ')\n    --info=STYLE             Finder info style\n                             [default|right|hidden|inline[-right][:PREFIX]]\n    --info-command=COMMAND   Command to generate info line\n    --separator=STR          Draw horizontal separator on info line using the string\n                             (default: '─' or '-')\n    --no-separator           Hide info line separator\n    --ghost=TEXT             Ghost text to display when the input is empty\n    --filepath-word          Make word-wise movements respect path separators\n    --input-border[=STYLE]   Draw border around the input section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|none] (default: rounded)\n    --input-label=LABEL      Label to print on the input border\n    --input-label-pos=COL    Position of the input label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  PREVIEW WINDOW\n    --preview=COMMAND        Command to preview highlighted line ({})\n    --preview-window=OPT     Preview window layout (default: right:50%)\n                             [up|down|left|right|next][,SIZE[%]]\n                             [,[no]wrap[-word]][,[no]cycle][,[no]follow][,[no]info]\n                             [,[no]hidden][,border-STYLE]\n                             [,+SCROLL[OFFSETS][/DENOM]][,~HEADER_LINES]\n                             [,default][,<SIZE_THRESHOLD(ALTERNATIVE_LAYOUT)]\n    --preview-border[=STYLE] Short for --preview-window=border-STYLE\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|none] (default: rounded)\n    --preview-label=LABEL\n    --preview-label-pos=N    Same as --border-label and --border-label-pos,\n                             but for preview window\n    --preview-wrap-sign=STR  Indicator for wrapped lines in the preview window\n\n  HEADER\n    --header=STR             String to print as header\n    --header-lines=N         The first N lines of the input are treated as header\n    --header-first           Print header before the prompt line\n    --header-border[=STYLE]  Draw border around the header section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|inline|none] (default: rounded)\n    --header-lines-border[=STYLE]\n                             Display header from --header-lines with a separate border.\n                             Pass 'none' to still separate it but without a border.\n                             Pass 'inline' to embed it inside the list frame.\n    --header-label=LABEL     Label to print on the header border\n    --header-label-pos=COL   Position of the header label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  FOOTER\n    --footer=STR             String to print as footer\n    --footer-border[=STYLE]  Draw border around the footer section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|inline|none] (default: line)\n    --footer-label=LABEL     Label to print on the footer border\n    --footer-label-pos=COL   Position of the footer label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  SCRIPTING\n    -q, --query=STR          Start the finder with the given query\n    -1, --select-1           Automatically select the only match\n    -0, --exit-0             Exit immediately when there's no match\n    -f, --filter=STR         Print matches for the initial query and exit\n    --print-query            Print query as the first line\n    --expect=KEYS            Comma-separated list of keys to complete fzf\n\n  KEY/EVENT BINDING\n    --bind=BINDINGS          Custom key/event bindings\n\n  ADVANCED\n    --with-shell=STR         Shell command and flags to start child processes with\n    --listen[=[ADDR:]PORT]   Start HTTP server to receive actions via TCP\n                             (To allow remote process execution, use --listen-unsafe)\n    --listen=SOCKET_PATH     Start HTTP server to receive actions via Unix domain socket\n                             (Path should end with .sock)\n\n  DIRECTORY TRAVERSAL        (Only used when $FZF_DEFAULT_COMMAND is not set)\n    --walker=OPTS            [file][,dir][,follow][,hidden] (default: file,follow,hidden)\n    --walker-root=DIR [...]  List of directories to walk (default: .)\n    --walker-skip=DIRS       Comma-separated list of directory names to skip\n                             (default: .git,node_modules)\n\n  HISTORY\n    --history=FILE           File to store fzf search history (*not* shell command history)\n    --history-size=N         Maximum number of entries to keep in the file (default: 1000)\n\n  SHELL INTEGRATION\n    --bash                   Print script to set up Bash shell integration\n    --zsh                    Print script to set up Zsh shell integration\n    --fish                   Print script to set up Fish shell integration\n    --nushell                Print script to set up Nushell integration\n\n  HELP\n    --version                Display version information and exit\n    --help                   Show this message\n    --man                    Show man page\n\n  ENVIRONMENT VARIABLES\n    FZF_DEFAULT_COMMAND      Default command to use when input is tty\n    FZF_DEFAULT_OPTS         Default options (e.g. '--layout=reverse --info=inline')\n    FZF_DEFAULT_OPTS_FILE    Location of the file to read default options from\n    FZF_API_KEY              X-API-Key header for HTTP server (--listen)\n\n";
-    fputs(text, out);
+    static const char *const text[] = {
+        "fzf is an interactive filter program for any kind of list.\n\nIt implements a \"fuzzy\" matching algorithm, so you can quickly type in patterns\nwith omitted characters and still get the results you want.\n\nProject URL: https://github.com/junegunn/fzf\nAuthor: Junegunn Choi <junegunn.c@gmail.com>\n\n* See man page for more information: fzf --man\n\nUsage: fzf [options]\n\n  SEARCH\n    -e, --exact              Enable exact-match\n    +x, --no-extended        Disable extended-search mode\n    -i, --ignore-case        Case-insensitive match\n    +i, --no-ignore-case     Case-sensitive match\n        --smart-case         Smart-case match (default)\n    --scheme=SCHEME          Scoring scheme [default|path|history]\n    -n, --nth=N[,..]         Comma-separated list of field index expressions\n                             for limiting search scope. Each can be a non-zero\n                             integer or a range expression ([BEGIN]..[END]).\n    --with-nth=N[,..]        Transform the presentation of each line using\n                             field index expressions\n    --accept-nth=N[,..]      Define which fields to print on accept\n    -d, --delimiter=STR      Field delimiter regex (default: AWK-style)\n    +s, --no-sort            Do not sort the result\n    --literal                Do not normalize latin script letters\n    --tail=NUM               Maximum number of items to keep in memory\n    --disabled               Do not perform search\n    --tiebreak=CRI[,..]      Comma-separated list of sort criteria to apply\n                             when the scores are tied\n                             [length|chunk|pathname|begin|end|index] (default: length)\n\n  INPUT/OUTPUT\n    --read0                  Read input delimited by ASCII NUL characters\n    --print0                 Print output delimited by ASCII NUL characters\n    --ansi                   Enable processing of ANSI color codes\n    --sync                   Synchronous search for multi-staged f",
+        "iltering\n\n  GLOBAL STYLE\n    --style=PRESET           Apply a style preset [default|minimal|full[:BORDER_STYLE]\n    --color=COLSPEC          Base scheme (dark|light|base16|bw) and/or custom colors\n    --no-color               Disable colors\n    --no-bold                Do not use bold text\n\n  DISPLAY MODE\n    --height=[~][-]HEIGHT[%] Display fzf window below the cursor with the given\n                             height instead of using fullscreen.\n                             A negative value is calculated as the terminal height\n                             minus the given value.\n                             If prefixed with '~', fzf will determine the height\n                             according to the input size.\n    --min-height=HEIGHT[+]   Minimum height when --height is given as a percentage.\n                             Add '+' to automatically increase the value\n                             according to the other layout options (default: 10+).\n    --popup[=OPTS]           Start fzf in a floating pane (requires tmux 3.3+ or Zellij 0.44+)\n                             [center|top|bottom|left|right][,SIZE[%]][,SIZE[%]]\n                             [,border-native] (default: center,50%)\n    --tmux[=OPTS]            Alias for --popup\n\n  LAYOUT\n    --layout=LAYOUT          Choose layout: [default|reverse|reverse-list]\n    --margin=MARGIN          Screen margin (TRBL | TB,RL | T,RL,B | T,R,B,L)\n    --padding=PADDING        Padding inside border (TRBL | TB,RL | T,RL,B | T,R,B,L)\n    --border[=STYLE]         Draw border around the finder\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|none] (default: rounded)\n    --border-label=LABEL     Label to print on the border\n    --border-label-pos=COL   Position of the border label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_I",
+        "NTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  LIST SECTION\n    -m, --multi[=MAX]        Enable multi-select with tab/shift-tab\n    --highlight-line         Highlight the whole current line\n    --cycle                  Enable cyclic scroll\n    --wrap[=MODE]            Enable line wrap (char|word, default: char)\n    --wrap-sign=STR          Indicator for wrapped lines\n    --no-multi-line          Disable multi-line display of items when using --read0\n    --raw                    Enable raw mode (show non-matching items)\n    --track                  Track the current selection when the result is updated\n    --id-nth=N[,..]          Define item identity fields for cross-reload operations\n    --tac                    Reverse the order of the input\n    --gap[=N]                Render empty lines between each item\n    --gap-line[=STR]         Draw horizontal line on each gap using the string\n                             (default: '┈' or '-')\n    --freeze-left=N          Number of fields to freeze on the left\n    --freeze-right=N         Number of fields to freeze on the right\n    --keep-right             Keep the right end of the line visible on overflow\n    --scroll-off=LINES       Number of screen lines to keep above or below when\n                             scrolling to the top or to the bottom (default: 0)\n    --no-hscroll             Disable horizontal scroll\n    --hscroll-off=COLS       Number of screen columns to keep to the right of the\n                             highlighted substring (default: 10)\n    --jump-labels=CHARS      Label characters for jump mode\n    --gutter=CHAR            Character used for the gutter column (default: '▌')\n    --gutter-raw=CHAR        Character used for the gutter column in raw mode (default: '▖')\n    --pointer=STR            Pointer to the current line (default: '▌' or '>')\n    --marker=STR             Multi-select marker (default: '┃' or '>')\n    --marker",
+        "-multi-line=STR  Multi-select marker for multi-line entries;\n                             3 elements for top, middle, and bottom (default: '╻┃╹')\n    --ellipsis=STR           Ellipsis to show when line is truncated (default: '··')\n    --tabstop=SPACES         Number of spaces for a tab character (default: 8)\n    --scrollbar[=C1[C2]]     Scrollbar character(s)\n                             (each for list section and preview window)\n    --no-scrollbar           Hide scrollbar\n    --list-border[=STYLE]    Draw border around the list section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|none] (default: rounded)\n    --list-label=LABEL       Label to print on the list border\n    --list-label-pos=COL     Position of the list label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  INPUT SECTION\n    --no-input               Disable and hide the input section\n    --prompt=STR             Input prompt (default: '> ')\n    --info=STYLE             Finder info style\n                             [default|right|hidden|inline[-right][:PREFIX]]\n    --info-command=COMMAND   Command to generate info line\n    --separator=STR          Draw horizontal separator on info line using the string\n                             (default: '─' or '-')\n    --no-separator           Hide info line separator\n    --ghost=TEXT             Ghost text to display when the input is empty\n    --filepath-word          Make word-wise movements respect path separators\n    --input-border[=STYLE]   Draw border around the input section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|none] (default: rounded)\n    --input-label=LABEL",
+        "      Label to print on the input border\n    --input-label-pos=COL    Position of the input label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  PREVIEW WINDOW\n    --preview=COMMAND        Command to preview highlighted line ({})\n    --preview-window=OPT     Preview window layout (default: right:50%)\n                             [up|down|left|right|next][,SIZE[%]]\n                             [,[no]wrap[-word]][,[no]cycle][,[no]follow][,[no]info]\n                             [,[no]hidden][,border-STYLE]\n                             [,+SCROLL[OFFSETS][/DENOM]][,~HEADER_LINES]\n                             [,default][,<SIZE_THRESHOLD(ALTERNATIVE_LAYOUT)]\n    --preview-border[=STYLE] Short for --preview-window=border-STYLE\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|none] (default: rounded)\n    --preview-label=LABEL\n    --preview-label-pos=N    Same as --border-label and --border-label-pos,\n                             but for preview window\n    --preview-wrap-sign=STR  Indicator for wrapped lines in the preview window\n\n  HEADER\n    --header=STR             String to print as header\n    --header-lines=N         The first N lines of the input are treated as header\n    --header-first           Print header before the prompt line\n    --header-border[=STYLE]  Draw border around the header section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|inline|none] (default: rounded)\n    --header-lines-border[=STYLE]\n                             Display header from --header-lines with a separate border.\n                             Pass 'none' to still separate it but without a border.",
+        "\n                             Pass 'inline' to embed it inside the list frame.\n    --header-label=LABEL     Label to print on the header border\n    --header-label-pos=COL   Position of the header label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  FOOTER\n    --footer=STR             String to print as footer\n    --footer-border[=STYLE]  Draw border around the footer section\n                             [rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|\n                              top|bottom|left|right|line|inline|none] (default: line)\n    --footer-label=LABEL     Label to print on the footer border\n    --footer-label-pos=COL   Position of the footer label\n                             [POSITIVE_INTEGER: columns from left|\n                              NEGATIVE_INTEGER: columns from right][:bottom]\n                             (default: 0 or center)\n\n  SCRIPTING\n    -q, --query=STR          Start the finder with the given query\n    -1, --select-1           Automatically select the only match\n    -0, --exit-0             Exit immediately when there's no match\n    -f, --filter=STR         Print matches for the initial query and exit\n    --print-query            Print query as the first line\n    --expect=KEYS            Comma-separated list of keys to complete fzf\n\n  KEY/EVENT BINDING\n    --bind=BINDINGS          Custom key/event bindings\n\n  ADVANCED\n    --with-shell=STR         Shell command and flags to start child processes with\n    --listen[=[ADDR:]PORT]   Start HTTP server to receive actions via TCP\n                             (To allow remote process execution, use --listen-unsafe)\n    --listen=SOCKET_PATH     Start HTTP server to receive actions via Unix domain socket\n                             (Path should end with .sock)\n\n  DIRECTORY TRAVERSAL        ",
+        "(Only used when $FZF_DEFAULT_COMMAND is not set)\n    --walker=OPTS            [file][,dir][,follow][,hidden] (default: file,follow,hidden)\n    --walker-root=DIR [...]  List of directories to walk (default: .)\n    --walker-skip=DIRS       Comma-separated list of directory names to skip\n                             (default: .git,node_modules)\n\n  HISTORY\n    --history=FILE           File to store fzf search history (*not* shell command history)\n    --history-size=N         Maximum number of entries to keep in the file (default: 1000)\n\n  SHELL INTEGRATION\n    --bash                   Print script to set up Bash shell integration\n\n  HELP\n    --version                Display version information and exit\n    --help                   Show this message\n    --man                    Show man page\n\n  ENVIRONMENT VARIABLES\n    FZF_DEFAULT_COMMAND      Default command to use when input is tty\n    FZF_DEFAULT_OPTS         Default options (e.g. '--layout=reverse --info=inline')\n    FZF_DEFAULT_OPTS_FILE    Location of the file to read default options from\n    FZF_API_KEY              X-API-Key header for HTTP server (--listen)\n\n",
+    };
+    for (size_t i = 0; i < sizeof(text) / sizeof(text[0]); i++) {
+        fputs(text[i], out);
+    }
+}
+
+/* fzf nextInt + the post-check for --freeze-left / --freeze-right.
+   Invalid text is "number of fields required"; a negative value is reported
+   on its own. "-0" is zero. */
+static int parse_freeze_count(const char *value, int *out) {
+    if (!value || !*value) return 1;
+    const char *p = value;
+    int sign = 1;
+    if (*p == '+' || *p == '-') {
+        if (*p == '-') sign = -1;
+        p++;
+    }
+    if (!*p) return 1;
+    long n = 0;
+    for (; *p; p++) {
+        if (*p < '0' || *p > '9') return 1;
+        if (n > (INT_MAX - (*p - '0')) / 10) return 1;
+        n = n * 10 + (*p - '0');
+    }
+    if (sign < 0 && n > 0) return 2;
+    *out = (int)n;
+    return 0;
+}
+
+static bool take_freeze_count(int argc, char **argv, int *index,
+                              const char *arg, const char *name, int *out) {
+    const char *value = NULL;
+    size_t nlen = strlen(name);
+    if (strlen(arg) > nlen && arg[nlen] == '=') value = arg + nlen + 1;
+    else if (*index + 1 < argc) value = argv[++*index];
+    int rc = parse_freeze_count(value, out);
+    if (rc == 0) return true;
+    if (rc == 2)
+        fprintf(stderr, "number of fields to freeze must be a non-negative integer\n");
+    else
+        fprintf(stderr, "number of fields required\n");
+    return false;
+}
+
+/* Go time.ParseDuration, used by --bench. Units: ns, us, µs, μs, ms, s, m, h. */
+static bool parse_go_duration(const char *s, int64_t *out_ns) {
+    if (!s) return false;
+    bool neg = false;
+    if (*s == '+' || *s == '-') {
+        neg = *s == '-';
+        s++;
+    }
+    if (strcmp(s, "0") == 0) { *out_ns = 0; return true; }
+    if (!*s) return false;
+    uint64_t total = 0;
+    while (*s) {
+        if (*s != '.' && (*s < '0' || *s > '9')) return false;
+        uint64_t v = 0;
+        bool pre = false;
+        while (*s >= '0' && *s <= '9') {
+            pre = true;
+            if (v > UINT64_MAX / 10) return false;
+            v = v * 10 + (uint64_t)(*s - '0');
+            s++;
+        }
+        uint64_t frac = 0;
+        double scale = 1;
+        bool post = false;
+        if (*s == '.') {
+            s++;
+            while (*s >= '0' && *s <= '9') {
+                post = true;
+                if (frac <= (UINT64_MAX - 9) / 10) {
+                    frac = frac * 10 + (uint64_t)(*s - '0');
+                    scale *= 10.0;
+                }
+                s++;
+            }
+        }
+        if (!pre && !post) return false;
+        const char *unit_s = s;
+        if ((unsigned char)s[0] == 0xC2 && (unsigned char)s[1] == 0xB5) s += 2;
+        else if ((unsigned char)s[0] == 0xCE && (unsigned char)s[1] == 0xBC) s += 2;
+        while (*s && *s != '.' && !(*s >= '0' && *s <= '9')) s++;
+        size_t ulen = (size_t)(s - unit_s);
+        uint64_t unit = 0;
+        if (ulen == 2 && unit_s[0] == 'n' && unit_s[1] == 's') unit = 1;
+        else if (ulen == 2 && unit_s[0] == 'u' && unit_s[1] == 's') unit = 1000;
+        else if (ulen == 2 && unit_s[0] == 'm' && unit_s[1] == 's') unit = 1000000ULL;
+        else if (ulen == 1 && unit_s[0] == 's') unit = 1000000000ULL;
+        else if (ulen == 1 && unit_s[0] == 'm') unit = 60000000000ULL;
+        else if (ulen == 1 && unit_s[0] == 'h') unit = 3600000000000ULL;
+        else if (ulen == 3 && (unsigned char)unit_s[0] == 0xC2 && unit_s[2] == 's')
+            unit = 1000;
+        else if (ulen == 3 && (unsigned char)unit_s[0] == 0xCE && unit_s[2] == 's')
+            unit = 1000;
+        else return false;
+        if (unit != 0 && v > UINT64_MAX / unit) return false;
+        uint64_t add = v * unit;
+        if (frac > 0 && unit > 0)
+            add += (uint64_t)((double)frac * ((double)unit / scale));
+        if (total > UINT64_MAX - add) return false;
+        total += add;
+        if (total > (uint64_t)INT64_MAX) return false;
+    }
+    *out_ns = neg ? -(int64_t)total : (int64_t)total;
+    return true;
+}
+
+static char *read_whole_file(const char *path, size_t *out_len) {
+    FILE *fp = fopen(path, "rb");
+    if (!fp) return NULL;
+    if (fseek(fp, 0, SEEK_END) != 0) { fclose(fp); return NULL; }
+    long sz = ftell(fp);
+    if (sz < 0) { fclose(fp); return NULL; }
+    if (fseek(fp, 0, SEEK_SET) != 0) { fclose(fp); return NULL; }
+    char *buf = malloc((size_t)sz + 1);
+    if (!buf) { fclose(fp); return NULL; }
+    size_t n = fread(buf, 1, (size_t)sz, fp);
+    fclose(fp);
+    buf[n] = 0;
+    if (out_len) *out_len = n;
+    return buf;
+}
+
+static void print_labeled_script(const char *label, const char *text, size_t n) {
+    size_t begin = 0, end = n;
+    while (begin < end && isspace((unsigned char)text[begin])) begin++;
+    while (end > begin && isspace((unsigned char)text[end - 1])) end--;
+    printf("### %s ###\n", label);
+    if (end > begin) fwrite(text + begin, 1, end - begin, stdout);
+    printf("\n### end: %s ###\n", label);
+}
+
+/* fzf printScript: the scripts live next to the binary, under shell/. */
+static int print_bash_integration(void) {
+    char exe[PATH_MAX];
+    ssize_t n = readlink("/proc/self/exe", exe, sizeof(exe) - 1);
+    if (n < 0) {
+        fprintf(stderr, "fzf: failed to read bash integration\n");
+        return 2;
+    }
+    exe[n] = 0;
+    char *slash = strrchr(exe, '/');
+    if (!slash) {
+        fprintf(stderr, "fzf: failed to read bash integration\n");
+        return 2;
+    }
+    *slash = 0;
+    const char *files[][2] = {
+        { "key-bindings.bash", "shell/key-bindings.bash" },
+        { "completion.bash", "shell/completion.bash" },
+    };
+    for (size_t i = 0; i < sizeof(files) / sizeof(files[0]); i++) {
+        char path[PATH_MAX];
+        int wrote = snprintf(path, sizeof(path), "%s/%s", exe, files[i][1]);
+        if (wrote < 0 || (size_t)wrote >= sizeof(path)) {
+            fprintf(stderr, "fzf: failed to read bash integration\n");
+            return 2;
+        }
+        size_t len = 0;
+        char *text = read_whole_file(path, &len);
+        if (!text) {
+            fprintf(stderr, "fzf: failed to read bash integration\n");
+            return 2;
+        }
+        print_labeled_script(files[i][0], text, len);
+        free(text);
+    }
+    return 0;
+}
+
+static void theme_set_nocolor(mm_theme_t *theme) {
+    mm_color_attr_t *fields = (mm_color_attr_t *)theme;
+    size_t n = sizeof(*theme) / sizeof(*fields);
+    for (size_t i = 0; i < n; i++) {
+        fields[i].color = MM_COL_DEFAULT;
+        fields[i].attr = MM_ATTR_UNDEFINED;
+    }
 }
 
 static bool parse_nonnegative_int(const char *s, int *out) {
@@ -203,8 +390,22 @@ static char *read_all_stdin(size_t *outlen) {
         }
     }
     buf[len] = 0;
+    /* Drop the read-ahead slack. Batch mode aliases its lines into this
+       buffer, so the slack would stay resident for the whole filter. */
+    if (len + 1 < cap) {
+        char *shrunk = realloc(buf, len + 1);
+        if (shrunk) buf = shrunk;
+    }
     *outlen = len;
     return buf;
+}
+
+/* owned is false when each line points into the input buffer. */
+static void release_lines(char **lines, int count, bool owned) {
+    if (owned && lines) {
+        for (int i = 0; i < count; i++) free(lines[i]);
+    }
+    free(lines);
 }
 
 typedef struct {
@@ -490,24 +691,51 @@ static void *walk_thread_fn(void *arg) {
     return NULL;
 }
 
+/* Later --bind options add to the earlier ones. The same key in a later
+   spec replaces the earlier action when the map is parsed with replace. */
+static bool bind_spec_append(char **spec, const char *value) {
+    size_t n = strlen(value);
+    size_t old = *spec ? strlen(*spec) : 0;
+    size_t extra = old ? 1 : 0;
+    char *next = realloc(*spec, old + extra + n + 1);
+    if (!next) return false;
+    if (extra) next[old] = ',';
+    memcpy(next + old + extra, value, n + 1);
+    *spec = next;
+    return true;
+}
+
 static bool mm_parse_info_style(const char *value, bool *info,
-                                  bool *inline_right) {
-    if (!value || !info || !inline_right) return false;
+                                  bool *inline_right, bool *inline_info,
+                                  const char **prefix) {
+    if (!value || !info || !inline_right || !inline_info) return false;
+    if (prefix) *prefix = NULL;
     if (!strcmp(value, "hidden")) {
         *info = false;
         *inline_right = false;
+        *inline_info = false;
         return true;
     }
+    /* inline-right is checked before inline; the shorter name is a prefix. */
     if (!strcmp(value, "inline-right") ||
         !strncmp(value, "inline-right:", 13)) {
         *info = true;
         *inline_right = true;
+        *inline_info = false;
+        if (prefix && value[12] == ':') *prefix = value + 13;
         return true;
     }
-    if (!strcmp(value, "default") || !strcmp(value, "right") ||
-        !strcmp(value, "inline") || !strncmp(value, "inline:", 7)) {
+    if (!strcmp(value, "inline") || !strncmp(value, "inline:", 7)) {
         *info = true;
         *inline_right = false;
+        *inline_info = true;
+        if (prefix && value[6] == ':') *prefix = value + 7;
+        return true;
+    }
+    if (!strcmp(value, "default") || !strcmp(value, "right")) {
+        *info = true;
+        *inline_right = false;
+        *inline_info = false;
         return true;
     }
     return false;
@@ -534,6 +762,87 @@ static bool mm_parse_label_pos(const char *s, int *pos, bool *bottom) {
     return true;
 }
 
+static const char border_style_error[] =
+    "invalid border style (expected: rounded|sharp|bold|block|thinblock|double|dashed|horizontal|vertical|top|bottom|left|right|line|inline|none)";
+
+/* fzf splits a label position on commas and colons and lowercases it. */
+static bool mm_parse_label_pos_fzf(const char *s, int *pos, bool *bottom,
+                                   const char **err) {
+    static char emsg[160];
+    char buf[128];
+    size_t n = strlen(s);
+    if (n >= sizeof(buf)) {
+        snprintf(emsg, sizeof(emsg), "not a valid integer: %s", s);
+        *err = emsg;
+        return false;
+    }
+    for (size_t i = 0; i < n; i++)
+        buf[i] = (char)tolower((unsigned char)s[i]);
+    buf[n] = 0;
+    *pos = 0;
+    *bottom = false;
+    char *cursor = buf;
+    if (*cursor == 0) {
+        snprintf(emsg, sizeof(emsg), "not a valid integer: %s", s);
+        *err = emsg;
+        return false;
+    }
+    while (*cursor) {
+        char *start = cursor;
+        while (*cursor && *cursor != ',' && *cursor != ':') cursor++;
+        char saved = *cursor;
+        *cursor = 0;
+        if (!strcmp(start, "center")) *pos = 0;
+        else if (!strcmp(start, "bottom")) *bottom = true;
+        else if (!strcmp(start, "top")) *bottom = false;
+        else {
+            char *end = NULL;
+            long v = strtol(start, &end, 10);
+            if (end == start || (end && *end) || v < INT_MIN || v > INT_MAX) {
+                snprintf(emsg, sizeof(emsg), "not a valid integer: %s", start);
+                *err = emsg;
+                return false;
+            }
+            *pos = (int)v;
+        }
+        if (!saved) break;
+        cursor++;
+    }
+    return true;
+}
+
+/* 1 = parsed, 0 = not this option, -1 = this option with a bad value.
+   A bare option selects the rounded default. A following argument is
+   consumed only when it does not look like another flag. */
+static int take_component_border(int argc, char **argv, int *i, const char *a,
+                                 const char *name, int *shape) {
+    size_t nlen = strlen(name);
+    const char *spec = NULL;
+    bool has = false;
+    if (strncmp(a, name, nlen) == 0 && a[nlen] == '=') {
+        spec = a + nlen + 1;
+        has = true;
+    } else if (!strcmp(a, name)) {
+        if (*i + 1 < argc && argv[*i + 1][0] != '-' && argv[*i + 1][0] != '+') {
+            spec = argv[++*i];
+            has = true;
+        }
+    } else {
+        return 0;
+    }
+    if (!has) {
+        *shape = MM_BORDER_ROUNDED;
+        return 1;
+    }
+    int b = mm_border_parse_component(spec);
+    if (b < 0 || !spec || !*spec) {
+        fprintf(stderr, "%s\n", border_style_error);
+        return -1;
+    }
+    *shape = b;
+    return 1;
+}
+
 
 int main(int argc, char **argv) {
     setlocale(LC_ALL, "");
@@ -543,6 +852,7 @@ int main(int argc, char **argv) {
     const char *filter = NULL;
     const char *query = NULL;
     const char *scheme = "default";
+    bool scheme_explicit = false;
     const char *tiebreak = NULL;
     bool exact = false;
     bool extended = false; /* fzf's --extended; default on for term syntax? see below */
@@ -561,16 +871,19 @@ int main(int argc, char **argv) {
     bool cycle = false;
     bool reverse = false;
     bool info = true;   /* fzf shows the info line by default */
+    bool info_inline = false;       /* --info=inline */
     bool info_inline_right = false; /* --info=inline-right */
+    const char *info_prefix = NULL;
     const char *style_spec = NULL;
     bool style_full = false;
     bool select_1 = false;
     bool exit_0 = false;
     bool expect = false;
     const char *expect_spec = NULL;
-    const char *bind_spec = NULL;
+    char *bind_spec = NULL;
     const char *color_spec = NULL;
-    int border_shape = MM_BORDER_NONE;
+    int border_shape = -1;          /* -1 until --border; fzf's BorderUndefined */
+    int popup_border = -1;          /* border as --tmux sees it, before style */
     int preview_border_shape = MM_BORDER_ROUNDED;
     int list_border_shape = -1;
     bool list_border_set = false;
@@ -592,6 +905,13 @@ int main(int argc, char **argv) {
     const char *header_label = NULL;
     int header_label_pos = 0;
     bool header_label_bottom = false;
+    const char *footer_label = NULL;
+    int footer_label_pos = 0;
+    bool footer_label_bottom = false;
+    int footer_border = MM_BORDER_LINE;
+    bool footer_border_set = false;
+    int header_lines_border = MM_BORDER_NONE;
+    bool header_lines_border_set = false;
     const char *preview_wrap_sign = NULL;
     int preview_label_pos = 0;
     bool preview_label_bottom = false;
@@ -611,10 +931,14 @@ int main(int argc, char **argv) {
     bool wrap_word = false;
     const char *wrap_sign = NULL;
     bool no_color = false;
+    bool color_base_nocolor = false;
+    bool show_bash = false;
+    int64_t bench_ns = 0;
     bool keep_right = false;
     bool no_mouse = false;
     bool sync = false;
     int  min_height = 0;
+    bool min_height_set = false;
     const char *layout_spec = NULL;
     int history_size = MM_HISTORY_MAX;
     const char *preview_win_spec = NULL;
@@ -626,8 +950,15 @@ int main(int argc, char **argv) {
     int  multi_max = 0;
     int  padding = 0;
     int  margin = 0;
+    bool margin_default = true;
+    int  height_index = 0;
+    mm_popup_opts_t popup = {0};
+    bool force_tty_in = false;
+    const char *proxy_script = NULL;
     int  scroll_off = 3;    /* fzf's default (src/options.go) */
     int  hscroll_off = 10;  /* fzf's default (src/options.go) */
+    int  freeze_left = 0;
+    int  freeze_right = 0;
     const char *accept_nth_spec = NULL;
     const char *separator_spec = NULL;
     bool no_scrollbar = false;
@@ -652,7 +983,6 @@ int main(int argc, char **argv) {
     const char *listen_spec = NULL;
     const char *listen_unsafe_spec = NULL;
     const char *header = NULL;
-    const char *header_lines_text = NULL;
     int header_lines = 0;
     const char *footer_spec = NULL;
     const char *gutter_spec = NULL;
@@ -662,32 +992,26 @@ int main(int argc, char **argv) {
 
     /* fzf defaults: extended ON, fuzzy ON */
     extended = true;
-    bool end_options = false;
     bool show_help = false;
     bool show_version = false;
     bool show_man = false;
 
+    {
+        const char *no_color_env = getenv("NO_COLOR");
+        if (no_color_env && *no_color_env) {
+            no_color = true;
+            color_base_nocolor = true;
+        }
+    }
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
-        if (end_options) {
-            if (!query) query = a;
-            else {
-                fprintf(stderr, "unexpected positional argument: %s\n", a);
-                return 2;
-            }
-            continue;
-        }
         if (!strcmp(a, "--")) {
-            end_options = true;
+            /* fzf ignores a bare "--": it does not end option parsing. */
             continue;
         }
         if (a[0] != '-' && a[0] != '+') {
-            if (!query) query = a;
-            else {
-                fprintf(stderr, "unexpected positional argument: %s\n", a);
-                return 2;
-            }
-            continue;
+            fprintf(stderr, "unknown option: %s\n", a);
+            return 2;
         }
         #define ARG_EQ(name) (!strncmp(a, name "=", sizeof(name)))
         if (ARG_EQ("--filter")) { filter = a + sizeof("--filter=") - 1; }
@@ -733,10 +1057,11 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--ignore-case") || !strcmp(a, "-i")) case_mode = CASE_IGNORE;
         else if (!strcmp(a, "+i") || !strcmp(a, "--no-ignore-case")) case_mode = CASE_RESPECT;
         else if (!strcmp(a, "--smart-case")) case_mode = CASE_SMART;
-        else if (ARG_EQ("--scheme")) { scheme = a + 9; }
+        else if (ARG_EQ("--scheme")) { scheme = a + 9; scheme_explicit = true; }
         else if (!strcmp(a, "--scheme")) {
             scheme = required_cli_arg(argc, argv, &i, "--scheme");
             if (!scheme) return 2;
+            scheme_explicit = true;
         }
         else if (ARG_EQ("--tiebreak")) { tiebreak = a + 11; }
         else if (!strcmp(a, "--tiebreak")) {
@@ -755,7 +1080,7 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(a, "--no-tail")) tail = -1;
         else if (ARG_EQ("--nth")) { nth_spec = a + 6; }
-        else if (ARG_EQ("-n")) { nth_spec = a + 3; }
+        else if (!strncmp(a, "-n", 2) && a[2] != 0 && a[1] != '-') { nth_spec = a + 2; }
         else if (!strcmp(a, "-n")) {
             nth_spec = required_cli_arg(argc, argv, &i, "-n");
             if (!nth_spec) return 2;
@@ -808,21 +1133,30 @@ int main(int argc, char **argv) {
                 return 2;
             }
             const char *v = argv[++i];
-            if (!mm_parse_info_style(v, &info, &info_inline_right)) {
+            if (!mm_parse_info_style(v, &info, &info_inline_right, &info_inline,
+                                     &info_prefix)) {
                 fprintf(stderr, "invalid info style (expected: default|right|hidden|inline[-right][:PREFIX])\n");
                 return 2;
             }
         }
-        else if (!strcmp(a, "--no-info")) { info = false; info_inline_right = false; }
+        else if (!strcmp(a, "--no-info")) {
+            info = false; info_inline_right = false; info_inline = false;
+        }
         else if (ARG_EQ("--info")) {
             const char *v = a + 7;
-            if (!mm_parse_info_style(v, &info, &info_inline_right)) {
+            if (!mm_parse_info_style(v, &info, &info_inline_right, &info_inline,
+                                     &info_prefix)) {
                 fprintf(stderr, "invalid info style (expected: default|right|hidden|inline[-right][:PREFIX])\n");
                 return 2;
             }
         }
-        else if (!strcmp(a, "--inline-info")) { info = true; info_inline_right = false; }
-        else if (!strcmp(a, "--no-inline-info")) { info = true; info_inline_right = false; }
+        else if (!strcmp(a, "--inline-info")) {
+            info = true; info_inline_right = false; info_inline = true;
+            info_prefix = NULL;
+        }
+        else if (!strcmp(a, "--no-inline-info")) {
+            info = true; info_inline_right = false; info_inline = false;
+        }
         else if (!strcmp(a, "--select-1") || !strcmp(a, "-1")) select_1 = true;
         else if (!strcmp(a, "--no-select-1") || !strcmp(a, "+1")) select_1 = false;
         else if (!strcmp(a, "--exit-0") || !strcmp(a, "-0")) exit_0 = true;
@@ -879,11 +1213,19 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-phony") || !strcmp(a, "--enabled")) phony = false;
         else if (ARG_EQ("--footer")) footer_spec = a + 9;
         else if (ARG_EQ("--padding")) padding = atoi(a + 10);
-        else if (ARG_EQ("--margin")) margin = atoi(a + 9);
+        else if (ARG_EQ("--margin")) {
+            margin = atoi(a + 9);
+            margin_default = mm_margin_is_default(a + 9);
+        }
         else if (!strcmp(a, "--margin")) {
             const char *v = required_cli_arg(argc, argv, &i, "--margin");
             if (!v) return 2;
             margin = atoi(v);
+            margin_default = mm_margin_is_default(v);
+        }
+        else if (!strcmp(a, "--no-margin")) {
+            margin = 0;
+            margin_default = true;
         }
         else if (!strcmp(a, "--padding")) {
             const char *v = required_cli_arg(argc, argv, &i, "--padding");
@@ -923,17 +1265,37 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--min-height")) {
             const char *v = a + 13;
             if (*v == '\0') { fprintf(stderr, "minimum height required: HEIGHT[+]\n"); return 2; }
+            /* A trailing '+' grows the floor by the border, input, and header. */
+            bool plus = v[strlen(v) - 1] == '+';
+            if (v[0] < '0' || v[0] > '9') {
+                fprintf(stderr, "minimum height must be a non-negative integer\n");
+                return 2;
+            }
             min_height = atoi(v);
+            if (plus) min_height = -min_height;
+            min_height_set = true;
         }
         else if (!strcmp(a, "--min-height")) {
             if (i+1 >= argc) { fprintf(stderr, "minimum height required: HEIGHT[+]\n"); return 2; }
             const char *v = argv[++i];
             if (*v == '\0') { fprintf(stderr, "minimum height required: HEIGHT[+]\n"); return 2; }
+            bool plus = v[strlen(v) - 1] == '+';
+            if (v[0] < '0' || v[0] > '9') {
+                fprintf(stderr, "minimum height must be a non-negative integer\n");
+                return 2;
+            }
             min_height = atoi(v);
+            if (plus) min_height = -min_height;
+            min_height_set = true;
         }
-        else if (!strcmp(a, "--no-color") || !strcmp(a, "+c")) no_color = true;
+        else if (!strcmp(a, "--no-color") || !strcmp(a, "+c")) {
+            no_color = true;
+            color_base_nocolor = true;
+            color_spec = NULL;
+        }
         else if (!strcmp(a, "--no-256") || !strcmp(a, "+2")) { /* UI palette option */ }
         else if (ARG_EQ("--height")) {
+            height_index = i - 1;
             const char *v = a + 9;
             if (*v == '\0') { fprintf(stderr, "height required: [~][-]HEIGHT[%%]\n"); return 2; }
             height_spec = v;
@@ -943,10 +1305,15 @@ int main(int argc, char **argv) {
         else if (ARG_EQ("--layout")) layout_spec = a + 9;
         else if (!strcmp(a, "--layout")) { if (i+1<argc) layout_spec = argv[++i]; }
         else if (!strcmp(a, "--height")) {
+            height_index = i - 1;
             if (i+1 >= argc) { fprintf(stderr, "height required: [~][-]HEIGHT[%%]\n"); return 2; }
             const char *v = argv[++i];
             if (*v == '\0' || *v == '-') { fprintf(stderr, "height required: [~][-]HEIGHT[%%]\n"); return 2; }
             height_spec = v;
+        }
+        else if (!strcmp(a, "--no-height")) {
+            height_spec = NULL;
+            height_index = 0;
         }
         else if (ARG_EQ("--scroll-off")) {
             if (!parse_cli_nonnegative("--scroll-off", a + 13, &scroll_off)) return 2;
@@ -1031,11 +1398,10 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--no-phony")) phony = false;
         else if (!strcmp(a, "--ambidouble")) ambidouble = true;
         else if (!strcmp(a, "--no-ambidouble")) ambidouble = false;
-        else if (!strcmp(a, "--bash")) { /* print bash integration */ return 0; }
+        else if (!strcmp(a, "--bash")) show_bash = true;
         else if (!strcmp(a, "--black")) { /* part of the --color palette */ }
         else if (!strcmp(a, "--filepath-word")) filepath_word = true;
         else if (!strcmp(a, "--no-filepath-word")) filepath_word = false;
-        else if (!strcmp(a, "--fish")) { /* print fish integration */ return 0; }
         else if (!strcmp(a, "--header-first")) header_first = true;
         else if (!strcmp(a, "--no-header-first")) header_first = false;
         else if (ARG_EQ("--list-label")) list_label = a + strlen("--list-label") + 1;
@@ -1098,10 +1464,26 @@ int main(int argc, char **argv) {
                 }
             } else { fprintf(stderr, "--header-label-pos requires a value\n"); return 2; }
         }
-        else if (ARG_EQ("--footer-label")) { }
-        else if (!strcmp(a, "--footer-label")) { if (i+1<argc) i++; }
-        else if (ARG_EQ("--footer-label-pos")) { }
-        else if (!strcmp(a, "--footer-label-pos")) { if (i+1<argc) i++; }
+        else if (ARG_EQ("--footer-label")) footer_label = a + strlen("--footer-label=");
+        else if (!strcmp(a, "--footer-label")) {
+            if (i + 1 >= argc) { fprintf(stderr, "footer label required\n"); return 2; }
+            footer_label = argv[++i];
+        }
+        else if (!strcmp(a, "--no-footer-label")) footer_label = NULL;
+        else if (ARG_EQ("--footer-label-pos") || !strcmp(a, "--footer-label-pos")) {
+            const char *value;
+            if (a[strlen("--footer-label-pos")] == '=') value = a + strlen("--footer-label-pos=");
+            else if (i + 1 < argc) value = argv[++i];
+            else {
+                fprintf(stderr, "footer label position required (positive or negative integer or 'center')\n");
+                return 2;
+            }
+            const char *err = NULL;
+            if (!mm_parse_label_pos_fzf(value, &footer_label_pos, &footer_label_bottom, &err)) {
+                fprintf(stderr, "%s\n", err ? err : "not a valid integer");
+                return 2;
+            }
+        }
         else if (ARG_EQ("--preview-label")) preview_label = a + strlen("--preview-label") + 1;
         else if (!strcmp(a, "--preview-label")) {
             if (i + 1 < argc) preview_label = argv[++i];
@@ -1122,21 +1504,33 @@ int main(int argc, char **argv) {
                 }
             } else { fprintf(stderr, "--preview-label-pos requires a value\n"); return 2; }
         }
-        else if (!strcmp(a, "--header-lines-border")) {}
-        else if (!strcmp(a, "--no-header-lines-border")) {}
-        else if (ARG_EQ("--header-border")) {
-            header_border_shape = mm_border_parse(a + strlen("--header-border") + 1);
-            if (header_border_shape < 0) {
-                fprintf(stderr, "invalid --header-border style: %s\n", a + strlen("--header-border") + 1);
-                return 2;
-            }
+        else if (!strcmp(a, "--no-header-lines-border")) header_lines_border_set = false;
+        else if (!strncmp(a, "--header-lines-border", strlen("--header-lines-border"))) {
+            int rc = take_component_border(argc, argv, &i, a, "--header-lines-border", &header_lines_border);
+            if (rc < 0) return 2;
+            if (rc > 0) header_lines_border_set = true;
+            else { fprintf(stderr, "unknown option: %s\n", a); return 2; }
+        }
+        else if (!strcmp(a, "--no-header-border")) {
+            header_border_shape = MM_BORDER_NONE;
             header_border_set = true;
         }
-        else if (!strcmp(a, "--header-border")) {
-            header_border_shape = MM_BORDER_ROUNDED;
-            header_border_set = true;
+        else if (!strncmp(a, "--header-border", strlen("--header-border"))) {
+            int rc = take_component_border(argc, argv, &i, a, "--header-border", &header_border_shape);
+            if (rc < 0) return 2;
+            if (rc > 0) header_border_set = true;
+            else { fprintf(stderr, "unknown option: %s\n", a); return 2; }
         }
-        else if (!strcmp(a, "--footer-border")) {}
+        else if (!strcmp(a, "--no-footer-border")) {
+            footer_border = MM_BORDER_NONE;
+            footer_border_set = true;
+        }
+        else if (!strncmp(a, "--footer-border", strlen("--footer-border"))) {
+            int rc = take_component_border(argc, argv, &i, a, "--footer-border", &footer_border);
+            if (rc < 0) return 2;
+            if (rc > 0) footer_border_set = true;
+            else { fprintf(stderr, "unknown option: %s\n", a); return 2; }
+        }
         else if (ARG_EQ("--preview-border")) {
             preview_border_shape = mm_border_parse(a + strlen("--preview-border") + 1);
             if (preview_border_shape < 0) {
@@ -1171,26 +1565,50 @@ int main(int argc, char **argv) {
         }
         else if (ARG_EQ("--border-label-pos")) { /* will be handled below */ }
         else if (!strcmp(a, "--border-label-pos")) { /* will be handled below */ }
-    else if (!strcmp(a, "--tmux")) { /* accepted for compatibility */ }
-    else if (ARG_EQ("--tmux")) { /* accepted for compatibility */ }
-    else if (!strcmp(a, "--popup")) { /* accepted for compatibility */ }
-    else if (ARG_EQ("--popup")) { /* accepted for compatibility */ }
-    else if (!strcmp(a, "--bench")) { /* accepted for compatibility */ }
-    else if (ARG_EQ("--bench")) { /* accepted for compatibility */ }
+        else if (!strcmp(a, "--tmux") || !strcmp(a, "--popup")) {
+            const char *value = NULL;
+            if (i + 1 < argc && argv[i + 1][0] != '-' && argv[i + 1][0] != '+')
+                value = argv[++i];
+            if (!mm_popup_parse(value, i - (value ? 2 : 1), &popup)) return 2;
+        }
+        else if (ARG_EQ("--tmux") || ARG_EQ("--popup")) {
+            const char *eq = strchr(a, '=');
+            if (!mm_popup_parse(eq ? eq + 1 : "", i - 1, &popup)) return 2;
+        }
+        else if (!strcmp(a, "--no-tmux") || !strcmp(a, "--no-popup")) {
+            popup.set = false;
+        }
+        else if (!strcmp(a, "--force-tty-in")) force_tty_in = true;
+        else if (!strcmp(a, "--no-force-tty-in")) force_tty_in = false;
+    else if (!strcmp(a, "--bench") || ARG_EQ("--bench")) {
+        const char *value = NULL;
+        if (a[strlen("--bench")] == '=') value = a + strlen("--bench") + 1;
+        else if (i + 1 < argc) value = argv[++i];
+        if (!value) {
+            fprintf(stderr, "duration required (e.g. 3s, 500ms)\n");
+            return 2;
+        }
+        if (!parse_go_duration(value, &bench_ns)) {
+            fprintf(stderr, "invalid duration for --bench: %s\n", value);
+            return 2;
+        }
+    }
     else if (!strcmp(a, "--style")) { if (i+1<argc) style_spec = argv[++i]; else { fprintf(stderr, "style preset required\n"); return 2; } }
     else if (ARG_EQ("--style")) style_spec = a + 8;
-    else if (!strcmp(a, "--nushell")) { /* shell integration option */ }
-    else if (!strcmp(a, "--zsh")) { /* shell integration option */ }
     else if (ARG_EQ("--id-nth")) id_nth_spec = a + 9;
     else if (!strcmp(a, "--id-nth")) {
         id_nth_spec = required_cli_arg(argc, argv, &i, "--id-nth");
         if (!id_nth_spec) return 2;
     }
     else if (!strcmp(a, "--no-id-nth")) id_nth_spec = NULL;
-    else if (ARG_EQ("--freeze-left")) { /* accepted */ }
-    else if (!strcmp(a, "--freeze-left")) { if (i+1<argc) i++; }
-    else if (ARG_EQ("--freeze-right")) { /* accepted */ }
-    else if (!strcmp(a, "--freeze-right")) { if (i+1<argc) i++; }
+    else if (ARG_EQ("--freeze-left") || !strcmp(a, "--freeze-left")) {
+        if (!take_freeze_count(argc, argv, &i, a, "--freeze-left", &freeze_left))
+            return 2;
+    }
+    else if (ARG_EQ("--freeze-right") || !strcmp(a, "--freeze-right")) {
+        if (!take_freeze_count(argc, argv, &i, a, "--freeze-right", &freeze_right))
+            return 2;
+    }
     else if (ARG_EQ("--preview-wrap-sign")) preview_wrap_sign = a + strlen("--preview-wrap-sign") + 1;
     else if (!strcmp(a, "--preview-wrap-sign")) {
         if (i + 1 < argc) preview_wrap_sign = argv[++i];
@@ -1202,8 +1620,6 @@ int main(int argc, char **argv) {
     else if (ARG_EQ("--listen")) listen_spec = a + 9;
     else if (!strcmp(a, "--listen-unsafe")) { if (i+1<argc) listen_unsafe_spec = argv[++i]; }
     else if (ARG_EQ("--listen-unsafe")) listen_unsafe_spec = a + 16;
-        else if (!strcmp(a, "--zsh")) { printf("# zsh integration\n"); return 0; }
-        else if (!strcmp(a, "--nushell")) { printf("# nushell integration\n"); return 0; }
         else if (ARG_EQ("--history")) history_spec = a + 10;
         else if (!strcmp(a, "--history")) {
             history_spec = required_cli_arg(argc, argv, &i, "--history");
@@ -1238,7 +1654,10 @@ int main(int argc, char **argv) {
             preview_win_spec = required_cli_arg(argc, argv, &i, "--preview-window");
             if (!preview_win_spec) return 2;
         }
-        else if (!strcmp(a, "--border")) { border_shape = MM_BORDER_ROUNDED; }
+        else if (!strcmp(a, "--border")) {
+            border_shape = MM_BORDER_ROUNDED;
+            popup_border = MM_BORDER_ROUNDED;
+        }
         else if (ARG_EQ("--border-label")) border_label = a + 15;
         else if (!strcmp(a, "--border-label")) { if (i+1<argc) border_label = argv[++i]; }
         else if (ARG_EQ("--border-label-pos")) {
@@ -1254,23 +1673,40 @@ int main(int argc, char **argv) {
             }
         }
         else if (ARG_EQ("--border")) {
-            int b = mm_border_parse(a + 9);
+            const char *spec = a + 9;
+            int b = mm_border_parse(spec);
             if (b < 0) { fprintf(stderr, "invalid border style\n"); return 2; }
             border_shape = b;
+            /* The outer parser folds "line" into a top edge. fzf still
+               treats that name as BorderLine when deciding the popup. */
+            if (!strcmp(spec, "line")) popup_border = MM_BORDER_LINE;
+            else if (!strcmp(spec, "inline")) popup_border = MM_BORDER_INLINE;
+            else popup_border = b;
         }
-        else if (!strcmp(a, "--no-border")) { border_shape = MM_BORDER_NONE; }
-        else if (ARG_EQ("--color")) color_spec = a + 8;
-        else if (!strcmp(a, "--color")) { if (i+1<argc) color_spec = argv[++i]; }
+        else if (!strcmp(a, "--no-border")) {
+            border_shape = MM_BORDER_NONE;
+            popup_border = MM_BORDER_NONE;
+        }
+        else if (ARG_EQ("--color")) { color_spec = a + 8; no_color = false; }
+        else if (!strcmp(a, "--color")) {
+            if (i + 1 < argc) { color_spec = argv[++i]; no_color = false; }
+        }
         else if (ARG_EQ("--bind")) {
             const char *v = a + 7;
             if (*v == '\0') { fprintf(stderr, "bind expression required\n"); return 2; }
-            bind_spec = v;
+            if (!bind_spec_append(&bind_spec, v)) {
+                fprintf(stderr, "fzf: out of memory\n");
+                return 2;
+            }
         }
         else if (!strcmp(a, "--bind")) {
             if (i+1 >= argc) { fprintf(stderr, "bind expression required\n"); return 2; }
             const char *v = argv[++i];
             if (*v == '\0') { fprintf(stderr, "bind expression required\n"); return 2; }
-            bind_spec = v;
+            if (!bind_spec_append(&bind_spec, v)) {
+                fprintf(stderr, "fzf: out of memory\n");
+                return 2;
+            }
         }
         else if (ARG_EQ("--expect")) expect_spec = a + 9;
         else if (!strcmp(a, "--expect")) { if (i+1<argc) expect_spec = argv[++i]; }
@@ -1308,21 +1744,14 @@ int main(int argc, char **argv) {
         else if (!strcmp(a, "--version")) { show_version = true; show_help = false; }
         else if (!strcmp(a, "--help") || !strcmp(a, "-h")) { show_help = true; show_version = false; }
         else if (!strcmp(a, "--no-winpty") ||
-                 !strcmp(a, "--no-tmux") ||
-                 !strcmp(a, "--no-popup") ||
-                 !strcmp(a, "--force-tty-in") ||
-                 !strcmp(a, "--no-force-tty-in") ||
                  !strcmp(a, "--no-keep-right") ||
                  !strcmp(a, "--hscroll") ||
                  !strcmp(a, "--no-sync") ||
                  !strcmp(a, "--async") ||
                  !strcmp(a, "--no-preview-border") ||
-                 !strcmp(a, "--no-height") ||
-                 !strcmp(a, "--no-margin") ||
                  !strcmp(a, "--no-padding") ||
                  !strcmp(a, "--no-list-border") ||
                  !strcmp(a, "--no-list-label") ||
-                 !strcmp(a, "--no-header-border") ||
                  !strcmp(a, "--no-header-label") ||
                  !strcmp(a, "--no-footer-border") ||
                  !strcmp(a, "--no-footer-label") ||
@@ -1338,8 +1767,14 @@ int main(int argc, char **argv) {
                  !strcmp(a, "--clear")) {
             /* UI-only flags do not change batch filtering semantics. */
         }
+        else if (!strcmp(a, "--proxy-script")) {
+            proxy_script = required_cli_arg(argc, argv, &i, "--proxy-script");
+            if (!proxy_script) return 2;
+        }
+        else if (ARG_EQ("--proxy-script")) {
+            proxy_script = a + sizeof("--proxy-script=") - 1;
+        }
         else if (!strcmp(a, "--tty-default") ||
-                 !strcmp(a, "--proxy-script") ||
                  !strcmp(a, "--toggle-sort") ||
                  !strcmp(a, "--profile-cpu") ||
                  !strcmp(a, "--profile-mem") ||
@@ -1365,13 +1800,14 @@ int main(int argc, char **argv) {
     if (show_help) { usage(stdout); return 0; }
     if (show_version) { printf("0.74 (devel)\n"); return 0; }
     if (show_man) return print_man_page();
+    if (show_bash) return print_bash_integration();
 
     if (accept_nth_spec && !mm_accept_nth_validate(accept_nth_spec)) return 2;
     if (id_nth_spec) {
         mm_range_t *id_ranges = NULL;
         int id_range_count = 0;
         if (!mm_parse_ranges(id_nth_spec, &id_ranges, &id_range_count)) {
-            fprintf(stderr, "invalid --id-nth: %s\n", id_nth_spec);
+            fprintf(stderr, "invalid format: %s\n", id_nth_spec);
             free(id_ranges);
             return 2;
         }
@@ -1393,14 +1829,15 @@ int main(int argc, char **argv) {
         const char *defaults =
             "ctrl-c:abort,ctrl-g:abort,ctrl-q:abort,esc:abort,"
             "enter:accept,ctrl-m:accept,"
-            "up:up,ctrl-p:up,down:down,ctrl-n:down,"
-            "home:first,ctrl-a:first,end:last,ctrl-e:last,"
+            "up:up,down:down,"
+            "home:beginning-of-line,ctrl-a:beginning-of-line,end:end-of-line,ctrl-e:end-of-line,"
             "page-up:page-up,page-down:page-down,"
             "backspace:backward-delete-char,ctrl-h:backward-delete-char,"
-            "delete:delete-char,ctrl-d:delete-char,"
-            "ctrl-u:kill-line,ctrl-w:backward-kill-word,"
-            "tab:toggle,"
-            "btab:toggle,ctrl-z:toggle";
+            "delete:delete-char,ctrl-d:delete-char/eof,"
+            "ctrl-u:unix-line-discard,ctrl-w:unix-word-rubout,ctrl-y:yank,"
+            "tab:toggle-down,btab:toggle-up,"
+            "ctrl-n:down-match,ctrl-p:up-match,"
+            "ctrl-z:toggle";
         if (!mm_bind_parse(&keymap, defaults, false, &err)) {
             fprintf(stderr, "invalid default binding: %s\n", err);
             goto fail;
@@ -1413,6 +1850,8 @@ int main(int argc, char **argv) {
             fprintf(stderr, "invalid --bind: %s\n", err);
             goto fail;
         }
+        free(bind_spec);
+        bind_spec = NULL;
     }
     if (expect_spec) {
         /* --expect takes a comma separated list of key names. */
@@ -1462,12 +1901,32 @@ int main(int argc, char **argv) {
     /* Color theme */
     mm_theme_t theme;
     mm_theme_init(&theme);
+    if (color_spec && color_base_nocolor) theme_set_nocolor(&theme);
     if (color_spec) {
         const char *cerr = NULL;
         if (!mm_theme_parse(&theme, color_spec, &cerr)) {
             fprintf(stderr, "%s: %s\n", cerr, color_spec);
             goto fail;
         }
+    }
+
+    /* fzf uses the path scheme when the list comes from the tty (the walker
+       or $FZF_DEFAULT_COMMAND), unless the user set --scheme or --tiebreak,
+       or start:reload / start:transform will replace that list. */
+    if (!scheme_explicit && !tiebreak && !no_input && isatty(STDIN_FILENO)) {
+        bool start_swap = false;
+        for (int ei = 0; ei < events.n; ei++) {
+            const char *nm = events.items[ei].name;
+            mm_action_t act;
+            if (!nm || strcmp(nm, "start") != 0) continue;
+            act = events.items[ei].action;
+            if (act == MM_ACT_RELOAD || act == MM_ACT_RELOAD_SYNC ||
+                act == MM_ACT_TRANSFORM) {
+                start_swap = true;
+                break;
+            }
+        }
+        if (!start_swap) scheme = "path";
     }
 
     /* scheme validation */
@@ -1490,15 +1949,49 @@ int main(int argc, char **argv) {
 
     (void)query;
 
+    if (!filter && popup.set) {
+        int raw_argc = argc - (int)mm_cli_default_word_count;
+        if (raw_argc < 1) raw_argc = 1;
+        char **rawv = malloc(((size_t)raw_argc + 1) * sizeof(char *));
+        if (!rawv) {
+            fprintf(stderr, "fzf: out of memory\n");
+            goto fail;
+        }
+        rawv[0] = argv[0];
+        for (int k = 1; k < raw_argc; k++)
+            rawv[k] = argv[mm_cli_default_word_count + (size_t)k];
+        rawv[raw_argc] = NULL;
+        int popup_code = 0;
+        bool launched = mm_popup_launch(&popup, height_index, margin_default,
+                                        popup_border, border_label, shell_spec,
+                                        force_tty_in, raw_argc, rawv, &popup_code);
+        free(rawv);
+        if (launched) {
+            mm_keymap_free(&keymap);
+            mm_event_map_free(&events);
+            for (int k = 0; k < expect_n; k++) free(expect_keys[k]);
+            free(expect_keys);
+            for (int k = 0; k < nskip; k++) free((char *)skip_names[k]);
+            free(skip_names);
+            return popup_code;
+        }
+    }
+
     size_t len = 0;
     char *data = NULL;
     char **lines = NULL;
+    size_t *line_lens = NULL;
     int count = 0;
+    /* --filter prints from the input buffer. Interactive mode owns a copy
+       because the UI frees each line. */
+    bool lines_owned = filter == NULL;
     bool stream_input = false;
     int stream_fd = -1;
     FILE *stream_fp = NULL;
     pthread_t walk_thread;
     bool have_walk_thread = false;
+    struct timespec ingest_start = {0}, ingest_end = {0};
+    clock_gettime(CLOCK_MONOTONIC, &ingest_start);
     if (!no_input) {
     if (isatty(STDIN_FILENO)) {
         const char *cmd = getenv("FZF_DEFAULT_COMMAND");
@@ -1573,6 +2066,11 @@ int main(int argc, char **argv) {
                     fprintf(stderr, "fzf: pipe failed\n");
                     goto fail;
                 }
+#ifdef F_SETPIPE_SZ
+                /* The walker runs ahead of the UI. A larger pipe keeps the
+                   workers from blocking on the default 64 KiB capacity. */
+                (void)fcntl(pipefd[0], F_SETPIPE_SZ, 1 << 20);
+#endif
                 mm_walk_thread_arg_t *arg = malloc(sizeof(*arg));
                 if (!arg) { close(pipefd[0]); close(pipefd[1]); goto fail; }
                 arg->fd = pipefd[1];
@@ -1628,16 +2126,23 @@ int main(int argc, char **argv) {
     /* split lines */
     int cap = 1024;
     lines = malloc((size_t)cap * sizeof(char *));
-    if (!lines) { free(data); fprintf(stderr, "fzf: out of memory\n"); return 2; }
+    line_lens = malloc((size_t)cap * sizeof(*line_lens));
+    if (!lines || !line_lens) { free(lines); free(line_lens); free(data); fprintf(stderr, "fzf: out of memory\n"); return 2; }
     char sep = read0 ? '\0' : '\n';
     char *p = data;
     while (p < data + len) {
         char *nl = memchr(p, sep, (size_t)(data + len - p));
         size_t llen = nl ? (size_t)(nl - p) : (size_t)(data + len - p);
-        char *line = malloc(llen + 1);
-        if (!line) { fprintf(stderr, "fzf: out of memory\n"); return 2; }
-        memcpy(line, p, llen);
-        line[llen] = 0;
+        char *line;
+        if (lines_owned) {
+            line = malloc(llen + 1);
+            if (!line) { fprintf(stderr, "fzf: out of memory\n"); return 2; }
+            memcpy(line, p, llen);
+            line[llen] = 0;
+        } else {
+            if (nl) *nl = '\0';
+            line = p;
+        }
         if (count == cap) {
             if (cap > INT_MAX / 2 ||
                 (size_t)cap * 2u > SIZE_MAX / sizeof(*lines)) {
@@ -1647,41 +2152,27 @@ int main(int argc, char **argv) {
             }
             int next_cap = cap * 2;
             char **nl2 = realloc(lines, (size_t)next_cap * sizeof(*lines));
-            if (!nl2) { free(line); fprintf(stderr, "fzf: out of memory\n"); return 2; }
+            if (!nl2) { free(line); free(line_lens); fprintf(stderr, "fzf: out of memory\n"); return 2; }
             lines = nl2;
+            size_t *nl3 = realloc(line_lens, (size_t)next_cap * sizeof(*line_lens));
+            if (!nl3) { free(line); fprintf(stderr, "fzf: out of memory\n"); return 2; }
+            line_lens = nl3;
             cap = next_cap;
         }
         lines[count++] = line;
+        line_lens[count - 1] = llen;
         if (!nl) break;
         p = nl + 1;
     }
-
-    if (header_lines > 0 && !stream_input && count > 0 && !filter) {
-        int h = header_lines;
-        if (h > count) h = count;
-        if (!filter) {
-            size_t hlen = 1;
-            for (int i = 0; i < h; i++) hlen += strlen(lines[i]) + 1;
-            char *hbuf = malloc(hlen);
-            if (hbuf) {
-                hbuf[0] = 0;
-                for (int i = 0; i < h; i++) {
-                    if (i) strcat(hbuf, "\n");
-                    strcat(hbuf, lines[i]);
-                }
-                header_lines_text = hbuf;
-            }
-    
-        }
-        for (int i = 0; i < h; i++) free(lines[i]);
-        memmove(lines, lines + h, (size_t)(count - h) * sizeof(char *));
-        count -= h;
-    }
+    clock_gettime(CLOCK_MONOTONIC, &ingest_end);
 
     if (tail >= 0 && count > tail) {
         /* keep last N */
         int drop = count - tail;
-        for (int i = 0; i < drop; i++) free(lines[i]);
+        if (lines_owned) {
+            for (int i = 0; i < drop; i++) free(lines[i]);
+        }
+        memmove(line_lens, line_lens + drop, (size_t)tail * sizeof(*line_lens));
         memmove(lines, lines + drop, (size_t)tail * sizeof(char *));
         count = tail;
     }
@@ -1692,9 +2183,11 @@ int main(int argc, char **argv) {
     if (style_spec) {
         if (!strcmp(style_spec, "default")) {
             info_inline_right = false;
+            info_inline = false;
             highlight_line = false;
         } else if (!strcmp(style_spec, "minimal")) {
             info_inline_right = false;
+            info_inline = false;
             highlight_line = false;
             no_scrollbar = true;
             gutter_spec = " ";
@@ -1715,16 +2208,28 @@ int main(int argc, char **argv) {
             }
             style_full = true;
             border_shape = MM_BORDER_ROUNDED;
+            int component_border = MM_BORDER_ROUNDED;
             if (colon && *colon) {
                 int b = mm_border_parse(colon);
-                if (b < 0) {
+                int c = mm_border_parse_component(colon);
+                if (b < 0 || c < 0) {
                     fprintf(stderr, "unsupported style border: %s\n", colon);
                     return 2;
                 }
                 border_shape = b;
+                component_border = c;
+                /* fzf's full preset sets the outer border only for "line". */
+                if (!strcmp(colon, "line")) popup_border = MM_BORDER_LINE;
+            }
+            /* --style=full gives the footer the preset border unless a
+               footer border option already selected one. */
+            if (!footer_border_set) {
+                footer_border = component_border;
+                footer_border_set = true;
             }
             info = true;
             info_inline_right = true;
+            info_inline = false;
             highlight_line = true;
         }
     }
@@ -1743,6 +2248,8 @@ int main(int argc, char **argv) {
         ui.id_nth_spec = id_nth_spec;
         if (!mm_delimiter_init(&ui.delim, delim_str)) {
             fprintf(stderr, "fzf: out of memory\n");
+            mm_keymap_free(&keymap);
+            mm_event_map_free(&events);
             return 2;
         }
         ui.extended = extended;
@@ -1756,15 +2263,19 @@ int main(int argc, char **argv) {
         ui.reverse = reverse;
         ui.cycle = cycle;
         ui.info = info;
+        ui.info_inline = info_inline;
         ui.info_inline_right = info_inline_right;
+        ui.info_prefix = info_prefix;
         ui.prompt = prompt;
         ui.header = header;
-        ui.header_lines = header_lines_text;
+        ui.header_line_count = header_lines;
         ui.query = query;
         ui.print_query = print_query;
         ui.expect = expect;
         ui.keymap = keymap;
         memset(&keymap, 0, sizeof(keymap));
+        ui.events = events;
+        memset(&events, 0, sizeof(events));
         ui.expect_keys = expect_keys;
         ui.expect_n = expect_n;
         expect_keys = NULL;
@@ -1776,7 +2287,8 @@ int main(int argc, char **argv) {
         ui.ansi = ansi;
         ui.literal = literal;
         ui.theme = theme;
-        ui.border = border_shape;
+        ui.border = border_shape < 0 ? MM_BORDER_NONE : border_shape;
+        ui.proxy_script = proxy_script;
         ui.preview_border = preview_border_shape;
         ui.preview_label = preview_label;
         ui.preview_wrap_sign = preview_wrap_sign;
@@ -1813,14 +2325,20 @@ int main(int argc, char **argv) {
         ui.phony = phony;
         ui.search_enabled = !disabled;
         ui.footer = footer_spec;
+        ui.footer_label = footer_label;
+        ui.footer_label_pos = footer_label_pos;
+        ui.footer_label_bottom = footer_label_bottom;
+        ui.footer_border = footer_border;
+        ui.footer_border_set = footer_border_set;
+        ui.header_lines_border = header_lines_border;
+        ui.header_lines_border_set = header_lines_border_set;
         ui.gutter = gutter_spec;
         ui.gutter_raw = gutter_raw_spec;
         ui.no_unicode = no_unicode;
-        /* The horizontal scrolling of the preview and the multi-line items
-           are not implemented; the options are accepted like the reference
-           does. */
         ui.no_hscroll = no_hscroll;
-        (void)no_multi_line;
+        /* --read0 items keep their newlines. --no-multi-line shows those
+           breaks as a single row; otherwise each line is its own row. */
+        ui.no_multi_line = no_multi_line;
         (void)no_tty_default;
         /* Options parsed above but not yet wired to the UI struct.
            The lead adds the mm_ui_t fields and passes them through. */
@@ -1845,34 +2363,26 @@ int main(int argc, char **argv) {
         ui.margin = margin;
         ui.scroll_off = scroll_off;
         ui.hscroll_off = hscroll_off;
+        ui.freeze_left = freeze_left;
+        ui.freeze_right = freeze_right;
         ui.separator = separator_spec ? separator_spec : "";
+        ui.separator_default = separator_spec == NULL;
         ui.no_scrollbar = no_scrollbar;
         ui.no_clear = no_clear;
         ui.tabstop = tabstop;
         ui.no_input = no_input;
         ui.no_color = no_color;
-        /* --keep-right, --no-mouse and --sync match the behaviour this
-           implementation already has: the preview is on the right, the mouse
-           is never enabled and the initial search is always synchronous. */
+        ui.plain_theme = color_base_nocolor && color_spec != NULL && !no_color;
+        /* --keep-right and --sync match the behaviour this implementation
+           already has: the preview is on the right and the initial search
+           is always synchronous. */
+        ui.mouse = !no_mouse;
         (void)keep_right;
-        (void)no_mouse;
         (void)sync;
+        /* Unset --min-height is fzf's "10+": ten rows, plus the chrome. */
+        if (!min_height_set) min_height = -10;
         ui.min_height = min_height;
-        if (no_color) {
-            /* The "no color" theme: every colour is the terminal default. */
-            memset(&ui.theme, 0, sizeof(ui.theme));
-            ui.theme.fg.color = MM_COL_DEFAULT;
-            ui.theme.bg.color = MM_COL_DEFAULT;
-            ui.theme.current.color = MM_COL_DEFAULT;
-            ui.theme.current_match.color = MM_COL_DEFAULT;
-            ui.theme.match.color = MM_COL_DEFAULT;
-            ui.theme.pointer.color = MM_COL_DEFAULT;
-            ui.theme.gutter.color = MM_COL_DEFAULT;
-            ui.theme.prompt.color = MM_COL_DEFAULT;
-            ui.theme.info.color = MM_COL_DEFAULT;
-            ui.theme.border.color = MM_COL_DEFAULT;
-            ui.theme.dark_bg.color = MM_COL_DEFAULT;
-        }
+        if (no_color) theme_set_nocolor(&ui.theme);
         if (layout_spec) {
             if (!strcmp(layout_spec, "default")) ui.layout = 0;
             else if (!strcmp(layout_spec, "reverse")) { ui.layout = 0; ui.reverse = true; }
@@ -1900,18 +2410,17 @@ int main(int argc, char **argv) {
                         preview_win_spec ? preview_win_spec : "");
                 goto interactive_error;
             }
-            if (style_full) {
-                ui.preview_win.border = true;
-                ui.preview_win.border_left_only = false;
-            }
+            if (style_full) ui.preview_win.border_shape = -1;
+            ui.preview_win_initial = ui.preview_win;
+            if (ui.preview_win.hidden) ui.preview_hidden = true;
         }
         if (nth_spec && !mm_parse_ranges(nth_spec, &ui.nth, &ui.nth_n)) {
-            fprintf(stderr, "invalid --nth: %s\n", nth_spec);
+            fprintf(stderr, "invalid format: %s\n", nth_spec);
             goto interactive_error;
         }
         if (with_nth_spec &&
             !mm_parse_ranges(with_nth_spec, &ui.with_nth, &ui.with_nth_n)) {
-            fprintf(stderr, "invalid --with-nth: %s\n", with_nth_spec);
+            fprintf(stderr, "invalid format: %s\n", with_nth_spec);
             goto interactive_error;
         }
         if (!mm_ui_init(&ui, lines, count, cap)) {
@@ -1940,7 +2449,7 @@ int main(int argc, char **argv) {
         else if (stream_input && stream_fd >= 0 && stream_fd != STDIN_FILENO) close(stream_fd);
         mm_ui_free(&ui);
         free(data);
-        mm_keymap_free(&keymap);
+        mm_keymap_free(&keymap); mm_event_map_free(&events);
         for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
         free(expect_keys);
         for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
@@ -1948,7 +2457,7 @@ int main(int argc, char **argv) {
         return rc;
     interactive_error:
         mm_ui_free(&ui);
-        mm_keymap_free(&keymap);
+        mm_keymap_free(&keymap); mm_event_map_free(&events);
         for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
         free(expect_keys);
         for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
@@ -1970,12 +2479,12 @@ int main(int argc, char **argv) {
 
     mm_range_t *nth = NULL; int nth_n = 0;
     if (nth_spec && !mm_parse_ranges(nth_spec, &nth, &nth_n)) {
-        fprintf(stderr, "invalid --nth: %s\n", nth_spec);
+        fprintf(stderr, "invalid format: %s\n", nth_spec);
         goto fail;
     }
     mm_range_t *wnth = NULL; int wnth_n = 0;
     if (with_nth_spec && !mm_parse_ranges(with_nth_spec, &wnth, &wnth_n)) {
-        fprintf(stderr, "invalid --with-nth: %s\n", with_nth_spec);
+        fprintf(stderr, "invalid format: %s\n", with_nth_spec);
         goto fail;
     }
 
@@ -1988,10 +2497,10 @@ int main(int argc, char **argv) {
             mm_delimiter_free(&delim);
             if (wnth != nth) free(wnth);
             free(nth);
-            for (int i = 0; i < count; i++) free(lines[i]);
-            free(lines);
+            release_lines(lines, count, lines_owned);
+            free(line_lens);
             free(data);
-            mm_keymap_free(&keymap);
+            mm_keymap_free(&keymap); mm_event_map_free(&events);
             for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
             free(expect_keys);
             for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
@@ -2005,10 +2514,10 @@ int main(int argc, char **argv) {
             mm_delimiter_free(&delim);
             if (wnth != nth) free(wnth);
             free(nth);
-            for (int i = 0; i < count; i++) free(lines[i]);
-            free(lines);
+            release_lines(lines, count, lines_owned);
+            free(line_lens);
             free(data);
-            mm_keymap_free(&keymap);
+            mm_keymap_free(&keymap); mm_event_map_free(&events);
             for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
             free(expect_keys);
             for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
@@ -2025,10 +2534,9 @@ int main(int argc, char **argv) {
                 mm_delimiter_free(&delim);
                 if (wnth != nth) free(wnth);
                 free(nth);
-                for (int j = 0; j < count; j++) free(lines[j]);
-                free(lines);
+                release_lines(lines, count, lines_owned);
                 free(data);
-                mm_keymap_free(&keymap);
+                mm_keymap_free(&keymap); mm_event_map_free(&events);
                 for (int j = 0; j < expect_n; j++) free(expect_keys[j]);
                 free(expect_keys);
                 for (int j = 0; j < nskip; j++) free((char *)skip_names[j]);
@@ -2037,14 +2545,101 @@ int main(int argc, char **argv) {
             }
         }
         search_lines = ansi_lines;
+        for (int i = 0; i < count; i++) line_lens[i] = strlen(ansi_lines[i]);
     }
     mm_input_t input = {
         .lines = search_lines, .count = count, .items = NULL, .base = 0,
         .delim = delim, .nth_ranges = nth, .nth_n = nth_n,
-        .with_nth_ranges = wnth, .with_nth_n = wnth_n
+        .with_nth_ranges = wnth, .with_nth_n = wnth_n,
+        .line_lens = line_lens
     };
     int n = 0;
-    int *out = mm_batch_search(&input, pat, &crit, tac, &n, NULL);
+    int *out = NULL;
+    if (bench_ns > 0) {
+        struct timespec now, deadline, t0, t1;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        deadline.tv_sec = now.tv_sec + (time_t)(bench_ns / 1000000000LL);
+        deadline.tv_nsec = now.tv_nsec + (long)(bench_ns % 1000000000LL);
+        if (deadline.tv_nsec >= 1000000000L) {
+            deadline.tv_sec++;
+            deadline.tv_nsec -= 1000000000L;
+        }
+        int iters = 0;
+        long long min_ns = LLONG_MAX, max_ns = 0, total_ns = 0;
+        int match_count = 0;
+        do {
+            clock_gettime(CLOCK_MONOTONIC, &t0);
+            free(out);
+            out = mm_batch_search(&input, pat, &crit, tac, &n, NULL);
+            clock_gettime(CLOCK_MONOTONIC, &t1);
+            if (!out) {
+                fprintf(stderr, "fzf: failed to filter input (out of memory)\n");
+                mm_pattern_free(pat);
+                mm_delimiter_free(&delim);
+                if (wnth != nth) free(wnth);
+                free(nth);
+                if (ansi_lines) {
+                    for (int i = 0; i < count; i++) free(ansi_lines[i]);
+                    free(ansi_lines);
+                }
+                release_lines(lines, count, lines_owned);
+                free(line_lens);
+                free(data);
+                mm_keymap_free(&keymap); mm_event_map_free(&events);
+                for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
+                free(expect_keys);
+                for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
+                free(skip_names);
+                return 2;
+            }
+            long long dt = (t1.tv_sec - t0.tv_sec) * 1000000000LL +
+                           (t1.tv_nsec - t0.tv_nsec);
+            if (dt < 0) dt = 0;
+            if (dt < min_ns) min_ns = dt;
+            if (dt > max_ns) max_ns = dt;
+            total_ns += dt;
+            iters++;
+            match_count = n;
+            clock_gettime(CLOCK_MONOTONIC, &now);
+        } while (now.tv_sec < deadline.tv_sec ||
+                 (now.tv_sec == deadline.tv_sec && now.tv_nsec < deadline.tv_nsec));
+        long long ingest_ns =
+            (ingest_end.tv_sec - ingest_start.tv_sec) * 1000000000LL +
+            (ingest_end.tv_nsec - ingest_start.tv_nsec);
+        if (ingest_ns < 0) ingest_ns = 0;
+        double avg_ms = iters ? (double)(total_ns / iters) / 1e6 : 0;
+        double min_ms = min_ns == LLONG_MAX ? 0 : (double)min_ns / 1e6;
+        double max_ms = (double)max_ns / 1e6;
+        double total_s = (double)total_ns / 1e9;
+        double ingest_ms = (double)ingest_ns / 1e6;
+        double selectivity = count > 0 ? (double)match_count * 100.0 / (double)count : 0;
+        if (print_query) {
+            fputs(filter, stdout);
+            fputc(print0 ? '\0' : '\n', stdout);
+        }
+        printf("  %d iterations  avg: %.2fms  min: %.2fms  max: %.2fms  total: %.2fs  items: %d  matches: %d (%.2f%%)  ingestion: %.2fms\n",
+               iters, avg_ms, min_ms, max_ms, total_s, count, match_count,
+               selectivity, ingest_ms);
+        free(out);
+        mm_pattern_free(pat);
+        mm_delimiter_free(&delim);
+        if (wnth != nth) free(wnth);
+        free(nth);
+        if (ansi_lines) {
+            for (int i = 0; i < count; i++) free(ansi_lines[i]);
+            free(ansi_lines);
+        }
+        release_lines(lines, count, lines_owned);
+        free(line_lens);
+        free(data);
+        mm_keymap_free(&keymap); mm_event_map_free(&events);
+        for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
+        free(expect_keys);
+        for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
+        free(skip_names);
+        return 0;
+    }
+    out = mm_batch_search(&input, pat, &crit, tac, &n, NULL);
     (void)no_sort; /* handled by pat->sortable */
     if (!out) {
         fprintf(stderr, "fzf: failed to filter input (out of memory)\n");
@@ -2056,10 +2651,10 @@ int main(int argc, char **argv) {
             for (int i = 0; i < count; i++) free(ansi_lines[i]);
             free(ansi_lines);
         }
-        for (int i = 0; i < count; i++) free(lines[i]);
-        free(lines);
+        release_lines(lines, count, lines_owned);
+        free(line_lens);
         free(data);
-        mm_keymap_free(&keymap);
+        mm_keymap_free(&keymap); mm_event_map_free(&events);
         for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
         free(expect_keys);
         for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
@@ -2086,10 +2681,9 @@ int main(int argc, char **argv) {
                     for (int j = 0; j < count; j++) free(ansi_lines[j]);
                     free(ansi_lines);
                 }
-                for (int j = 0; j < count; j++) free(lines[j]);
-                free(lines);
+                release_lines(lines, count, lines_owned);
                 free(data);
-                mm_keymap_free(&keymap);
+                mm_keymap_free(&keymap); mm_event_map_free(&events);
                 for (int j = 0; j < expect_n; j++) free(expect_keys[j]);
                 free(expect_keys);
                 for (int j = 0; j < nskip; j++) free((char *)skip_names[j]);
@@ -2099,7 +2693,10 @@ int main(int argc, char **argv) {
             fputs(accepted, stdout);
             free(accepted);
         } else {
-            fputs(line, stdout);
+            size_t linelen = 0;
+            int32_t li = out[i];
+            if (line_lens && li >= 0 && (size_t)li < (size_t)count) linelen = line_lens[li];
+            fwrite(line, 1, linelen, stdout);
         }
         fputc(osep, stdout);
     }
@@ -2113,10 +2710,10 @@ int main(int argc, char **argv) {
     }
     if (wnth != nth) free(wnth);
     free(nth);
-    for (int i = 0; i < count; i++) free(lines[i]);
-    free(lines);
+    release_lines(lines, count, lines_owned);
+    free(line_lens);
     free(data);
-    mm_keymap_free(&keymap);
+    mm_keymap_free(&keymap); mm_event_map_free(&events);
     for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
     free(expect_keys);
     for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);
@@ -2124,7 +2721,8 @@ int main(int argc, char **argv) {
     return n == 0 ? 1 : 0;
 
 fail:
-    mm_keymap_free(&keymap);
+    free(bind_spec);
+    mm_keymap_free(&keymap); mm_event_map_free(&events);
     for (int i = 0; i < expect_n; i++) free(expect_keys[i]);
     free(expect_keys);
     for (int i = 0; i < nskip; i++) free((char *)skip_names[i]);

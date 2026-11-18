@@ -309,16 +309,16 @@ check_invalid_option "filter-missing" '--filter requires a value' --filter
 check_invalid_option "query-missing" '--query requires a value' --query
 check_invalid_option "nth-missing" '--nth requires a value' --nth
 check_invalid_option "id-nth-missing" '--id-nth requires a value' --filter=a --id-nth
-check_invalid_option "id-nth-invalid" 'invalid --id-nth' --filter=a --id-nth=1,,2
+check_invalid_option "id-nth-invalid" 'invalid format: ' --filter=a --id-nth=1,,2
 check_invalid_option "accept-nth-missing" '--accept-nth requires a value' --filter=alpha --accept-nth
 check_invalid_option "accept-nth-invalid-range" 'invalid --accept-nth' --filter=alpha --accept-nth=1,,2
 check_invalid_option "accept-nth-template-no-placeholder" 'template should include at least 1 placeholder' --filter=alpha --accept-nth=plain
-check_invalid_option "nth-empty-range" 'invalid --nth' --filter=a --nth=
-check_invalid_option "nth-empty-component" 'invalid --nth' --filter=a --nth=1,,2
-check_invalid_option "nth-trailing-comma" 'invalid --nth' --filter=a --nth=1,
-check_invalid_option "nth-overflow" 'invalid --nth' --filter=a --nth=999999999999999999999999
-check_invalid_option "nth-range-overflow" 'invalid --nth' --filter=a --nth=1..999999999999999999999999
-check_invalid_option "with-nth-empty-component" 'invalid --with-nth' --filter=a --with-nth=1,,2
+check_invalid_option "nth-empty-range" 'invalid format: ' --filter=a --nth=
+check_invalid_option "nth-empty-component" 'invalid format: 1,,2' --filter=a --nth=1,,2
+check_invalid_option "nth-trailing-comma" 'invalid format: 1,' --filter=a --nth=1,
+check_invalid_option "nth-overflow" 'invalid format: 999999999999999999999999' --filter=a --nth=999999999999999999999999
+check_invalid_option "nth-range-overflow" 'invalid format: 1..999999999999999999999999' --filter=a --nth=1..999999999999999999999999
+check_invalid_option "with-nth-empty-component" 'invalid format: 1,,2' --filter=a --with-nth=1,,2
 check_invalid_option "delimiter-missing" '--delimiter requires a value' --delimiter
 check_invalid_option "scheme-missing" '--scheme requires a value' --filter=a --scheme
 check_invalid_option "tiebreak-missing" '--tiebreak requires a value' --filter=a --tiebreak
@@ -336,6 +336,13 @@ check_invalid_option "tail-zero" 'invalid --tail value' --filter=a --tail=0
 check_invalid_option "margin-missing" '--margin requires a value' --filter=a --margin
 check_invalid_option "padding-missing" '--padding requires a value' --filter=a --padding
 check_invalid_option "walker-root-missing" '--walker-root requires a value' --filter=a --walker-root
+check_invalid_option "footer-label-missing" 'footer label required' --footer-label
+check_invalid_option "footer-border-invalid" 'invalid border style' --footer-border=nope
+check_invalid_option "footer-label-pos-invalid" 'not a valid integer: zz' --footer-label-pos=zz
+check_invalid_option "footer-label-pos-missing" 'footer label position required' --footer-label-pos
+check_invalid_option "header-lines-border-invalid" 'invalid border style' --header-lines-border=nope
+check_invalid_option "header-border-invalid" 'invalid border style' --header-border=nope
+check_invalid_option "header-border-empty" 'invalid border style' --header-border=
 
 # Input record boundaries.
 EMPTY="$WORK/empty.txt"
@@ -354,6 +361,37 @@ head -c 4194303 /dev/zero | tr '\\000' 'x' > "$BOUNDARY"
 printf '\n' >> "$BOUNDARY"
 [ "$(wc -c < "$BOUNDARY")" -eq 4194304 ]
 check_file "stdin-exact-4mib-boundary" "$BOUNDARY" --filter=
+
+check "bash-integration" --bash
+check "bench-missing" --bench
+check "bench-empty" --bench=
+check "bench-bad" --bench=3
+check "bench-zero" --filter=a --bench=0s
+check "bench-negative" --filter=a --bench=-1s
+check "freeze-left-missing" --freeze-left
+check "freeze-left-bad" --freeze-left=zz
+check "freeze-left-negative" --freeze-left=-1
+check "freeze-right-missing" --freeze-right
+check_bench() {
+    desc=$1; shift
+    "$REF" "$@" < "$CORPUS" > "$WORK/ref.out" 2> "$WORK/ref.err"
+    rrc=$?
+    "$IMPL" "$@" < "$CORPUS" > "$WORK/impl.out" 2> "$WORK/impl.err"
+    irc=$?
+    ref_stats=$(sed -n 's/.*items: \([0-9]*\)  matches: \([0-9]*\) (\([0-9.]*\)%).*/\1 \2 \3/p' "$WORK/ref.out")
+    impl_stats=$(sed -n 's/.*items: \([0-9]*\)  matches: \([0-9]*\) (\([0-9.]*\)%).*/\1 \2 \3/p' "$WORK/impl.out")
+    if [ "$rrc" = "$irc" ] && [ -n "$ref_stats" ] && [ "$ref_stats" = "$impl_stats" ] &&
+       grep -q 'iterations  avg:' "$WORK/impl.out"; then
+        pass=$((pass + 1))
+        [ -n "${VERBOSE:-}" ] && printf 'PASS %s\n' "$desc"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s (ref=%s impl=%s stats ref=[%s] impl=[%s])\n' \
+            "$desc" "$rrc" "$irc" "$ref_stats" "$impl_stats"
+    fi
+}
+check_bench "bench-counts" --filter=a --bench=30ms
+check_bench "bench-exact-counts" --filter=app -e --bench=20ms
 
 check "phony-filter"    --phony --filter=an
 check "phony-nomatch"   --phony --filter=zzz

@@ -63,6 +63,7 @@ typedef enum {
     MM_ACT_CHANGE_QUERY,
     MM_ACT_CHANGE_PROMPT,
     MM_ACT_CHANGE_HEADER,
+    MM_ACT_CHANGE_HEADER_LINES,
     MM_ACT_CHANGE_MULTI,
     MM_ACT_CHANGE_NTH,
     MM_ACT_CHANGE_WITH_NTH,
@@ -144,6 +145,45 @@ typedef enum {
     MM_ACT_SELECT_DOWN,
     MM_ACT_DESELECT_UP,
     MM_ACT_BG_CANCEL,
+    MM_ACT_DELETE_CHAR_EOF,
+    MM_ACT_BACKWARD_DELETE_CHAR_EOF,
+    MM_ACT_KILL_SUBWORD,
+    MM_ACT_HIDE_INPUT,
+    MM_ACT_TOGGLE_BIND,
+    MM_ACT_SEARCH,
+    MM_ACT_TRIGGER,
+    MM_ACT_TRANSFORM_PROMPT,
+    MM_ACT_TRANSFORM_QUERY,
+    MM_ACT_TRANSFORM_HEADER,
+    MM_ACT_TRANSFORM_FOOTER,
+    MM_ACT_TRANSFORM_HEADER_LABEL,
+    MM_ACT_TRANSFORM_FOOTER_LABEL,
+    MM_ACT_TRANSFORM_INPUT_LABEL,
+    MM_ACT_TRANSFORM_LIST_LABEL,
+    MM_ACT_TRANSFORM_BORDER_LABEL,
+    MM_ACT_TRANSFORM_PREVIEW_LABEL,
+    MM_ACT_TRANSFORM_HEADER_LINES,
+    MM_ACT_TRANSFORM_GHOST,
+    MM_ACT_TRANSFORM_NTH,
+    MM_ACT_TRANSFORM_WITH_NTH,
+    MM_ACT_TRANSFORM_POINTER,
+    MM_ACT_TRANSFORM_SEARCH,
+    MM_ACT_BG_TRANSFORM_PROMPT,
+    MM_ACT_BG_TRANSFORM_QUERY,
+    MM_ACT_BG_TRANSFORM_HEADER,
+    MM_ACT_BG_TRANSFORM_FOOTER,
+    MM_ACT_BG_TRANSFORM_HEADER_LABEL,
+    MM_ACT_BG_TRANSFORM_FOOTER_LABEL,
+    MM_ACT_BG_TRANSFORM_INPUT_LABEL,
+    MM_ACT_BG_TRANSFORM_LIST_LABEL,
+    MM_ACT_BG_TRANSFORM_BORDER_LABEL,
+    MM_ACT_BG_TRANSFORM_PREVIEW_LABEL,
+    MM_ACT_BG_TRANSFORM_HEADER_LINES,
+    MM_ACT_BG_TRANSFORM_GHOST,
+    MM_ACT_BG_TRANSFORM_NTH,
+    MM_ACT_BG_TRANSFORM_WITH_NTH,
+    MM_ACT_BG_TRANSFORM_POINTER,
+    MM_ACT_BG_TRANSFORM_SEARCH,
 } mm_action_t;
 
 typedef struct {
@@ -213,6 +253,10 @@ bool mm_bind_parse_full(mm_keymap_t *km, mm_event_map_t *em, const char *spec,
 /* Remove runtime key bindings named by a comma-separated key list. */
 bool mm_bind_unbind(mm_keymap_t *km, mm_keymap_t *disabled, const char *keys);
 bool mm_bind_rebind(mm_keymap_t *km, mm_keymap_t *disabled, const char *keys);
+/* Unbind a live key, or restore it when it is currently unbound. */
+bool mm_bind_toggle(mm_keymap_t *km, mm_keymap_t *disabled, const char *keys);
+/* Parse one key name ("ctrl-a", "enter", "b") into an event. */
+bool mm_bind_parse_key(const char *key, mm_event_t *ev);
 
 /* Human readable action name (for diagnostics). */
 const char *mm_action_name(mm_action_t a);

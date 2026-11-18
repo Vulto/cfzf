@@ -20,6 +20,9 @@ touch "$TREE/b.txt" "$TREE/a.txt" "$TREE/z.txt" "$TREE/.dotfile" \
       "$TREE/.hidden/h.txt" "$TREE/README.md"
 ln -sf a.txt "$TREE/link.txt"
 ln -sf src "$TREE/linkdir"
+# Parent and filesystem-root symlinks must not be walked again.
+ln -sfn . "$TREE/src/cycle"
+ln -sfn / "$TREE/to-root"
 
 printf 'sleep 300\n' > "$WORK/script.txt"
 

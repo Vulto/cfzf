@@ -4,11 +4,14 @@
 #define _POSIX_C_SOURCE 200809L
 #include "ui.h"
 #include "terminal.h"
+#include "tokenizer.h"
 #include "event.h"
 #include "util.h"
 
 #include <errno.h>
 #include <ctype.h>
+#include <regex.h>
+#include <wctype.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +31,188 @@
 
 static volatile sig_atomic_t ui_resize_pending;
 
+/* Paint the first items immediately, then at most once per frame while
+   more of the list is still arriving. */
+#define MM_PAINT_MS 16
+
+typedef struct mm_line_slab {
+    struct mm_line_slab *next;
+    size_t used;
+    size_t cap;
+    char data[];
+} mm_line_slab;
+
+static char *ui_slab_alloc(mm_ui_t *ui, size_t n) {
+    mm_line_slab *slab = ui->line_slabs;
+    if (!slab || n > slab->cap || slab->used > slab->cap - n) {
+        size_t cap = (size_t)1 << 20;
+        if (n > cap) cap = n;
+        if (cap > SIZE_MAX - sizeof(mm_line_slab)) return NULL;
+        slab = malloc(sizeof(mm_line_slab) + cap);
+        if (!slab) return NULL;
+        slab->next = ui->line_slabs;
+        slab->used = 0;
+        slab->cap = cap;
+        ui->line_slabs = slab;
+    }
+    char *out = slab->data + slab->used;
+    slab->used += n;
+    return out;
+}
+
+static void ui_free_slabs(mm_ui_t *ui) {
+    mm_line_slab *slab = ui->line_slabs;
+    while (slab) {
+        mm_line_slab *next = slab->next;
+        free(slab);
+        slab = next;
+    }
+    ui->line_slabs = NULL;
+}
+
+typedef struct mm_rune_slab {
+    struct mm_rune_slab *next;
+    size_t used;
+    size_t cap;
+    wchar_t data[];
+} mm_rune_slab;
+
+static wchar_t *ui_rune_alloc(mm_ui_t *ui, size_t n) {
+    mm_rune_slab *slab = ui->rune_slabs;
+    if (!slab || n > slab->cap || slab->used > slab->cap - n) {
+        size_t cap = (size_t)1 << 18;
+        if (n > cap) cap = n;
+        if (cap > (SIZE_MAX - sizeof(mm_rune_slab)) / sizeof(wchar_t)) return NULL;
+        slab = malloc(sizeof(mm_rune_slab) + cap * sizeof(wchar_t));
+        if (!slab) return NULL;
+        slab->next = ui->rune_slabs;
+        slab->used = 0;
+        slab->cap = cap;
+        ui->rune_slabs = slab;
+    }
+    wchar_t *out = slab->data + slab->used;
+    slab->used += n;
+    return out;
+}
+
+static void ui_free_rune_slabs(mm_ui_t *ui) {
+    mm_rune_slab *slab = ui->rune_slabs;
+    while (slab) {
+        mm_rune_slab *next = slab->next;
+        free(slab);
+        slab = next;
+    }
+    ui->rune_slabs = NULL;
+    ui->runes_ready = 0;
+}
+
+/* Non-ASCII lines are decoded once. ASCII is widened per match and is
+   not stored. An all-ASCII list does not walk the items. */
+static void ui_prepare_runes(mm_ui_t *ui) {
+    if (!ui->has_non_ascii) {
+        ui->runes_ready = ui->count;
+        return;
+    }
+    int i = ui->runes_ready;
+    if (i < 0) i = 0;
+    for (; i < ui->count; i++) {
+        mchars_t *c = &ui->items[i].text;
+        if (c->ascii || c->decoded) continue;
+        wchar_t *buf = ui_rune_alloc(ui, (size_t)c->length + 1);
+        if (!buf || !mchars_decode_into(c, buf, c->length + 1)) continue;
+    }
+    ui->runes_ready = ui->count;
+}
+
+static void ui_qcache_clear(mm_ui_t *ui) {
+    for (int i = 0; i < MM_UI_QCACHE; i++) {
+        free(ui->qcache[i].query);
+        free(ui->qcache[i].idx);
+        ui->qcache[i].query = NULL;
+        ui->qcache[i].idx = NULL;
+        ui->qcache[i].n = 0;
+        ui->qcache[i].item_count = 0;
+    }
+    ui->qcache_next = 0;
+}
+
+static void ui_qcache_store(mm_ui_t *ui, const char *query, const int *idx, int n) {
+    if (!query || !query[0] || n < 0 || !idx) return;
+    for (int i = 0; i < MM_UI_QCACHE; i++) {
+        if (!ui->qcache[i].query || strcmp(ui->qcache[i].query, query) != 0)
+            continue;
+        int *copy = malloc((size_t)(n > 0 ? n : 1) * sizeof(int));
+        if (!copy) return;
+        if (n > 0) memcpy(copy, idx, (size_t)n * sizeof(int));
+        free(ui->qcache[i].idx);
+        ui->qcache[i].idx = copy;
+        ui->qcache[i].n = n;
+        ui->qcache[i].item_count = ui->count;
+        return;
+    }
+    int slot = ui->qcache_next % MM_UI_QCACHE;
+    if (ui->qcache_next < INT_MAX) ui->qcache_next++;
+    char *q = strdup(query);
+    int *copy = malloc((size_t)(n > 0 ? n : 1) * sizeof(int));
+    if (!q || !copy) { free(q); free(copy); return; }
+    if (n > 0) memcpy(copy, idx, (size_t)n * sizeof(int));
+    free(ui->qcache[slot].query);
+    free(ui->qcache[slot].idx);
+    ui->qcache[slot].query = q;
+    ui->qcache[slot].idx = copy;
+    ui->qcache[slot].n = n;
+    ui->qcache[slot].item_count = ui->count;
+}
+
+static bool ui_qcache_find(const mm_ui_t *ui, const char *query, int **out, int *n) {
+    if (!query || !query[0]) return false;
+    for (int i = 0; i < MM_UI_QCACHE; i++) {
+        if (!ui->qcache[i].query || ui->qcache[i].item_count != ui->count)
+            continue;
+        if (strcmp(ui->qcache[i].query, query) != 0) continue;
+        int cn = ui->qcache[i].n;
+        int *copy = malloc((size_t)(cn > 0 ? cn : 1) * sizeof(int));
+        if (!copy) return false;
+        if (cn > 0) memcpy(copy, ui->qcache[i].idx, (size_t)cn * sizeof(int));
+        *out = copy;
+        *n = cn;
+        return true;
+    }
+    return false;
+}
+
+/* Release line text. The pointer array itself is left to the caller. */
+static void ui_free_line_storage(mm_ui_t *ui) {
+    if (!ui->lines_pooled && ui->lines) {
+        for (int i = 0; i < ui->count; i++) free(ui->lines[i]);
+    }
+    ui_free_slabs(ui);
+    ui->lines_pooled = false;
+}
+
+static void ui_discard_line(mm_ui_t *ui, char *line) {
+    if (!ui->lines_pooled) free(line);
+}
+
+static char *ui_store_line(mm_ui_t *ui, const char *src, size_t len) {
+    char *line;
+    if (ui->lines_pooled || ui->count == 0) {
+        line = ui_slab_alloc(ui, len + 1);
+        if (line) {
+            ui->lines_pooled = true;
+            memcpy(line, src, len);
+            line[len] = '\0';
+            return line;
+        }
+        if (ui->lines_pooled) return NULL;
+    }
+    line = malloc(len + 1);
+    if (!line) return NULL;
+    memcpy(line, src, len);
+    line[len] = '\0';
+    return line;
+}
+
 static void ui_handle_sigwinch(int signal_number) {
     (void)signal_number;
     ui_resize_pending = 1;
@@ -38,6 +223,8 @@ static void ui_handle_sigwinch(int signal_number) {
 /* Forward declarations. */
 static mm_color_t ui_theme_color(const mm_ui_t *ui, mm_color_attr_t entry,
                                  mm_color_t fallback);
+static void ui_rebuild_header_lines(mm_ui_t *ui);
+static void ui_deselect_item(mm_ui_t *ui, int item);
 static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
                             int x, int y, int w, int h);
 
@@ -66,9 +253,80 @@ static bool ui_set_runtime_string(mm_ui_t *ui, const char **target, const char *
     return true;
 }
 
+/* Join the first header_line_count input lines into the header block.
+   Lines past the input are blank rows, matching fzf's padded header. */
+static void ui_rebuild_header_lines(mm_ui_t *ui) {
+    free(ui->header_lines_buf);
+    ui->header_lines_buf = NULL;
+    ui->header_lines = NULL;
+    int n = ui->header_line_count;
+    if (n <= 0 || !ui->lines || ui->count <= 0) return;
+    int shown = n > 4096 ? 4096 : n;
+    int have = shown < ui->count ? shown : ui->count;
+    int pad = shown - have;
+    size_t hlen = 1;
+    for (int i = 0; i < have; i++) {
+        size_t len = ui->lines[i] ? strlen(ui->lines[i]) : 0;
+        if (hlen > SIZE_MAX - len - 1) return;
+        hlen += len + 1;
+    }
+    if ((size_t)pad > SIZE_MAX - hlen) return;
+    hlen += (size_t)pad;
+    char *hbuf = malloc(hlen);
+    if (!hbuf) return;
+    size_t o = 0;
+    for (int i = 0; i < have; i++) {
+        if (i) hbuf[o++] = '\n';
+        const char *line = ui->lines[i] ? ui->lines[i] : "";
+        size_t len = strlen(line);
+        memcpy(hbuf + o, line, len);
+        o += len;
+    }
+    for (int i = 0; i < pad; i++) hbuf[o++] = '\n';
+    hbuf[o] = 0;
+    ui->header_lines_buf = hbuf;
+    ui->header_lines = hbuf;
+}
+
+/* strconv.Atoi, then require a non-negative value. "-0" is zero. */
+static bool ui_parse_nonneg_int(const char *s, int *out) {
+    if (!s || !*s) return false;
+    const char *p = s;
+    bool neg = false;
+    if (*p == '+' || *p == '-') {
+        neg = *p == '-';
+        p++;
+        if (!*p) return false;
+    }
+    long n = 0;
+    bool any = false;
+    for (; *p; p++) {
+        if (*p < '0' || *p > '9') return false;
+        any = true;
+        if (n > (LONG_MAX - (*p - '0')) / 10) return false;
+        n = n * 10 + (*p - '0');
+    }
+    if (!any || n > INT_MAX) return false;
+    if (neg && n != 0) return false;
+    *out = (int)n;
+    return true;
+}
+
 /* --- query buffer helpers --- */
-static void query_set(mm_ui_t *ui, const char *s) {
-    size_t n = strlen(s);
+static void ui_clear_search_override(mm_ui_t *ui) {
+    free(ui->search_override);
+    ui->search_override = NULL;
+}
+
+/* A real query edit drops the search() override, matching fzf: the override
+   lives only until the displayed input changes. Hidden input discards the
+   edit afterwards, so the override stays until that restore. */
+static void query_note_edit(mm_ui_t *ui) {
+    if (!ui->no_input) ui_clear_search_override(ui);
+}
+
+static void query_restore(mm_ui_t *ui, const char *s) {
+    size_t n = s ? strlen(s) : 0;
     if (n > INT_MAX) return;
     if (n + 1 > ui->query_cap) {
         size_t nc = ui->query_cap ? ui->query_cap : 64;
@@ -84,15 +342,23 @@ static void query_set(mm_ui_t *ui, const char *s) {
         ui->query_buf = buf;
         ui->query_cap = nc;
     }
-    memcpy(ui->query_buf, s, n + 1);
+    memcpy(ui->query_buf, s ? s : "", n + 1);
     ui->query_len = n;
     ui->query_pos = (int)n;
 }
 
+static void query_set(mm_ui_t *ui, const char *s) {
+    if (ui->no_input) return;
+    query_note_edit(ui);
+    query_restore(ui, s);
+}
+
 static void query_insert(mm_ui_t *ui, const char *s, size_t n) {
+    if (ui->no_input || n == 0) return;
     if (n > SIZE_MAX - ui->query_len - 1 ||
         ui->query_len + n > INT_MAX)
         return;
+    query_note_edit(ui);
     size_t required = ui->query_len + n + 1;
     if (required > ui->query_cap) {
         size_t nc = ui->query_cap ? ui->query_cap : 64;
@@ -119,9 +385,11 @@ static void query_insert(mm_ui_t *ui, const char *s, size_t n) {
 }
 
 static void query_backspace(mm_ui_t *ui) {
+    if (ui->no_input) return;
     size_t pos = (size_t)ui->query_pos;
     if (pos > ui->query_len) pos = ui->query_len;
     if (pos == 0) return;
+    query_note_edit(ui);
     size_t start = pos - 1;
     while (start > 0 && ((unsigned char)ui->query_buf[start] & 0xC0) == 0x80)
         start--;
@@ -130,29 +398,40 @@ static void query_backspace(mm_ui_t *ui) {
     ui->query_pos = (int)start;
 }
 
-static void query_delete(mm_ui_t *ui) {
+static bool query_delete(mm_ui_t *ui) {
+    if (ui->no_input) return false;
     size_t pos = (size_t)ui->query_pos;
-    if (pos >= ui->query_len) return;
+    if (pos >= ui->query_len) return false;
+    query_note_edit(ui);
     size_t end = pos + 1;
     while (end < ui->query_len &&
            ((unsigned char)ui->query_buf[end] & 0xC0) == 0x80)
         end++;
     memmove(ui->query_buf + pos, ui->query_buf + end, ui->query_len - end + 1);
     ui->query_len -= end - pos;
+    return true;
 }
 
 static void query_kill_before_cursor(mm_ui_t *ui) {
+    if (ui->no_input) return;
     size_t pos = (size_t)ui->query_pos;
     if (pos > ui->query_len) pos = ui->query_len;
     if (pos == 0) return;
+    query_note_edit(ui);
     memmove(ui->query_buf, ui->query_buf + pos, ui->query_len - pos + 1);
     ui->query_len -= pos;
     ui->query_pos = 0;
 }
 
 static void query_kill_after_cursor(mm_ui_t *ui) {
+    if (ui->no_input) return;
     size_t pos = (size_t)ui->query_pos;
     if (pos > ui->query_len) pos = ui->query_len;
+    if (pos == ui->query_len) {
+        ui->query_buf[pos] = '\0';
+        return;
+    }
+    query_note_edit(ui);
     ui->query_len = pos;
     ui->query_buf[pos] = '\0';
 }
@@ -208,10 +487,30 @@ static size_t query_subword_end(const char *s, size_t len, size_t pos) {
     return next;
 }
 
+/* fzf kill-subword uses subWordNext: delete through the first of
+   [a-z][A-Z], a word char followed by a non-word char, or the last char. */
+static size_t query_kill_subword_end(const char *s, size_t len, size_t pos) {
+    if (pos >= len) return pos;
+    size_t i = pos;
+    while (i < len) {
+        size_t next = query_next_codepoint(s, len, i);
+        unsigned char a = (unsigned char)s[i];
+        bool last = next >= len;
+        unsigned char b = last ? 0 : (unsigned char)s[next];
+        bool boundary = last ||
+            (a >= 'a' && a <= 'z' && b >= 'A' && b <= 'Z') ||
+            (query_subword_char(a) && !query_subword_char(b));
+        if (boundary) return next;
+        i = next;
+    }
+    return len;
+}
+
 /* --- searching --- */
 static void ui_search(mm_ui_t *ui);
 static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b);
-static void ui_exec_event(mm_ui_t *ui, const char *name);
+static bool ui_run_action(mm_ui_t *ui, const mm_binding_t *b);
+static bool ui_exec_event(mm_ui_t *ui, const char *name);
 static void ui_exec_result_events(mm_ui_t *ui, int previous_count);
 
 static char *ui_track_key_for(mm_ui_t *ui, int item) {
@@ -286,11 +585,185 @@ static void ui_restore_selected_keys(mm_ui_t *ui, char **keys, int key_count) {
     }
 }
 
+static const char *ui_match_query(const mm_ui_t *ui) {
+    if (ui->search_override) return ui->search_override;
+    return ui->query_buf ? ui->query_buf : "";
+}
+
+/* An empty query with no transform lists every item in input order. */
+static bool ui_list_is_plain(const mm_ui_t *ui) {
+    const char *query = ui_match_query(ui);
+    return (!query || !query[0]) && !ui->tac && !ui->raw && !ui->phony &&
+           ui->search_enabled && !ui->has_excluded &&
+           ui->header_line_count == 0 && ui->nth_n == 0 && ui->with_nth_n == 0;
+}
+
+static void ui_clear_window_pos(mm_ui_t *ui) {
+    if (!ui->window_pos) return;
+    mm_match_pos_free(ui->window_pos, ui->window_pos_n);
+    ui->window_pos = NULL;
+    ui->window_pos_n = 0;
+    ui->window_pos_from = 0;
+}
+
+static void ui_note_plain_results(mm_ui_t *ui) {
+    ui->plain_results = ui_list_is_plain(ui) && ui->nresults == ui->count &&
+                        (ui->nresults == 0 ||
+                         (ui->results && ui->results[0] == 0 &&
+                          ui->results[ui->nresults - 1] == ui->nresults - 1));
+}
+
+/* Append items that arrived since the last empty-query refresh. Returns
+   false when the full search has to rebuild the list. */
+static bool ui_search_append(mm_ui_t *ui, bool query_changed, int prev_nresults,
+                             char *track_key, int tracked_item) {
+    if (query_changed || !ui_list_is_plain(ui)) return false;
+    if (!ui->plain_results && ui->nresults != 0) return false;
+    int need = ui->count;
+    if (need < ui->nresults) return false;
+    if (need > ui->results_cap) {
+        int cap = ui->results_cap > 0 ? ui->results_cap : 1024;
+        while (cap < need) {
+            if (cap > INT_MAX / 2) {
+                cap = need;
+                break;
+            }
+            cap *= 2;
+        }
+        if (cap < need || (size_t)cap > SIZE_MAX / sizeof(int)) return false;
+        int *grown = realloc(ui->results, (size_t)cap * sizeof(int));
+        if (!grown) return false;
+        ui->results = grown;
+        ui->results_cap = cap;
+    }
+    for (int i = ui->nresults; i < need; i++) ui->results[i] = i;
+    ui->nresults = need;
+    ui->plain_results = true;
+    ui->results_item_count = ui->count;
+    ui->lazy_highlight = false;
+    mm_match_pos_free(ui->match_pos, ui->match_pos_n);
+    ui->match_pos = NULL;
+    ui->match_pos_n = 0;
+    ui_clear_window_pos(ui);
+    bool restored = ui_restore_tracked_cursor(ui, tracked_item, track_key);
+    if ((tracked_item >= 0 || track_key) && !restored &&
+        ui->track_current && !ui->track)
+        ui->track_current = false;
+    free(track_key);
+    if (!restored && ui->cursor >= ui->nresults)
+        ui->cursor = ui->nresults ? ui->nresults - 1 : 0;
+    if (ui->offset > ui->cursor) ui->offset = ui->cursor;
+    ui_exec_result_events(ui, prev_nresults);
+    return true;
+}
+
+static void ui_finish_search(mm_ui_t *ui, bool query_changed, int prev_nresults,
+                             char *track_key, int tracked_item);
+
+/* The query was cleared. Every plain item matches, in input order. Filling
+   the existing buffer avoids building a pattern and allocating a new list. */
+static bool ui_search_restore_plain(mm_ui_t *ui, int prev_nresults,
+                                    char *track_key, int tracked_item) {
+    if (!ui_list_is_plain(ui)) return false;
+    int need = ui->count;
+    if (need < 0) return false;
+    if (need > ui->results_cap) {
+        int cap = ui->results_cap > 0 ? ui->results_cap : 1024;
+        while (cap < need) {
+            if (cap > INT_MAX / 2) {
+                cap = need;
+                break;
+            }
+            cap *= 2;
+        }
+        if (cap < need || (size_t)cap > SIZE_MAX / sizeof(int)) return false;
+        int *grown = realloc(ui->results, (size_t)cap * sizeof(int));
+        if (!grown) return false;
+        ui->results = grown;
+        ui->results_cap = cap;
+    }
+    for (int i = 0; i < need; i++) ui->results[i] = i;
+    ui->nresults = need;
+    ui->plain_results = true;
+    ui->results_item_count = ui->count;
+    ui->lazy_highlight = false;
+    mm_match_pos_free(ui->match_pos, ui->match_pos_n);
+    ui->match_pos = NULL;
+    ui->match_pos_n = 0;
+    ui_clear_window_pos(ui);
+    ui_finish_search(ui, true, prev_nresults, track_key, tracked_item);
+    return true;
+}
+
+/* True when cur is prev plus a suffix that cannot add matches. A "|" in
+   the suffix can introduce an alternative, so that query is not a subset. */
+static bool ui_query_is_narrowing(const char *prev, const char *cur) {
+    if (!prev || !prev[0] || !cur) return false;
+    size_t plen = strlen(prev);
+    size_t qlen = strlen(cur);
+    if (qlen <= plen || memcmp(cur, prev, plen) != 0) return false;
+    return memchr(cur + plen, '|', qlen - plen) == NULL;
+}
+
+/* Restore the tracked row and run change/result. The list is already current. */
+static void ui_finish_search(mm_ui_t *ui, bool query_changed, int prev_nresults,
+                             char *track_key, int tracked_item) {
+    bool restored = ui_restore_tracked_cursor(ui, tracked_item, track_key);
+    if ((tracked_item >= 0 || track_key) && !restored &&
+        ui->track_current && !ui->track)
+        ui->track_current = false;
+    free(track_key);
+    if (!restored && ui->cursor >= ui->nresults)
+        ui->cursor = ui->nresults ? ui->nresults - 1 : 0;
+    if (ui->offset > ui->cursor) ui->offset = ui->cursor;
+    if (query_changed)
+        ui_exec_event(ui, "change");
+    ui_exec_result_events(ui, prev_nresults);
+}
+
+/* Install a new match list and run the change/result events. res is taken
+   over. mp is taken over; a NULL mp means highlights are filled on paint.
+   The result buffer keeps its high-water size so clearing the query fills
+   indexes in place instead of allocating the whole list again. */
+static void ui_commit_results(mm_ui_t *ui, int *res, int n, mm_match_pos_t *mp,
+                              bool lazy, bool query_changed, int prev_nresults,
+                              char *track_key, int tracked_item) {
+    if (res && res != ui->results && ui->results && n <= ui->results_cap) {
+        if (n > 0) memcpy(ui->results, res, (size_t)n * sizeof(int));
+        free(res);
+        res = ui->results;
+    } else if (res != ui->results) {
+        free(ui->results);
+        ui->results = res;
+        ui->results_cap = res ? (n > 0 ? n : 1) : 0;
+    }
+    ui->nresults = res ? n : 0;
+    if (res) ui->results_item_count = ui->count;
+    ui->lazy_highlight = lazy && res != NULL;
+    ui_note_plain_results(ui);
+    mm_match_pos_free(ui->match_pos, ui->match_pos_n);
+    ui->match_pos = mp;
+    ui->match_pos_n = mp ? n : 0;
+    ui_clear_window_pos(ui);
+    ui_finish_search(ui, query_changed, prev_nresults, track_key, tracked_item);
+}
+
 static void ui_search(mm_ui_t *ui) {
-    const char *current_query = ui->query_buf ? ui->query_buf : "";
+    /* fzf refilters after the whole action chain, and skips that refilter
+       when the chain quits (accept, become, abort). */
+    if (ui->defer_search > 0) {
+        ui->search_dirty = true;
+        return;
+    }
+    ui->search_dirty = false;
+    const char *current_query = ui_match_query(ui);
     bool query_changed = ui->last_search_query &&
                          strcmp(ui->last_search_query, current_query) != 0;
-    char *search_query = strdup(current_query);
+    /* Snapshot the previous query before it is replaced. A longer query
+       with no new "|" can be matched against that result list alone. */
+    char *prev_query = ui->last_search_query ? strdup(ui->last_search_query)
+                                             : NULL;
+    char *search_query = strdup(current_query ? current_query : "");
     if (search_query) {
         free(ui->last_search_query);
         ui->last_search_query = search_query;
@@ -302,50 +775,118 @@ static void ui_search(mm_ui_t *ui) {
                         ui->results && ui->cursor >= 0 &&
                         ui->cursor < ui->nresults) ? ui->results[ui->cursor] : -1;
 
+    if (ui_search_append(ui, query_changed, prev_nresults, track_key, tracked_item)) {
+        free(prev_query);
+        return;
+    }
+    if (ui_search_restore_plain(ui, prev_nresults, track_key, tracked_item)) {
+        free(prev_query);
+        return;
+    }
+
     if (ui->phony || !ui->search_enabled) {
         /* The query does not filter the items: every item is a result, in
            the order of the input. */
         int n = ui->count;
         int *res = malloc(sizeof(int) * (size_t)(n > 0 ? n : 1));
+        int kept = 0;
         if (res) {
-            int kept = 0;
-            for (int i = 0; i < n; i++)
-                if (!ui->excluded || !ui->excluded[i]) res[kept++] = i;
-            free(ui->results);
-            ui->results = res;
-            ui->nresults = kept;
+            for (int i = 0; i < n; i++) {
+                if (i < ui->header_line_count) continue;
+                if (ui->excluded && ui->excluded[i]) continue;
+                res[kept++] = i;
+            }
+        }
+        free(prev_query);
+        if (res) {
+            ui_commit_results(ui, res, kept, NULL, false, query_changed,
+                              prev_nresults, track_key, tracked_item);
         } else {
             ui->nresults = 0;
+            ui->lazy_highlight = false;
+            ui->plain_results = false;
+            ui_finish_search(ui, query_changed, prev_nresults, track_key,
+                             tracked_item);
         }
-        mm_match_pos_free(ui->match_pos, ui->match_pos_n);
-        ui->match_pos = NULL;
-        ui->match_pos_n = 0;
-        bool restored = ui_restore_tracked_cursor(ui, tracked_item, track_key);
-        if ((tracked_item >= 0 || track_key) && !restored &&
-            ui->track_current && !ui->track)
-            ui->track_current = false;
-        free(track_key);
-        if (!restored && ui->cursor >= ui->nresults) ui->cursor = ui->nresults ? ui->nresults - 1 : 0;
-        if (ui->offset > ui->cursor) ui->offset = ui->cursor;
-        /* Trigger events. */
-        if (query_changed)
-            ui_exec_event(ui, "change");
-        ui_exec_result_events(ui, prev_nresults);
         return;
     }
+
+    /* Whole-line queries keep their index lists. --nth, --with-nth and
+       --raw still go through the position-building search. */
+    bool fast = !ui->raw && ui->nth_n == 0 && ui->with_nth_n == 0 &&
+                current_query && current_query[0];
+    if (fast) {
+        int *cached = NULL;
+        int cached_n = 0;
+        if (ui_qcache_find(ui, current_query, &cached, &cached_n)) {
+            free(prev_query);
+            ui_commit_results(ui, cached, cached_n, NULL, true, query_changed,
+                              prev_nresults, track_key, tracked_item);
+            return;
+        }
+    }
+
     bool forward = mm_criteria_forward(&ui->crit);
-    mm_pattern_t *pat = mm_pattern_build(ui->query_buf, ui->fuzzy, ui->extended,
+    mm_pattern_t *pat = mm_pattern_build(current_query, ui->fuzzy, ui->extended,
                                          ui->case_mode, !ui->literal, forward, true);
-    if (!pat) { ui->nresults = 0; free(track_key); /* Trigger events. */
-        if (query_changed) ui_exec_event(ui, "change");
-        ui_exec_result_events(ui, prev_nresults);
-        return; }
+    if (!pat) {
+        ui->nresults = 0;
+        ui->plain_results = false;
+        ui->lazy_highlight = false;
+        ui->results_item_count = 0;
+        ui_clear_window_pos(ui);
+        free(prev_query);
+        ui_finish_search(ui, query_changed, prev_nresults, track_key, tracked_item);
+        return;
+    }
     if (ui->no_sort) mm_pattern_set_sortable(pat, false);
 
-    /* Incremental search in streaming mode not fully implemented yet */
+    if (fast && !mm_pattern_is_empty(pat) && ui->items) {
+        ui_prepare_runes(ui);
+        bool longer = ui_query_is_narrowing(prev_query, current_query);
+        bool same = prev_query && current_query &&
+                    strcmp(prev_query, current_query) == 0;
+        int covered = ui->results_item_count;
+        bool have = ui->results && covered > 0 && covered <= ui->count;
+        /* Same query, new tail: the walk appended lines after the last
+           scan. A longer query only drops matches, so the old hits plus
+           that tail are the whole candidate set. Unsorted order is the
+           input order, which a narrowed list is not. */
+        bool narrow = pat->sortable && have &&
+                      (longer || (same && covered < ui->count));
+        const int *cands = NULL;
+        int ncand = 0;
+        int lo = 0;
+        int hi = ui->count;
+        if (narrow) {
+            cands = ui->results;
+            ncand = ui->nresults > 0 ? ui->nresults : 0;
+            lo = covered;
+            hi = ui->count;
+        }
+        int n = -1;
+        int *res = mm_batch_search_interactive(
+            ui->items, ui->count, cands, ncand, lo, hi,
+            ui->has_excluded ? ui->excluded : NULL,
+            ui->header_line_count, pat, &ui->crit, ui->tac, &n);
+        mm_pattern_free(pat);
+        free(prev_query);
+        if (!res || n < 0) {
+            /* Keep the previous matches on screen. Do not narrow from
+               them: they belong to an older query than the one just
+               attempted. An empty result is a non-NULL pointer. */
+            ui->results_item_count = 0;
+            ui_finish_search(ui, query_changed, prev_nresults, track_key,
+                             tracked_item);
+            return;
+        }
+        ui_qcache_store(ui, current_query, res, n);
+        ui_commit_results(ui, res, n, NULL, true, query_changed,
+                          prev_nresults, track_key, tracked_item);
+        return;
+    }
+    free(prev_query);
 
-    /* The items are decoded once, when the UI starts, so every search can
-       reuse them instead of decoding the whole list again. */
     mm_input_t input = {
         .lines = ui->lines, .count = ui->count, .items = ui->items, .base = 0,
         .delim = ui->delim, .nth_ranges = ui->nth, .nth_n = ui->nth_n,
@@ -354,11 +895,13 @@ static void ui_search(mm_ui_t *ui) {
     int n = 0;
     mm_match_pos_t *mp = NULL;
     int *res = mm_batch_search(&input, pat, &ui->crit, ui->tac, &n, &mp);
-    if (res && ui->excluded) {
+    if (res && (ui->header_line_count > 0 || ui->excluded)) {
         int kept = 0;
         for (int i = 0; i < n; i++) {
             int item = res[i];
-            if (item >= 0 && item < ui->count && ui->excluded[item]) {
+            if (item < ui->header_line_count ||
+                (item >= 0 && item < ui->count && ui->excluded &&
+                 ui->excluded[item])) {
                 if (mp) free(mp[i].pos);
                 continue;
             }
@@ -384,11 +927,13 @@ static void ui_search(mm_ui_t *ui) {
             for (int i = 0; i < n; i++) {
                 int item = res ? res[i] : -1;
                 if (item >= 0 && item < ui->count &&
+                    item >= ui->header_line_count &&
                     !(ui->excluded && ui->excluded[item]))
                     seen[item] = true;
             }
             int match_cursor = 0, kept = 0;
             for (int item = 0; item < ui->count; item++) {
+                if (item < ui->header_line_count) continue;
                 if (ui->excluded && ui->excluded[item]) continue;
                 if (seen[item]) {
                     int match_item = res[match_cursor];
@@ -416,42 +961,28 @@ static void ui_search(mm_ui_t *ui) {
             free(raw_positions);
         }
     }
-    free(ui->results);
-    ui->results = res;
-    ui->nresults = n;
-    mm_match_pos_free(ui->match_pos, ui->match_pos_n);
-    ui->match_pos = mp;
-    ui->match_pos_n = n;
-    if (ui->input_fd >= 0) {
-        ui->search_count = ui->count;
-        if (ui->search_results) free(ui->search_results);
-        ui->search_results = res ? malloc((size_t)(n > 0 ? n : 1) * sizeof(int)) : NULL;
-        if (ui->search_results && res) memcpy(ui->search_results, res, (size_t)n * sizeof(int));
-    }
-    bool restored = ui_restore_tracked_cursor(ui, tracked_item, track_key);
-    if ((tracked_item >= 0 || track_key) && !restored &&
-        ui->track_current && !ui->track)
-        ui->track_current = false;
-    free(track_key);
-    if (!restored && ui->cursor >= n) ui->cursor = n ? n - 1 : 0;
-    if (ui->offset > ui->cursor) ui->offset = ui->cursor;
     mm_pattern_free(pat);
-
-    /* Trigger events. */
-    if (query_changed)
-        ui_exec_event(ui, "change");
-    ui_exec_result_events(ui, prev_nresults);
+    ui->lazy_highlight = false;
+    ui_commit_results(ui, res, n, mp, false, query_changed, prev_nresults,
+                      track_key, tracked_item);
 }
 
 /* Execute the actions bound to an event. */
 /* Execute the actions bound to an event. */
-static void ui_exec_event(mm_ui_t *ui, const char *name) {
+static bool ui_exec_event(mm_ui_t *ui, const char *name) {
     const mm_event_binding_t *found[16];
     int nf = mm_event_lookup(&ui->events, name, found, 16);
-    for (int i = 0; i < nf; i++)
-        (void)ui_execute_action(ui, &(const mm_binding_t){
+    bool keep = true;
+    ui->stop_chain = false;
+    ui->defer_search++;
+    for (int i = 0; i < nf && keep && !ui->stop_chain; i++)
+        keep = ui_run_action(ui, &(const mm_binding_t){
             .type = MM_EV_INVALID, .rune = 0, .action = found[i]->action,
             .arg = found[i]->arg });
+    ui->stop_chain = false;
+    ui->defer_search--;
+    if (keep && ui->defer_search == 0 && ui->search_dirty) ui_search(ui);
+    return keep;
 }
 
 /* Dispatch focus when the current input item changes, not on every redraw. */
@@ -619,19 +1150,511 @@ static char *ui_fit_text(const char *text, int limit, int *out_width,
     return out;
 }
 
-/* fzf's scrollbar geometry (src/terminal.go getScrollbar). */
-static void ui_scrollbar_range(int total, int height, int offset,
-                               int *bar_len, int *bar_start) {
-    if (total <= 0 || total <= height) { *bar_len = 0; *bar_start = 0; return; }
-    int len = height * height / total;
-    if (len < 1) len = 1;
-    int start;
-    if (total == height) {
-        start = 0;
-    } else {
-        start = (height - len) * offset / (total - height);
-        if (start > height - len) start = height - len;
+/* fzf prints a raw newline or carriage return as a dim line symbol when
+   the item stays on one row (src/tui/light.go LF / CR). */
+static char *ui_show_breaks(const char *text) {
+    if (!text) return NULL;
+    size_t extra = 0;
+    for (const char *p = text; *p; p++)
+        if (*p == '\n' || *p == '\r') extra += 2;
+    char *out = malloc(strlen(text) + extra + 1);
+    if (!out) return NULL;
+    char *o = out;
+    for (const char *p = text; *p; p++) {
+        if (*p == '\n') {
+            memcpy(o, "\u240a", 3);
+            o += 3;
+        } else if (*p == '\r') {
+            memcpy(o, "\u240d", 3);
+            o += 3;
+        } else {
+            *o++ = *p;
+        }
     }
+    *o = 0;
+    return out;
+}
+
+/* Split a --read0 item on newlines. A trailing newline is an empty last
+   line, matching util.Chars.Lines. *off[i] is the rune index of line i
+   in the original text (the newline itself is not part of the line). */
+static int ui_split_item_lines(const char *text, char ***out_pieces, int **out_off) {
+    int n = 1;
+    for (const char *p = text; *p; p++)
+        if (*p == '\n') n++;
+    char **pieces = calloc((size_t)n, sizeof(char *));
+    int *off = calloc((size_t)n, sizeof(int));
+    if (!pieces || !off) {
+        free(pieces);
+        free(off);
+        return 0;
+    }
+    int count = 0;
+    int rune = 0;
+    const char *start = text;
+    int start_rune = 0;
+    for (const char *p = text; ; p++) {
+        if (*p != 0 && *p != '\n') {
+            wchar_t cp;
+            size_t used = mm_utf8_decode(p, strlen(p), &cp);
+            if (used == 0) used = 1;
+            rune++;
+            p += used - 1;
+            continue;
+        }
+        size_t len = (size_t)(p - start);
+        char *line = malloc(len + 1);
+        if (!line) break;
+        memcpy(line, start, len);
+        line[len] = 0;
+        pieces[count] = line;
+        off[count] = start_rune;
+        count++;
+        if (*p == 0 || count >= n) break;
+        rune++;
+        start = p + 1;
+        start_rune = rune;
+    }
+    *out_pieces = pieces;
+    *out_off = off;
+    return count;
+}
+
+static int ui_rune_count(const char *s) {
+    int n = 0;
+    if (!s) return 0;
+    size_t len = strlen(s);
+    for (size_t i = 0; i < len; ) {
+        wchar_t cp;
+        size_t used = mm_utf8_decode(s + i, len - i, &cp);
+        if (used == 0) used = 1;
+        i += used;
+        n++;
+    }
+    return n;
+}
+
+/* Columns [start_col, start_col + content) of `text`, with optional
+   ellipses. *skip_runes is how many runes were cut from the left, so match
+   positions can be shifted onto the slice. */
+static char *ui_slice_text(const char *text, int start_col, int content,
+                           bool left_ell, bool right_ell, const char *ellipsis,
+                           int *out_width, int *skip_runes) {
+    if (!ellipsis || !*ellipsis) ellipsis = MM_ELLIPSIS;
+    if (start_col < 0) start_col = 0;
+    if (content < 0) content = 0;
+    size_t len = strlen(text);
+    size_t i = 0;
+    int col = 0;
+    int rune = 0;
+    while (i < len && col < start_col) {
+        wchar_t cp;
+        size_t used = mm_utf8_decode(text + i, len - i, &cp);
+        if (used == 0) used = 1;
+        int cw = mm_runewidth(cp);
+        if (col + cw > start_col) break;
+        col += cw;
+        i += used;
+        rune++;
+    }
+    *skip_runes = rune;
+    size_t byte_start = i;
+    int acc = 0;
+    while (i < len && acc < content) {
+        wchar_t cp;
+        size_t used = mm_utf8_decode(text + i, len - i, &cp);
+        if (used == 0) used = 1;
+        int cw = mm_runewidth(cp);
+        if (acc + cw > content) break;
+        acc += cw;
+        i += used;
+    }
+    int ell_w = ui_str_width(ellipsis);
+    size_t elen = strlen(ellipsis);
+    char *out = malloc((left_ell ? elen : 0) + (i - byte_start) +
+                       (right_ell ? elen : 0) + 1);
+    if (!out) { *out_width = 0; return NULL; }
+    char *p = out;
+    if (left_ell) { memcpy(p, ellipsis, elen); p += elen; }
+    memcpy(p, text + byte_start, i - byte_start);
+    p += i - byte_start;
+    if (right_ell) { memcpy(p, ellipsis, elen); p += elen; }
+    *p = 0;
+    *out_width = (left_ell ? ell_w : 0) + acc + (right_ell ? ell_w : 0);
+    return out;
+}
+
+static size_t ui_byte_at_rune(const char *text, int rune_index) {
+    size_t len = text ? strlen(text) : 0;
+    size_t i = 0;
+    int rune = 0;
+    if (rune_index < 0) rune_index = 0;
+    while (i < len && rune < rune_index) {
+        wchar_t cp;
+        size_t used = mm_utf8_decode(text + i, len - i, &cp);
+        if (used == 0) used = 1;
+        i += used;
+        rune++;
+    }
+    return i;
+}
+
+static char *ui_rune_slice_dup(const char *text, int from_rune, int to_rune) {
+    size_t b0 = ui_byte_at_rune(text, from_rune);
+    size_t b1 = to_rune < 0 ? strlen(text) : ui_byte_at_rune(text, to_rune);
+    if (b1 < b0) b1 = b0;
+    char *s = malloc(b1 - b0 + 1);
+    if (!s) return NULL;
+    memcpy(s, text + b0, b1 - b0);
+    s[b1 - b0] = 0;
+    return s;
+}
+
+static int ui_trailing_space_runes(const char *s) {
+    if (!s || !*s) return 0;
+    size_t len = strlen(s);
+    int runes = 0;
+    int last_non = -1;
+    size_t i = 0;
+    while (i < len) {
+        wchar_t cp;
+        size_t used = mm_utf8_decode(s + i, len - i, &cp);
+        if (used == 0) used = 1;
+        if (!iswspace(cp)) last_non = runes;
+        runes++;
+        i += used;
+    }
+    if (last_non < 0) return runes;
+    return runes - last_non - 1;
+}
+
+/* Rune length of the delimiter that ends `token`, or 0. AWK has none. */
+static int ui_last_delim_runes(const char *token, mm_delimiter_t delim) {
+    if (!token) return 0;
+    if (delim.is_regex && delim.rx) {
+        regex_t *rx = delim.rx;
+        size_t len = strlen(token);
+        size_t search = 0;
+        size_t last_start = 0, last_end = 0;
+        bool found = false;
+        while (search <= len) {
+            regmatch_t match;
+            int rc = regexec(rx, token + search, 1, &match,
+                             search == 0 ? 0 : REG_NOTBOL);
+            if (rc != 0 || match.rm_so < 0 || match.rm_eo < 0) break;
+            size_t start = search + (size_t)match.rm_so;
+            size_t end = search + (size_t)match.rm_eo;
+            if (end < start || end > len) break;
+            found = true;
+            last_start = start;
+            last_end = end;
+            if (end == len) break;
+            if (end == search) {
+                wchar_t cp;
+                size_t used = mm_utf8_decode(token + end, len - end, &cp);
+                search = end + (used ? used : 1);
+            } else {
+                search = end;
+            }
+        }
+        if (found && last_end == len) return mm_utf8_count(token + last_start);
+        return 0;
+    }
+    if (delim.str && delim.slen > 0) {
+        size_t n = strlen(token);
+        size_t d = (size_t)delim.slen;
+        if (n >= d && memcmp(token + n - d, delim.str, d) == 0)
+            return mm_utf8_count(delim.str);
+    }
+    return 0;
+}
+
+static void ui_free_tokens(char **tokens, int n, int *prefix) {
+    if (tokens) {
+        for (int i = 0; i < n; i++) free(tokens[i]);
+        free(tokens);
+    }
+    free(prefix);
+}
+
+/* fzf splitOffset1 / splitOffset2 (src/terminal.go printHighlighted). */
+static void ui_freeze_offsets(const mm_ui_t *ui, const char *text,
+                              int *split1, int *split2) {
+    *split1 = -1;
+    *split2 = -1;
+    if (!ui || (ui->freeze_left <= 0 && ui->freeze_right <= 0) || !text) return;
+    int *prefix = NULL;
+    int n = 0;
+    char **tokens = mm_tokenize(text, ui->delim, &prefix, &n);
+    if (!tokens || !prefix) {
+        ui_free_tokens(tokens, n, prefix);
+        return;
+    }
+    if (ui->freeze_left > 0 && n > 0) {
+        int idx = (ui->freeze_left < n ? ui->freeze_left : n) - 1;
+        int tlen = mm_utf8_count(tokens[idx]);
+        if (tlen < 0) tlen = 0;
+        *split1 = prefix[idx] + tlen - ui_trailing_space_runes(tokens[idx]);
+    }
+    if (ui->freeze_right > 0) {
+        int index = ui->freeze_left - 1;
+        int alt = n - ui->freeze_right - 1;
+        if (alt > index) index = alt;
+        if (index < 0) {
+            *split2 = 0;
+        } else if (index >= ui->freeze_left && index < n) {
+            int tlen = mm_utf8_count(tokens[index]);
+            if (tlen < 0) tlen = 0;
+            *split2 = prefix[index] + tlen - ui_last_delim_runes(tokens[index], ui->delim);
+        }
+        if (*split2 < *split1) *split2 = *split1;
+    }
+    ui_free_tokens(tokens, n, prefix);
+}
+
+static bool ui_push_pos(int **pos, int *n, int *cap, int value) {
+    if (*n >= *cap) {
+        int ncap = *cap ? *cap * 2 : 8;
+        int *np = realloc(*pos, sizeof(int) * (size_t)ncap);
+        if (!np) return false;
+        *pos = np;
+        *cap = ncap;
+    }
+    (*pos)[(*n)++] = value;
+    return true;
+}
+
+/* Keep frozen fields visible and scroll the middle, matching fzf when
+   hscroll is on and wrap is off. */
+static char *ui_apply_freeze(mm_ui_t *ui, const char *text, int text_limit,
+                             const mm_match_pos_t *matched,
+                             int *out_width, int **out_pos, int *out_npos) {
+    *out_width = 0;
+    *out_pos = NULL;
+    *out_npos = 0;
+    if (!text) return NULL;
+    const char *ell = ui->ellipsis ? ui->ellipsis : MM_ELLIPSIS;
+    int ell_w = ui_str_width(ell);
+    if (ell_w < 1) ell_w = MM_ELLIPSIS_WIDTH;
+    int ell_runes = ui_rune_count(ell);
+
+    int split1 = -1, split2 = -1;
+    ui_freeze_offsets(ui, text, &split1, &split2);
+    int total = mm_utf8_count(text);
+    if (total < 0) total = 0;
+    int left_end = (split1 > 0 && split1 < total) ? split1 : 0;
+    int right_at = -1;
+    if (split2 >= 0 && split2 < total && split2 >= left_end) right_at = split2;
+
+    char *left = left_end > 0 ? ui_rune_slice_dup(text, 0, left_end) : NULL;
+    char *middle = ui_rune_slice_dup(text, left_end, right_at);
+    char *right = right_at >= 0 ? ui_rune_slice_dup(text, right_at, -1) : NULL;
+
+    int budget = text_limit;
+    if (budget < 1) budget = 1;
+    char *left_fit = NULL;
+    char *mid_fit = NULL;
+    char *right_fit = NULL;
+    int left_w = 0, mid_w = 0, right_w = 0;
+    bool left_cut = false, right_cut = false;
+    int right_skip = 0;
+    int *mid_pos = NULL;
+    int mid_npos = 0;
+    int mid_cap = 0;
+    bool mid_scrolled = false;
+
+    if (left && *left && budget > 0) {
+        int lw = ui_str_width(left);
+        int allow = budget - ell_w;
+        if (allow < 0) allow = 0;
+        if (lw > allow) {
+            left_fit = ui_fit_text(left, budget, &left_w, ell);
+            left_cut = true;
+        } else {
+            left_fit = strdup(left);
+            left_w = lw;
+        }
+        if (left_w > budget) left_w = budget;
+        budget -= left_w;
+    }
+    if (right && *right && budget > 0) {
+        int rw = ui_str_width(right);
+        int allow = budget - ell_w;
+        if (allow < 0) allow = 0;
+        if (rw > allow) {
+            int content = budget - ell_w;
+            if (content < 1) content = 0;
+            int start = rw - content;
+            if (start < 0) start = 0;
+            right_fit = ui_slice_text(right, start, content, start > 0, false,
+                                      ell, &right_w, &right_skip);
+            right_cut = start > 0;
+        } else {
+            right_fit = strdup(right);
+            right_w = rw;
+        }
+        if (right_w > budget) right_w = budget;
+        budget -= right_w;
+    }
+    if (middle && *middle && budget > 0) {
+        int full_w = ui_str_width(middle);
+        int match_end_col = 0;
+        bool scroll = matched && matched->npos > 0 && matched->pos && full_w > budget;
+        if (scroll) {
+            int last = -1;
+            for (int k = 0; k < matched->npos; k++) {
+                int p = matched->pos[k];
+                if (p < left_end) continue;
+                if (right_at >= 0 && p >= right_at) continue;
+                int rel = p - left_end;
+                if (rel > last) last = rel;
+            }
+            if (last < 0) scroll = false;
+            else {
+                size_t len = strlen(middle);
+                size_t i = 0;
+                int rune = 0;
+                int col = 0;
+                while (i < len) {
+                    wchar_t cp;
+                    size_t used = mm_utf8_decode(middle + i, len - i, &cp);
+                    if (used == 0) used = 1;
+                    col += mm_runewidth(cp);
+                    if (rune == last) { match_end_col = col; break; }
+                    i += used;
+                    rune++;
+                }
+            }
+        }
+        int prefix_keep = full_w > budget ? budget - ell_w : budget;
+        if (prefix_keep < 0) prefix_keep = 0;
+        int off = ui->hscroll_off;
+        int half = budget / 2 - ell_w;
+        if (off > half) off = half;
+        if (off < 0) off = 0;
+        if (scroll && match_end_col > prefix_keep) {
+            int right_edge = match_end_col + off;
+            if (right_edge > full_w) right_edge = full_w;
+            bool right_ell = right_edge < full_w;
+            bool left_ell = true;
+            int content = budget - ell_w - (right_ell ? ell_w : 0);
+            if (content < 1) content = 1;
+            int start = right_edge - content;
+            if (start <= 0) {
+                start = 0;
+                left_ell = false;
+                content = budget - (right_ell ? ell_w : 0);
+                if (content < 1) content = 1;
+            }
+            int skip_runes = 0;
+            mid_fit = ui_slice_text(middle, start, content, left_ell, right_ell,
+                                    ell, &mid_w, &skip_runes);
+            if (mid_fit && matched) {
+                int er = left_ell ? ell_runes : 0;
+                int content_runes = ui_rune_count(mid_fit) - er -
+                                    (right_ell ? ell_runes : 0);
+                for (int k = 0; k < matched->npos; k++) {
+                    int p = matched->pos[k];
+                    if (p < left_end || (right_at >= 0 && p >= right_at)) continue;
+                    int rel = (p - left_end) - skip_runes;
+                    if (rel < 0 || rel >= content_runes) continue;
+                    ui_push_pos(&mid_pos, &mid_npos, &mid_cap, rel + er);
+                }
+            }
+            mid_scrolled = true;
+        } else {
+            mid_fit = ui_fit_text(middle, budget, &mid_w, ell);
+        }
+    }
+
+    size_t ln = left_fit ? strlen(left_fit) : 0;
+    size_t mn = mid_fit ? strlen(mid_fit) : 0;
+    size_t rn = right_fit ? strlen(right_fit) : 0;
+    char *out = malloc(ln + mn + rn + 1);
+    if (!out) {
+        free(left); free(middle); free(right);
+        free(left_fit); free(mid_fit); free(right_fit);
+        free(mid_pos);
+        return NULL;
+    }
+    memcpy(out, left_fit ? left_fit : "", ln);
+    memcpy(out + ln, mid_fit ? mid_fit : "", mn);
+    memcpy(out + ln + mn, right_fit ? right_fit : "", rn);
+    out[ln + mn + rn] = 0;
+    *out_width = ui_str_width(out);
+
+    int cap = 0;
+    int shift = left_fit ? ui_rune_count(left_fit) : 0;
+    if (matched && matched->npos > 0 && matched->pos) {
+        int left_keep = 0;
+        if (left_fit) {
+            left_keep = ui_rune_count(left_fit);
+            if (left_cut) left_keep -= ell_runes;
+            if (left_keep < 0) left_keep = 0;
+        }
+        for (int k = 0; k < matched->npos; k++) {
+            int p = matched->pos[k];
+            if (p >= 0 && p < left_end && p < left_keep)
+                ui_push_pos(out_pos, out_npos, &cap, p);
+        }
+        for (int k = 0; k < mid_npos; k++)
+            ui_push_pos(out_pos, out_npos, &cap, shift + mid_pos[k]);
+        if (!mid_scrolled && mid_fit) {
+            int keep = ui_rune_count(mid_fit);
+            if (middle && ui_str_width(middle) > mid_w) keep -= ell_runes;
+            if (keep < 0) keep = 0;
+            for (int k = 0; k < matched->npos; k++) {
+                int p = matched->pos[k];
+                if (p < left_end || (right_at >= 0 && p >= right_at)) continue;
+                int rel = p - left_end;
+                if (rel < keep) ui_push_pos(out_pos, out_npos, &cap, shift + rel);
+            }
+        }
+        shift += mid_fit ? ui_rune_count(mid_fit) : 0;
+        if (right_fit) {
+            int content_runes = ui_rune_count(right_fit);
+            int add = 0;
+            if (right_cut) {
+                content_runes -= ell_runes;
+                add = ell_runes;
+            }
+            if (content_runes < 0) content_runes = 0;
+            for (int k = 0; k < matched->npos; k++) {
+                int p = matched->pos[k];
+                if (right_at < 0 || p < right_at) continue;
+                int rel = p - right_at;
+                int adj = rel - (right_cut ? right_skip : 0);
+                if (adj < 0 || adj >= content_runes) continue;
+                ui_push_pos(out_pos, out_npos, &cap, shift + add + adj);
+            }
+        }
+    }
+
+    free(left); free(middle); free(right);
+    free(left_fit); free(mid_fit); free(right_fit);
+    free(mid_pos);
+    return out;
+}
+
+/* fzf's scrollbar geometry (src/terminal.go getScrollbar). per_line is the
+   average number of rows an item occupies. */
+static void ui_scrollbar_range(int total, int height, int offset, int per_line,
+                               int *bar_len, int *bar_start) {
+    if (per_line < 1) per_line = 1;
+    if (total <= 0 || total * per_line <= height) {
+        *bar_len = 0;
+        *bar_start = 0;
+        return;
+    }
+    int span = total * per_line;
+    int len = height * height / span;
+    if (len < 1) len = 1;
+    int start = 0;
+    int denom = span - height;
+    if (denom > 0)
+        start = (height * per_line - len) * offset / denom;
+    if (start > height - len) start = height - len;
+    if (start < 0) start = 0;
     *bar_len = len;
     *bar_start = start;
 }
@@ -777,6 +1800,161 @@ static int ui_wrap_text(const char *text, int first, int cont, bool word,
     return np;
 }
 
+/* Rows taken by the horizontal edges of a border shape. */
+static int ui_border_line_count(int shape) {
+    bool top, bottom, left, right;
+    mm_border_sides(shape, &top, &bottom, &left, &right);
+    return (top ? 1 : 0) + (bottom ? 1 : 0);
+}
+
+/* --footer-border defaults to a single line on the side away from the list. */
+static int ui_resolve_footer_shape(const mm_ui_t *ui) {
+    int shape = ui->footer_border_set ? ui->footer_border : MM_BORDER_LINE;
+    /* Inline borders need a list frame with both horizontal edges. Without
+       one, fzf falls back to a plain line. */
+    if (shape == MM_BORDER_INLINE) shape = MM_BORDER_LINE;
+    if (shape == MM_BORDER_LINE)
+        shape = ui->reverse ? MM_BORDER_TOP : MM_BORDER_BOTTOM;
+    return shape;
+}
+
+/* --header-border=line sits on the side away from the list. Inline falls
+   back to that line unless a list frame can hold it, which is not drawn yet. */
+static int ui_resolve_header_shape(const mm_ui_t *ui) {
+    int shape = ui->header_border < 0 ? MM_BORDER_ROUNDED : ui->header_border;
+    if (shape == MM_BORDER_INLINE) shape = MM_BORDER_LINE;
+    if (shape == MM_BORDER_LINE)
+        shape = ui->reverse ? MM_BORDER_BOTTOM : MM_BORDER_TOP;
+    return shape;
+}
+
+/* A closed frame keeps a row for each horizontal edge. A single edge keeps
+   one row and, when that edge would cover the info line, shifts the text. */
+static void ui_reserve_header_border(const mm_ui_t *ui, bool reverse,
+                                     int *header_row, int *list_edge) {
+    int hshape = ui_resolve_header_shape(ui);
+    bool ht, hb, hl, hr;
+    mm_border_sides(hshape, &ht, &hb, &hl, &hr);
+    int lines = (ht ? 1 : 0) + (hb ? 1 : 0);
+    if (reverse) {
+        if (hl || hr || (ht && hb)) {
+            if (ht) *header_row += 1;
+            *list_edge += lines;
+        } else if (ht) {
+            *header_row += 1;
+            *list_edge += 1;
+        } else if (hb) {
+            *list_edge += 1;
+        }
+    } else if (hl || hr || (ht && hb)) {
+        if (ht) *header_row -= 1;
+        *list_edge -= lines;
+    } else if (ht) {
+        *list_edge -= 1;
+    } else if (hb) {
+        *header_row -= 1;
+        *list_edge -= 1;
+    }
+}
+
+/* --header-lines-border is off until the option is given. "line" faces the
+   list: the top edge in the default layout, the bottom edge otherwise. */
+static int ui_resolve_header_lines_shape(const mm_ui_t *ui) {
+    if (!ui->header_lines_border_set) return MM_BORDER_NONE;
+    int shape = ui->header_lines_border;
+    if (shape == MM_BORDER_INLINE) shape = MM_BORDER_LINE;
+    if (shape == MM_BORDER_LINE) {
+        bool layout_default = !ui->reverse && ui->layout == 0;
+        shape = layout_default ? MM_BORDER_TOP : MM_BORDER_BOTTOM;
+    }
+    return shape;
+}
+
+static bool ui_shape_faces_input(const mm_ui_t *ui, int shape) {
+    bool top, bottom, left, right;
+    mm_border_sides(shape, &top, &bottom, &left, &right);
+    return ui->reverse ? top : bottom;
+}
+
+/* Labels are drawn on shapes that have a horizontal edge (fzf printLabel). */
+static bool ui_shape_takes_label(int shape) {
+    switch (shape) {
+    case MM_BORDER_HORIZONTAL:
+    case MM_BORDER_TOP:
+    case MM_BORDER_BOTTOM:
+    case MM_BORDER_ROUNDED:
+    case MM_BORDER_SHARP:
+    case MM_BORDER_BOLD:
+    case MM_BORDER_BLOCK:
+    case MM_BORDER_THINBLOCK:
+    case MM_BORDER_DOUBLE:
+    case MM_BORDER_DASHED:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void ui_draw_section_border(mm_window_t *win, const mm_border_glyphs_t *g,
+                                   mm_color_t color, int left, int right,
+                                   int top, int bottom, int shape) {
+    if (!g || right < left || bottom < top) return;
+    bool ht, hb, hl, hr;
+    mm_border_sides(shape, &ht, &hb, &hl, &hr);
+    if (ht) {
+        mm_window_move(win, top, left);
+        if (hl) mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->top_left);
+        int x0 = left + (hl ? 1 : 0);
+        int x1 = right - (hr ? 1 : 0);
+        for (int x = x0; x <= x1; x++)
+            mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->top);
+        if (hr) mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->top_right);
+    }
+    if (hb && (!ht || bottom != top)) {
+        mm_window_move(win, bottom, left);
+        if (hl) mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->bottom_left);
+        int x0 = left + (hl ? 1 : 0);
+        int x1 = right - (hr ? 1 : 0);
+        for (int x = x0; x <= x1; x++)
+            mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->bottom);
+        if (hr) mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->bottom_right);
+    }
+    int y0 = top + (ht ? 1 : 0);
+    int y1 = bottom - (hb ? 1 : 0);
+    for (int y = y0; y <= y1; y++) {
+        if (hl) {
+            mm_window_move(win, y, left);
+            mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->left);
+            /* The column inside a left edge is part of the frame. */
+            if (right > left)
+                mm_window_cprint(win, color, MM_COL_DEFAULT, 0, " ");
+        }
+        if (hr) {
+            mm_window_move(win, y, right);
+            mm_window_cprint(win, color, MM_COL_DEFAULT, 0, g->right);
+        }
+    }
+}
+
+static void ui_draw_border_label(mm_window_t *win, mm_ui_t *ui, const char *label,
+                                 int pos, bool on_bottom, int shape,
+                                 int left, int right, int top, int bottom) {
+    if (!label || !*label || !ui_shape_takes_label(shape)) return;
+    int width = right - left + 1;
+    int lw = ui_str_width(label);
+    if (width < 1 || lw < 1) return;
+    int rel;
+    if (pos == 0) rel = (width - lw) / 2;
+    else if (pos < 0) rel = width + pos + 1 - lw;
+    else rel = pos - 1;
+    if (rel > width - lw) rel = width - lw;
+    if (rel < 0) rel = 0;
+    int row = (shape == MM_BORDER_BOTTOM || on_bottom) ? bottom : top;
+    mm_window_move(win, row, left + rel);
+    mm_window_cprint(win, ui_theme_color(ui, ui->theme.border_label, 145),
+                     MM_COL_DEFAULT, 0, label);
+}
+
 /* Number of display rows occupied by a (possibly multiline) text block. */
 static int ui_text_rows(const char *text) {
     if (!text || !*text) return 0;
@@ -786,10 +1964,258 @@ static int ui_text_rows(const char *text) {
     return rows;
 }
 
+/* One drawn header or footer row, in the order it was painted. `text`
+   points into the live header/footer string and is only used until the
+   next action replaces that string. */
+typedef struct {
+    int row;
+    int kind; /* 1 header-lines, 2 explicit header, 3 footer */
+    const char *text;
+    size_t text_len;
+} mm_click_line_t;
+
+static mm_click_line_t ui_click_map[128];
+static int ui_click_n;
+static int ui_click_text_x;
+
+static void ui_click_reset(int text_x) {
+    ui_click_n = 0;
+    ui_click_text_x = text_x;
+}
+
+static void ui_click_note(int row, int kind, const char *text, size_t text_len) {
+    if (ui_click_n >= (int)(sizeof(ui_click_map) / sizeof(ui_click_map[0]))) return;
+    ui_click_map[ui_click_n].row = row;
+    ui_click_map[ui_click_n].kind = kind;
+    ui_click_map[ui_click_n].text = text;
+    ui_click_map[ui_click_n].text_len = text_len;
+    ui_click_n++;
+}
+
+/* Trim a copy of a token and report its display width. */
+static char *ui_click_trim(const char *token, int *width) {
+    size_t n = strlen(token);
+    while (n > 0 && isspace((unsigned char)token[n - 1])) n--;
+    char *copy = malloc(n + 1);
+    if (!copy) return NULL;
+    memcpy(copy, token, n);
+    copy[n] = 0;
+    *width = ui_str_width(copy);
+    return copy;
+}
+
+static int ui_click_token_count(const mm_ui_t *ui, const mm_click_line_t *line,
+                                bool header) {
+    if (!line->text || line->text_len == 0) return 0;
+    char *text = malloc(line->text_len + 1);
+    if (!text) return 0;
+    memcpy(text, line->text, line->text_len);
+    text[line->text_len] = 0;
+    mm_delimiter_t awk = {0};
+    int *prefix = NULL;
+    int ntok = 0;
+    char **toks = mm_tokenize(text, header ? ui->delim : awk, &prefix, &ntok);
+    free(text);
+    if (toks) {
+        for (int i = 0; i < ntok; i++) free(toks[i]);
+        free(toks);
+    }
+    free(prefix);
+    return ntok;
+}
+
+/* FZF_CLICK_*_WORD and, for a header, FZF_CLICK_HEADER_NTH. */
+static void ui_click_set_word(const mm_ui_t *ui, const mm_click_line_t *hit,
+                              int column, int nth_base, bool last_line) {
+    bool header = hit->kind != 3;
+    unsetenv(header ? "FZF_CLICK_HEADER_WORD" : "FZF_CLICK_FOOTER_WORD");
+    if (header) unsetenv("FZF_CLICK_HEADER_NTH");
+    if (!hit->text || hit->text_len == 0 || column < 1) return;
+    char *text = malloc(hit->text_len + 1);
+    if (!text) return;
+    memcpy(text, hit->text, hit->text_len);
+    text[hit->text_len] = 0;
+    mm_delimiter_t awk = {0};
+    int *prefix = NULL;
+    int ntok = 0;
+    char **toks = mm_tokenize(text, header ? ui->delim : awk, &prefix, &ntok);
+    free(text);
+    if (!toks || !prefix) {
+        if (toks) {
+            for (int i = 0; i < ntok; i++) free(toks[i]);
+            free(toks);
+        }
+        free(prefix);
+        return;
+    }
+    int col = column - 1;
+    for (int i = 0; i < ntok; i++) {
+        int width = 0;
+        char *trimmed = ui_click_trim(toks[i], &width);
+        int start = prefix[i];
+        if (trimmed && col >= start && col < start + (width > 0 ? width : 0)) {
+            setenv(header ? "FZF_CLICK_HEADER_WORD" : "FZF_CLICK_FOOTER_WORD",
+                   trimmed, 1);
+            if (header) {
+                char nth[64];
+                int n = nth_base + i + 1;
+                if (last_line && i == ntok - 1)
+                    snprintf(nth, sizeof(nth), "%d..", n);
+                else
+                    snprintf(nth, sizeof(nth), "%d", n);
+                setenv("FZF_CLICK_HEADER_NTH", nth, 1);
+            }
+            free(trimmed);
+            break;
+        }
+        free(trimmed);
+    }
+    for (int i = 0; i < ntok; i++) free(toks[i]);
+    free(toks);
+    free(prefix);
+}
+
+/* A release on a header or footer row runs the matching click event.
+   Returns 0 when the click missed, 1 when it was handled, 2 when the
+   action ends the loop. */
+static int ui_dispatch_click(mm_ui_t *ui, int x, int y) {
+    const mm_click_line_t *hit = NULL;
+    for (int i = 0; i < ui_click_n; i++) {
+        if (ui_click_map[i].row == y) { hit = &ui_click_map[i]; break; }
+    }
+    if (!hit) return false;
+    int column = x - ui_click_text_x + 1;
+    if (column < 1) return false;
+    bool header = hit->kind != 3;
+    int line = 1;
+    int nth_base = 0;
+    int max_row = hit->row;
+    for (int i = 0; i < ui_click_n; i++) {
+        bool same = header ? ui_click_map[i].kind != 3 : ui_click_map[i].kind == 3;
+        if (!same) continue;
+        if (ui_click_map[i].row < hit->row) {
+            line++;
+            if (header) nth_base += ui_click_token_count(ui, &ui_click_map[i], true);
+        }
+        if (ui_click_map[i].row > max_row) max_row = ui_click_map[i].row;
+    }
+    char num[32];
+    snprintf(num, sizeof(num), "%d", line);
+    setenv(header ? "FZF_CLICK_HEADER_LINE" : "FZF_CLICK_FOOTER_LINE", num, 1);
+    snprintf(num, sizeof(num), "%d", column);
+    setenv(header ? "FZF_CLICK_HEADER_COLUMN" : "FZF_CLICK_FOOTER_COLUMN", num, 1);
+    ui_click_set_word(ui, hit, column, nth_base, hit->row == max_row);
+    return ui_exec_event(ui, header ? "click-header" : "click-footer") ? 1 : 2;
+}
+
+static void ui_sort_ints(int *v, int n) {
+    for (int i = 1; i < n; i++) {
+        int x = v[i];
+        int j = i;
+        while (j > 0 && v[j - 1] > x) {
+            v[j] = v[j - 1];
+            j--;
+        }
+        v[j] = x;
+    }
+}
+
+/* Match positions for the rows about to be drawn. The scan itself does
+   not allocate a position list for every hit. */
+static void ui_highlight_visible(mm_ui_t *ui, int list_rows) {
+    if (!ui->lazy_highlight || !ui->results || ui->nresults <= 0) return;
+    const char *query = ui_match_query(ui);
+    if (!query || !query[0]) return;
+    int from = ui->offset;
+    if (from < 0) from = 0;
+    if (from > ui->nresults) from = ui->nresults;
+    int rows = list_rows > 0 ? list_rows : 1;
+    int to = (rows > ui->nresults - from) ? ui->nresults : from + rows;
+    int n = to - from;
+    if (n < 0) n = 0;
+    if (!ui->window_pos || ui->window_pos_from != from || ui->window_pos_n != n) {
+        ui_clear_window_pos(ui);
+        if (n == 0) return;
+        ui->window_pos = calloc((size_t)n, sizeof(*ui->window_pos));
+        if (!ui->window_pos) return;
+        ui->window_pos_n = n;
+        ui->window_pos_from = from;
+    } else {
+        bool missing = false;
+        for (int i = 0; i < n; i++) {
+            if (!ui->window_pos[i].pos) { missing = true; break; }
+        }
+        if (!missing) return;
+    }
+
+    bool forward = mm_criteria_forward(&ui->crit);
+    mm_pattern_t *pat = mm_pattern_build(query, ui->fuzzy, ui->extended,
+                                         ui->case_mode, !ui->literal, forward,
+                                         true);
+    if (!pat) return;
+    for (int i = 0; i < n; i++) {
+        if (ui->window_pos[i].pos) continue;
+        int item = ui->results[from + i];
+        int *pos = NULL;
+        int npos = 0;
+        if (item >= 0 && item < ui->count) {
+            mm_text_t text = mm_item_match_text(&ui->items[item]);
+            if (text.length < 0) continue;
+            int score = 0;
+            if (!mm_pattern_match(pat, &text, &score, &pos, &npos)) {
+                free(pos);
+                pos = NULL;
+                npos = 0;
+            }
+        }
+        if (!pos) {
+            pos = malloc(sizeof(int));
+            if (!pos) continue;
+            npos = 0;
+        } else if (npos > 1) {
+            ui_sort_ints(pos, npos);
+        }
+        ui->window_pos[i].pos = pos;
+        ui->window_pos[i].npos = npos;
+    }
+    mm_pattern_free(pat);
+}
+
+/* -1 on the preview window means "use --preview-border". */
+static int ui_preview_shape(const mm_ui_t *ui) {
+    int shape = ui->preview_win.border_shape;
+    if (shape < 0) shape = ui->preview_border;
+    return shape;
+}
+
 static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                       mm_window_t *promptwin, mm_window_t *infowin) {
     int total = mm_renderer_max_y(r);
     int width = mm_renderer_max_x(r);
+    /* --height draws a window of that many rows from the top of the
+       terminal. The border and the list both use this height. */
+    if (ui->height > 0 && ui->height < total) total = ui->height;
+
+    /* Erase only when the preview moves or hides. Those frames leave
+       border glyphs in cells the new layout does not write. A scroll or a
+       cursor move overwrites the same cells, so wiping the window again
+       only adds bytes. */
+    {
+        int layout = -1;
+        if (ui->preview && !ui->preview_hidden) {
+            const mm_preview_win_t *w = &ui->preview_win;
+            layout = (w->pos << 20) ^ (w->size << 4) ^ (w->border_shape & 0x7f);
+            if (w->size_percent) layout ^= 1 << 30;
+            if (w->wrap) layout ^= 1 << 29;
+        }
+        if (layout != ui->preview_layout) {
+            ui->preview_layout = layout;
+            for (int y = 0; y < total; y++) {
+                mm_renderer_move(r, y, 0);
+                mm_renderer_csi(r, "2K");
+            }
+        }
+    }
 
     /* A border box takes the first and the last line, and one column on
        each side; the content is then laid out inside it. */
@@ -818,14 +2244,66 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     int pv_total = 0;
     if (has_preview) {
         int size = ui->preview_win.size;
-        if (size < 1) size = 1;
-        if (size > 100) size = 100;
-        switch (ui->preview_win.pos) {
-        case MM_PREVIEW_LEFT:
-        case MM_PREVIEW_RIGHT: pv_total = inner_w * size / 100; break;
-        default:               pv_total = inner_h * size / 100; break;
+        bool size_percent = ui->preview_win.size_percent;
+        if (size_percent) {
+            if (size < 1) size = 1;
+            if (size > 100) size = 100;
+            switch (ui->preview_win.pos) {
+            case MM_PREVIEW_LEFT:
+            case MM_PREVIEW_RIGHT: pv_total = inner_w * size / 100; break;
+            default:               pv_total = inner_h * size / 100; break;
+            }
+            if (pv_total < 2) pv_total = 2;
+        } else {
+            /* fzf calculateSize adds the preview frame: outer = size + min - 1,
+               where min is 1 plus the border cells (and a scrollbar column
+               when the frame has no right edge). The result is clamped to
+               leave the list its minimum window. */
+            bool vertical = ui->preview_win.pos != MM_PREVIEW_LEFT &&
+                            ui->preview_win.pos != MM_PREVIEW_RIGHT;
+            bool edge_top, edge_bottom, edge_left, edge_right;
+            mm_border_sides(ui_preview_shape(ui), &edge_top, &edge_bottom,
+                            &edge_left, &edge_right);
+            bool any_edge = edge_top || edge_bottom || edge_left || edge_right;
+            bool full = edge_top && edge_bottom && edge_left && edge_right;
+            int chrome = 0;
+            if (vertical) {
+                if (full) chrome = 2;
+                else if (edge_top || edge_bottom)
+                    chrome = (edge_top ? 1 : 0) + (edge_bottom ? 1 : 0);
+            } else if (full) {
+                /* Each side is the glyph plus a padding column (borderWidth 1). */
+                chrome = 4;
+            } else if (any_edge) {
+                chrome = 3; /* left glyph and padding, plus the scrollbar column */
+            } else {
+                chrome = 1; /* scrollbar column, no frame */
+            }
+            int min_size = 1 + chrome;
+            int base = vertical ? inner_h : inner_w;
+            /* calculateSize leaves the list minHeight (3) or minWidth (4).
+               A vertical preview is then capped again by the lines still
+               free after the input rows and the preview's own minimum. */
+            int max = base - (vertical ? 3 : 4);
+            if (vertical) {
+                int avail = base - 2 - min_size;
+                if (avail < max) max = avail;
+            }
+            if (max < min_size) max = min_size;
+            int raw = size + min_size - 1;
+            if (raw < min_size) raw = min_size;
+            if (raw > max) raw = max;
+            /* Placement below peels one outer-border cell off pv_total.
+               fzf already measured this size inside that border. */
+            int peel = 0;
+            switch (ui->preview_win.pos) {
+            case MM_PREVIEW_LEFT:   peel = b_left ? 1 : 0; break;
+            case MM_PREVIEW_TOP:    peel = b_top ? 1 : 0; break;
+            case MM_PREVIEW_BOTTOM: peel = b_bottom ? 1 : 0; break;
+            default:                peel = b_right ? 1 : 0; break;
+            }
+            pv_total = raw + peel;
         }
-        if (pv_total < 2) pv_total = 2;
     }
 
     /* The preview box is inset from the screen edge by the border, and the
@@ -856,15 +2334,27 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             area_h = total - area_y - (b_bottom ? 1 : 0);
             break;
         case MM_PREVIEW_BOTTOM:
-            pv_h = pv_total - (b_bottom ? 1 : 0);
+            /* A percentage is already a share of the inner height. Peeling
+               the outer bottom border off it leaves a blank row above that
+               border. Absolute sizes added that cell in the peel above. */
+            pv_h = pv_total - (b_bottom && !ui->preview_win.size_percent ? 1 : 0);
             pv_x = area_x + (b_left ? 1 : 0);
             pv_w = area_w - (b_left ? 1 : 0);
-            pv_y = area_y + area_h - (b_bottom ? 1 : 0) - pv_h;
+            pv_y = area_y + area_h - (b_bottom && !ui->preview_win.size_percent ? 1 : 0) - pv_h;
             area_h = pv_y - area_y;
             break;
         default:
             pv_w = pv_total - (b_right ? 1 : 0);
             pv_x = area_x + area_w - 1 - (b_right ? 1 : 0) - pv_w + 1;
+            /* A preview with no right edge sits against the outer border,
+               and the list keeps the column that used to separate them. */
+            {
+                bool edge_top, edge_bottom, edge_left, edge_right;
+                mm_border_sides(ui_preview_shape(ui), &edge_top, &edge_bottom,
+                                &edge_left, &edge_right);
+                (void)edge_top; (void)edge_bottom; (void)edge_left;
+                if (b_right && !edge_right) pv_x += 1;
+            }
             pv_y = area_y + (b_top ? 1 : 0);
             pv_h = area_h - (b_top ? 1 : 0);
             area_w = pv_x - area_x;
@@ -903,10 +2393,29 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     int content_top = area_y + (b_top ? 1 : 0);
     int content_bottom = content_top + content_h - 1;
     int prompt_row, info_row, header_row, header_lines_row;
+    /* inline-right keeps the count on the prompt and a separator row
+       under it. inline keeps both on the prompt line. */
+    bool info_on_prompt = ui->info && (ui->info_inline || ui->info_inline_right);
+    bool has_sep = ui->separator_default || (ui->separator && ui->separator[0]);
+    int sep_rows = (ui->info_inline_right && has_sep) ? 1 : 0;
+    int inline_sep_row = -1;
     int block_row, list_first, list_last;
-    /* The footer is drawn at the top of the list area, followed by a
-       horizontal line.  With --reverse it sits at the bottom instead. */
+    /* The footer sits at the top of the list area in the default layout and
+       at the bottom with --reverse. A line border adds one row; a box adds
+       the edges the shape actually draws. */
     bool has_footer = ui->footer && *ui->footer;
+    int footer_shape = MM_BORDER_NONE;
+    int footer_rows = 0;
+    if (has_footer) {
+        footer_shape = ui_resolve_footer_shape(ui);
+        footer_rows = ui_text_rows(ui->footer) + ui_border_line_count(footer_shape);
+        if (footer_rows < 1) footer_rows = 1;
+    }
+    int hl_shape = ui_resolve_header_lines_shape(ui);
+    bool hl_separate = ui->header_lines_border_set && rest_hlines &&
+                       hl_shape != MM_BORDER_NONE;
+    int hl_extra = hl_separate ? ui_border_line_count(hl_shape) : 0;
+    int hl_box_top = -1, hl_box_bottom = -1;
     header_row = header_lines_row = -1;
     bool draw_header_box = has_header && !ui->header_first &&
                            (full_component_style ||
@@ -923,20 +2432,30 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             else                   header_lines_row = content_top;
             prompt_row = content_top + first_rows;
         }
-        block_row = prompt_row + (ui->info && ui->info_inline_right ? 0 : 1);
-        info_row  = ui->info ? block_row : -1;
-        int row = block_row + 1;
+        block_row = prompt_row + (info_on_prompt ? 0 : 1);
+        info_row  = ui->info ? (info_on_prompt ? prompt_row : block_row) : -1;
+        int row = block_row + 1 + (info_on_prompt ? sep_rows : 0);
         if (!ui->header_first && has_header) {
             header_row = row;
             row += header_rows;
         }
         if (rest_hlines) {
-            header_lines_row = row;
-            row += rest_rows;
+            if (hl_separate) {
+                bool ht, hb, edge_l, edge_r;
+                mm_border_sides(hl_shape, &ht, &hb, &edge_l, &edge_r);
+                int anchor = row;
+                hl_box_top = anchor;
+                hl_box_bottom = anchor + hlines_rows + hl_extra - 1;
+                header_lines_row = anchor + (ht ? 1 : 0);
+                row = hl_box_bottom + 1;
+            } else {
+                header_lines_row = row;
+                row += rest_rows;
+            }
         }
         list_first = row;
         list_last  = content_bottom;
-        if (has_footer) list_last -= 2;
+        if (footer_rows) list_last -= footer_rows;
     } else {
         /* The list grows upwards from the info line at the bottom. */
         prompt_row = content_bottom;
@@ -945,9 +2464,9 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             else                   header_lines_row = content_bottom;
             prompt_row = content_bottom - first_rows;
         }
-        block_row = prompt_row - (ui->info && ui->info_inline_right ? 0 : 1);
-        info_row  = ui->info ? block_row : -1;
-        int row = block_row - 1;
+        block_row = prompt_row - (info_on_prompt ? 0 : 1);
+        info_row  = ui->info ? (info_on_prompt ? prompt_row : block_row) : -1;
+        int row = block_row - 1 - (info_on_prompt ? sep_rows : 0);
         if (!ui->header_first && has_header) {
             /* The explicit header sits directly above the info line. */
             header_row = row - header_rows + 1;
@@ -955,12 +2474,22 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         }
         if (rest_hlines) {
             /* Header lines are stacked above the explicit header, with the
-               first input line closest to it. */
-            header_lines_row = row;
-            row -= rest_rows;
+               first input line closest to it. A border wraps that block. */
+            if (hl_separate) {
+                bool ht, hb, edge_l, edge_r;
+                mm_border_sides(hl_shape, &ht, &hb, &edge_l, &edge_r);
+                int anchor = row;
+                hl_box_bottom = anchor;
+                hl_box_top = anchor - (hlines_rows + hl_extra) + 1;
+                header_lines_row = anchor - (hb ? 1 : 0);
+                row = hl_box_top - 1;
+            } else {
+                header_lines_row = row;
+                row -= rest_rows;
+            }
         }
         list_last  = row;
-        list_first = content_top + (has_footer ? 2 : 0);
+        list_first = content_top + footer_rows;
     }
     if (full_component_style) {
         /* Reserve input, list, and optional header borders; adjacent boxes
@@ -992,23 +2521,25 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                 list_first += 2;
                 list_last--;
             }
-            if (draw_header_box) {
-                header_row++;
-                list_first += 2;
-            }
+            if (draw_header_box)
+                ui_reserve_header_border(ui, true, &header_row, &list_first);
             if (draw_list_box) {
                 list_first += 2;
                 list_last--;
             }
         } else {
             if (draw_input_box) list_last--;
-            if (draw_header_box) list_last--;
+            if (draw_header_box)
+                ui_reserve_header_border(ui, false, &header_row, &list_last);
             if (draw_list_box) {
                 list_first++;
                 list_last--;
             }
         }
     }
+
+    if (sep_rows > 0)
+        inline_sep_row = ui->reverse ? prompt_row + 1 : prompt_row - 1;
 
     int list_rows = list_last - list_first + 1;
     if (list_rows < 1) list_rows = 1;
@@ -1055,55 +2586,58 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         }
     }
 
-    /* Footer: at the top of the list area in the default layout, and at the
-       bottom with --reverse.  A horizontal line separates it from the list. */
-    if (has_footer) {
-        int frow, lrow;
+    /* Footer: pinned to the outer edge of the list area. The border shape
+       decides whether that edge is a line, a box, or absent. */
+    ui_click_reset(area_x + content_x + 2);
+    if (has_footer && footer_rows > 0) {
+        int top, bottom;
         if (ui->reverse) {
-            lrow = content_bottom - 1;
-            frow = content_bottom;
+            bottom = content_bottom;
+            top = content_bottom - footer_rows + 1;
         } else {
-            frow = list_first - 2;
-            lrow = frow + 1;
+            top = content_top;
+            bottom = content_top + footer_rows - 1;
         }
-        mm_window_move(listwin, frow, area_x + content_x + 2);
-        mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.footer, MM_THEME_HEADER),
-                         MM_COL_DEFAULT, 0, ui->footer);
-        ui_clear_to_eol(listwin, area_x + area_w - 1,
-                        area_x + content_x + 2 + ui_str_width(ui->footer), MM_COL_DEFAULT);
-        /* The line next to the footer. */
-        mm_window_move(listwin, lrow, area_x);
-        {
-            int fill = area_w;
-            if (fill < 1) fill = 1;
-            char *line = malloc((size_t)fill * 4 + 8);
-            if (line) {
-                size_t o = 0;
-                const char *dash = ui->no_unicode ? "-" : "\u2500";
-                size_t dl = strlen(dash);
-                for (int i = 0; i < fill; i++) {
-                    memcpy(line + o, dash, dl);
-                    o += dl;
-                }
-                line[o] = 0;
-                mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER),
-                                 MM_COL_DEFAULT, 0, line);
-                free(line);
+        bool edge_top, edge_bottom, edge_left, edge_right;
+        mm_border_sides(footer_shape, &edge_top, &edge_bottom, &edge_left, &edge_right);
+        int text_row = top + (edge_top ? 1 : 0);
+        int text_col = area_x + content_x + 2;
+        int clear_end = area_x + area_w - 1;
+        const char *p = ui->footer;
+        int row = text_row;
+        while (p && *p && row <= bottom - (edge_bottom ? 1 : 0)) {
+            const char *nl = strchr(p, '\n');
+            size_t seglen = nl ? (size_t)(nl - p) : strlen(p);
+            char *seg = malloc(seglen + 1);
+            if (seg) {
+                memcpy(seg, p, seglen);
+                seg[seglen] = 0;
+                mm_window_move(listwin, row, text_col);
+                mm_window_cprint(listwin,
+                                 ui_theme_color(ui, ui->theme.footer, MM_THEME_HEADER),
+                                 MM_COL_DEFAULT, 0, seg);
+                ui_clear_to_eol(listwin, clear_end,
+                                text_col + ui_str_width(seg), MM_COL_DEFAULT);
+                free(seg);
             }
+            ui_click_note(row, 3, p, seglen);
+            row++;
+            if (!nl) break;
+            p = nl + 1;
         }
-        if (ui->footer_label && *ui->footer_label) {
-            int label_width = ui_str_width(ui->footer_label);
-            int label_x = ui->footer_label_pos == 0
-                        ? area_x + (area_w - label_width) / 2
-                        : area_x + ui->footer_label_pos - 1;
-            if (label_x < area_x) label_x = area_x;
-            if (label_x + label_width > area_x + area_w)
-                label_x = area_x + area_w - label_width;
-            if (label_x >= area_x && label_x + label_width <= area_x + area_w) {
-                mm_window_move(listwin, lrow, label_x);
-                mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.border_label, MM_THEME_BORDER),
-                                 MM_COL_DEFAULT, 0, ui->footer_label);
-            }
+        if (footer_shape != MM_BORDER_NONE) {
+            const mm_border_glyphs_t *g = ui->no_unicode
+                ? mm_border_glyphs_ascii(footer_shape)
+                : mm_border_glyphs(footer_shape);
+            int left = area_x;
+            int right = area_x + area_w - 1;
+            if (right < left) right = left;
+            ui_draw_section_border(listwin, g,
+                                   ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER),
+                                   left, right, top, bottom, footer_shape);
+            ui_draw_border_label(listwin, ui, ui->footer_label,
+                                 ui->footer_label_pos, ui->footer_label_bottom,
+                                 footer_shape, left, right, top, bottom);
         }
     }
 
@@ -1120,12 +2654,23 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             if (seg) {
                 memcpy(seg, p, seglen);
                 seg[seglen] = 0;
+                /* The header shares the list columns. A line that does not
+                   fit is cut with the ellipsis, leaving the scrollbar
+                   column empty so the preview border stays one cell away. */
+                int header_limit = list_w - 2;
+                if (header_limit < 1) header_limit = 1;
+                int shown_w = 0;
+                char *shown = ui_fit_text(seg, header_limit, &shown_w, ui->ellipsis);
                 mm_window_move(listwin, row, area_x + content_x + 2);
-                mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.header, MM_THEME_HEADER),
-                                 MM_COL_DEFAULT, 0, seg);
-                ui_clear_to_eol(listwin, list_w - 2, ui_str_width(seg), MM_COL_DEFAULT);
+                if (shown) {
+                    mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.header, MM_THEME_HEADER),
+                                     MM_COL_DEFAULT, 0, shown);
+                    ui_clear_to_eol(listwin, header_limit, shown_w, MM_COL_DEFAULT);
+                    free(shown);
+                }
                 free(seg);
             }
+            ui_click_note(row, 2, p, seglen);
             row++;
             if (!nl) break;
             p = nl + 1;
@@ -1142,15 +2687,37 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             if (seg) {
                 memcpy(seg, p, seglen);
                 seg[seglen] = 0;
+                /* A row that used to be a list line still has its gutter. */
+                int gutter = area_x + content_x + list_border_inset;
+                mm_window_move(listwin, row, gutter);
+                ui_clear_to_eol(listwin, area_x + area_w - 1, gutter, MM_COL_DEFAULT);
                 mm_window_move(listwin, row, area_x + content_x + 2);
                 mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.header, MM_THEME_HEADER),
                                  MM_COL_DEFAULT, 0, seg);
-                ui_clear_to_eol(listwin, list_w - 2, ui_str_width(seg), MM_COL_DEFAULT);
                 free(seg);
             }
+            ui_click_note(row, 1, p, seglen);
             row += step;
             if (!nl) break;
             p = nl + 1;
+            /* A trailing newline is a blank header row. ui_text_rows counts it. */
+            if (!*p) {
+                int gutter = area_x + content_x + list_border_inset;
+                mm_window_move(listwin, row, gutter);
+                ui_clear_to_eol(listwin, area_x + area_w - 1, gutter, MM_COL_DEFAULT);
+                ui_click_note(row, 1, "", 0);
+                break;
+            }
+        }
+        if (hl_separate && hl_box_top >= 0 && hl_box_bottom >= hl_box_top) {
+            const mm_border_glyphs_t *g = ui->no_unicode
+                ? mm_border_glyphs_ascii(hl_shape) : mm_border_glyphs(hl_shape);
+            int left = area_x;
+            int right = area_x + area_w - 1;
+            if (right < left) right = left;
+            ui_draw_section_border(listwin, g,
+                                   ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER),
+                                   left, right, hl_box_top, hl_box_bottom, hl_shape);
         }
     }
 
@@ -1176,10 +2743,12 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     mm_window_move(promptwin, prompt_row,
                    area_x + content_x + ui_str_width(pr) + query_cursor_width);
 
-    /* When the info line is hidden, fzf draws a separator in its place. */
-    if (!ui->info) {
+    /* Hidden info and inline-right each keep a separator row of their own.
+       inline draws its dashes on the prompt line instead. */
+    if (!ui->info || inline_sep_row >= 0) {
+        int sep_row = inline_sep_row >= 0 ? inline_sep_row : block_row;
         int sep_len = list_w;
-        if (sep_len > 0) {
+        if (sep_len > 0 && sep_row >= 0) {
             char *sep = malloc((size_t)sep_len * 3 + 1);
             if (sep) {
                 for (int i = 0; i < sep_len; i++) {
@@ -1188,7 +2757,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                     sep[i * 3 + 2] = (char)0x80;
                 }
                 sep[sep_len * 3] = 0;
-                mm_window_move(listwin, block_row, area_x + content_x);
+                mm_window_move(listwin, sep_row, area_x + content_x);
                 mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER),
                                 MM_COL_DEFAULT, 0, sep);
                 free(sep);
@@ -1216,7 +2785,13 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                 info_text = info_cmd_buf;
             }
         }
-        int total_items = ui->nresults > ui->count ? ui->nresults : ui->count;
+        int listed = ui->count;
+        if (ui->header_line_count > 0) {
+            int hidden = ui->header_line_count;
+            if (hidden > listed) hidden = listed;
+            listed -= hidden;
+        }
+        int total_items = ui->nresults > listed ? ui->nresults : listed;
         int n;
         if (ui->info_command && *ui->info_command) {
             n = ui_str_width(info_text);
@@ -1227,9 +2802,49 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                 n += snprintf(info + n, sizeof(info) - (size_t)n, " (%d)", ui->nselected);
             }
         }
+        if (ui->info_inline) {
+            /* fzf: one gap column, the prefix (default " < "), the count,
+               one space, then dashes to the end of the list line. */
+            const char *prefix = (ui->info_prefix && ui->info_prefix[0])
+                                     ? ui->info_prefix : " < ";
+            int px = area_x + content_x + ui_str_width(pr);
+            if (!ui->no_input) px += ui_str_width(ui->query_buf);
+            px += 1;
+            mm_window_move(infowin, prompt_row, px);
+            mm_window_cprint(infowin,
+                ui_theme_color(ui, ui->theme.prompt, MM_THEME_PROMPT),
+                MM_COL_DEFAULT, ui->no_bold ? 0 : MM_BOLD, prefix);
+            mm_window_cprint(infowin,
+                ui_theme_color(ui, ui->theme.info, MM_THEME_INFO),
+                MM_COL_DEFAULT, 0, info_text);
+            int query_w = ui->no_input ? 0 : ui_str_width(ui->query_buf);
+            int from_content = ui_str_width(pr) + query_w + 1 +
+                               ui_str_width(prefix) + n;
+            int seplen = info_w - from_content - 1;
+            if (seplen < 0) seplen = 0;
+            if (seplen > 0) {
+                char *sep = malloc((size_t)seplen * 3 + 1);
+                if (sep) {
+                    for (int i = 0; i < seplen; i++) {
+                        sep[i * 3 + 0] = (char)0xE2;
+                        sep[i * 3 + 1] = (char)0x94;
+                        sep[i * 3 + 2] = (char)0x80;
+                    }
+                    sep[seplen * 3] = 0;
+                    mm_window_cprint(infowin,
+                        ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER),
+                        MM_COL_DEFAULT, 0, " ");
+                    mm_window_cprint(infowin,
+                        ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER),
+                        MM_COL_DEFAULT, 0, sep);
+                    free(sep);
+                }
+            }
+        } else {
         int info_start_x = area_x + info_x;
         if (ui->info_inline_right) {
-            info_start_x = area_x + area_w - n - 2;
+            /* Spinner column, a space, the count, and one trailing column. */
+            info_start_x = area_x + area_w - n - 3;
             if (info_start_x < area_x + content_x)
                 info_start_x = area_x + content_x;
         }
@@ -1261,13 +2876,33 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         mm_window_cprint(infowin, ui_theme_color(ui, ui->theme.info, MM_THEME_INFO),
                          MM_COL_DEFAULT, 0, info_text);
         int used = n + 2;
+        /* A border already sitting against the info line replaces the
+           default separator. An explicit --separator is kept. */
+        bool suppress_sep = false;
+        if (ui->separator_default) {
+            if (ui->header_lines_border_set && rest_hlines && ui->layout != 1 &&
+                ui_shape_faces_input(ui, hl_shape))
+                suppress_sep = true;
+            if (!suppress_sep && ui->header_border_set && has_header &&
+                !ui->header_first && ui->header_border != MM_BORDER_NONE) {
+                int hshape = ui_resolve_header_shape(ui);
+                if (ui_shape_faces_input(ui, hshape)) suppress_sep = true;
+            }
+        }
         if (!ui->info_inline_right && used < info_w) {
             /* The separator is U+2500 repeated; each glyph is three bytes.
                Size the buffer from the glyph count, not the other way round. */
             /* One column goes to the space that separates the counts from
-               the separator. */
+               the separator. fzf keeps that space when the dashes are
+               replaced by a facing border (printInfoImpl). */
             int seplen = info_w - used - 1;
             if (seplen < 0) seplen = 0;
+            if (suppress_sep) {
+                if (seplen > 0)
+                    mm_window_cprint(infowin,
+                        ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER),
+                        MM_COL_DEFAULT, ui->no_color ? MM_DIM : 0, " ");
+            } else {
             /* The separator is repeated until the end of the line. */
             const char *sepchar = (ui->separator && *ui->separator) ? ui->separator
                                      : (ui->no_unicode ? "-" : "\u2500");
@@ -1311,6 +2946,8 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                                  MM_COL_DEFAULT, ui->no_color ? MM_DIM : 0, sep);
                 free(sep);
             }
+            }
+        }
         }
     }
 
@@ -1319,7 +2956,27 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     int text_limit = list_w - 2;
     if (text_limit < 1) text_limit = 1;
     int bar_len = 0, bar_start = 0;
-    ui_scrollbar_range(ui->nresults, list_rows, ui->offset, &bar_len, &bar_start);
+    int per_line = 1;
+    if (ui->nresults > 0 && (!ui->no_multi_line || ui->wrap || ui->gap > 0)) {
+        int sample_at = ui->offset;
+        int limit = ui->nresults - list_rows - 1;
+        if (sample_at > limit) sample_at = limit;
+        if (sample_at < 0) sample_at = 0;
+        int sum = 0, counted = 0;
+        for (int s = 0; s < list_rows && sample_at + s < ui->nresults; s++) {
+            const char *sample = ui->lines[ui->results[sample_at + s]];
+            int lines = 1;
+            if (sample && !ui->no_multi_line) {
+                for (const char *q = sample; *q; q++)
+                    if (*q == '\n') lines++;
+            }
+            sum += lines + ui->gap;
+            counted++;
+        }
+        if (counted > 0 && sum / counted > 0) per_line = sum / counted;
+    }
+    ui_scrollbar_range(ui->nresults, list_rows, ui->offset, per_line,
+                       &bar_len, &bar_start);
     /* Default layout is bottom-up: the scrollbar starts at the bottom and
        moves up; with --reverse it starts at the top. */
     if (!ui->reverse && bar_len > 0) {
@@ -1333,6 +2990,7 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
     /* The items are laid out from the bottom of the list area upwards (or
        downwards in the reverse layout).  A wrapped item occupies one line
        per wrapped line, and the gap adds blank lines between the items. */
+    ui_highlight_visible(ui, list_rows);
     int nitems = ui->nresults - ui->offset;
     if (nitems < 0) nitems = 0;
     const char *jump_labels = ui->jump_labels && *ui->jump_labels
@@ -1362,16 +3020,16 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                                              ui->with_nth, ui->with_nth_n);
             if (display_text) text = display_text;
         }
-        if (ui->no_multi_line && strchr(text, '\n')) {
-            single_line_text = strdup(text);
-            if (single_line_text) {
-                for (char *q = single_line_text; *q; q++)
-                    if (*q == '\n') *q = ' ';
-                text = single_line_text;
-            }
+        if (ui->no_multi_line && text && (strchr(text, '\n') || strchr(text, '\r'))) {
+            single_line_text = ui_show_breaks(text);
+            if (single_line_text) text = single_line_text;
         }
-        const mm_match_pos_t *matched = (ui->match_pos && idx < ui->match_pos_n)
-                                          ? &ui->match_pos[idx] : NULL;
+        const mm_match_pos_t *matched = NULL;
+        if (ui->match_pos && idx < ui->match_pos_n)
+            matched = &ui->match_pos[idx];
+        else if (ui->window_pos && idx >= ui->window_pos_from &&
+                 idx < ui->window_pos_from + ui->window_pos_n)
+            matched = &ui->window_pos[idx - ui->window_pos_from];
         bool raw_nonmatch = ui->raw && ui->query_len > 0 &&
                             (!matched || matched->npos == 0);
         bool cur = (idx == ui->cursor);
@@ -1381,65 +3039,113 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         char **pieces = NULL;
         int *piece_off = NULL;
         int n_pieces = 0;
+        bool break_lines = false;
         int sign_width = 0;
         const char *sign = ui->wrap_sign ? ui->wrap_sign : "";
 
-        /* --hscroll-off: horizontal scroll offset for lines wider than the
-           display area. Computed from the current item's match position so
-           that the match stays visible with hscroll_off columns of margin. */
-        int hscroll = 0;
-        if (!ui->no_hscroll && ui->hscroll_off > 0 && cur && matched && matched->npos > 0 &&
-            !ui->wrap && text_limit > 0) {
+        /* Match column range, used to keep a hit visible while scrolling. */
+        int match_end_col = 0;
+        bool scroll_match = !ui->no_hscroll && !ui->wrap && text_limit > 0 &&
+                            cur && matched && matched->npos > 0 && matched->pos;
+        if (scroll_match) {
+            int first = matched->pos[0];
+            int last = matched->pos[0];
+            for (int k = 1; k < matched->npos; k++) {
+                if (matched->pos[k] < first) first = matched->pos[k];
+                if (matched->pos[k] > last) last = matched->pos[k];
+            }
             size_t len = strlen(text);
             size_t i = 0;
             int rune = 0;
-            int match_col = 0;
-            /* Find the display column of the first match position. */
-            while (i < len && rune < matched->pos[0]) {
+            int col = 0;
+            while (i < len) {
                 wchar_t cp;
                 size_t used = mm_utf8_decode(text + i, len - i, &cp);
                 if (used == 0) used = 1;
-                match_col += mm_runewidth(cp);
+                int cw = mm_runewidth(cp);
+                col += cw;
+                if (rune == last) { match_end_col = col; break; }
                 i += used;
                 rune++;
-            }
-            if (match_col > text_limit - ui->hscroll_off) {
-                hscroll = match_col - text_limit + ui->hscroll_off;
+                (void)first;
             }
         }
+
+        int *view_pos = NULL;
+        mm_match_pos_t view_match = { NULL, 0 };
+        const mm_match_pos_t *shown = matched;
 
         if (ui->wrap) {
             sign_width = ui_str_width(sign);
             int cont = text_limit - sign_width;
             if (cont < 1) cont = 1;
             n_pieces = ui_wrap_text(text, text_limit, cont, ui->wrap_word, &pieces, &piece_off);
+        } else if (!ui->no_multi_line && text && strchr(text, '\n')) {
+            /* --read0 item: each embedded newline starts another row. */
+            break_lines = true;
+            const char *ell = ui->ellipsis ? ui->ellipsis : MM_ELLIPSIS;
+            n_pieces = ui_split_item_lines(text, &pieces, &piece_off);
+            for (int c = 0; c < n_pieces; c++) {
+                int w = 0;
+                char *fit = ui_fit_text(pieces[c] ? pieces[c] : "", text_limit, &w, ell);
+                free(pieces[c]);
+                pieces[c] = fit ? fit : strdup("");
+            }
+        } else if ((ui->freeze_left > 0 || ui->freeze_right > 0) && !ui->no_hscroll) {
+            int vn = 0;
+            fitted = ui_apply_freeze(ui, text, text_limit, matched,
+                                     &text_width, &view_pos, &vn);
+            if (matched && matched->npos > 0) {
+                view_match.pos = view_pos;
+                view_match.npos = vn;
+                shown = &view_match;
+            }
         } else {
-            /* --hscroll-off: skip hscroll display columns at the start of
-               the text, then fit the remainder. */
-            if (hscroll > 0) {
-                size_t len = strlen(text);
-                size_t i = 0;
-                int acc = 0;
-                while (i < len && acc < hscroll) {
-                    wchar_t cp;
-                    size_t used = mm_utf8_decode(text + i, len - i, &cp);
-                    if (used == 0) used = 1;
-                    int cw = mm_runewidth(cp);
-                    if (acc + cw > hscroll) break;
-                    acc += cw;
-                    i += used;
+            int full_w = ui_str_width(text);
+            const char *ell = ui->ellipsis ? ui->ellipsis : MM_ELLIPSIS;
+            int ell_w = ui_str_width(ell);
+            if (ell_w < 1) ell_w = MM_ELLIPSIS_WIDTH;
+            /* A match that already sits in the left window stays put.
+               Otherwise the window ends hscroll_off columns after the
+               match, with an ellipsis on each side that was cut. */
+            int prefix_keep = full_w > text_limit ? text_limit - ell_w : text_limit;
+            if (prefix_keep < 0) prefix_keep = 0;
+            if (scroll_match && full_w > text_limit && match_end_col > prefix_keep) {
+                int right_edge = match_end_col + (ui->hscroll_off > 0 ? ui->hscroll_off : 0);
+                if (right_edge > full_w) right_edge = full_w;
+                bool right_ell = right_edge < full_w;
+                bool left_ell = true;
+                int content = text_limit - ell_w - (right_ell ? ell_w : 0);
+                if (content < 1) content = 1;
+                int start = right_edge - content;
+                if (start <= 0) {
+                    start = 0;
+                    left_ell = false;
+                    content = text_limit - (right_ell ? ell_w : 0);
+                    if (content < 1) content = 1;
                 }
-                char *sub = strdup(text + i);
-                if (sub) {
-                    fitted = ui_fit_text(sub, text_limit - hscroll, &text_width,
-                                         ui->ellipsis);
-                    text_width += hscroll;
-                    free(sub);
-                } else {
-                    fitted = ui_fit_text(text, text_limit, &text_width, ui->ellipsis);
+                int skip_runes = 0;
+                fitted = ui_slice_text(text, start, content, left_ell, right_ell,
+                                       ell, &text_width, &skip_runes);
+                if (fitted && matched->npos > 0) {
+                    int ell_runes = left_ell ? ui_rune_count(ell) : 0;
+                    view_pos = malloc(sizeof(int) * (size_t)matched->npos);
+                    if (view_pos) {
+                        int nn = 0;
+                        int content_runes = ui_rune_count(fitted) - ell_runes -
+                            (right_ell ? ui_rune_count(ell) : 0);
+                        for (int k = 0; k < matched->npos; k++) {
+                            int rel = matched->pos[k] - skip_runes;
+                            if (rel < 0 || rel >= content_runes) continue;
+                            view_pos[nn++] = rel + ell_runes;
+                        }
+                        view_match.pos = view_pos;
+                        view_match.npos = nn;
+                        shown = &view_match;
+                    }
                 }
             } else {
-                fitted = ui_fit_text(text, text_limit, &text_width, ui->ellipsis);
+                fitted = ui_fit_text(text, text_limit, &text_width, ell);
             }
         }
 
@@ -1462,8 +3168,13 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                              : (ui->no_unicode
                                     ? MM_COL_DEFAULT
                                     : ui_theme_color(ui, ui->theme.gutter, MM_THEME_DARK_BG));
-        mm_color_t fg = cur ? ui_theme_color(ui, ui->theme.current, MM_THEME_CURRENT)
-                            : MM_COL_DEFAULT;
+        mm_color_t fg;
+        if (!cur || (ui->plain_theme &&
+                     (ui->theme.current.color == MM_COL_DEFAULT ||
+                      ui->theme.current.color == MM_COL_UNDEFINED)))
+            fg = ui_theme_color(ui, ui->theme.fg, MM_COL_DEFAULT);
+        else
+            fg = ui_theme_color(ui, ui->theme.current, MM_THEME_CURRENT);
         mm_color_t bg = cur ? ui_theme_color(ui, ui->theme.dark_bg, MM_THEME_DARK_BG)
                             : MM_COL_DEFAULT;
         mm_attr_t attr = line_attr | (raw_nonmatch ? MM_DIM : 0);
@@ -1482,9 +3193,9 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
            video on the current line (fzf's behaviour). */
         const char *gutter = raw_nonmatch
                                  ? (ui->gutter_raw ? ui->gutter_raw
-                                                   : (ui->no_unicode ? " " : "\\u2596"))
+                                                   : (ui->no_unicode ? " " : "\u2596"))
                                  : (ui->gutter ? ui->gutter
-                                               : (ui->no_unicode ? " " : "\\u258c"));
+                                               : (ui->no_unicode ? " " : "\u258c"));
         if (ui->no_unicode && cur) pointer_attr |= MM_REVERSE;
         /* The column after the pointer holds the multi-select marker.  The
            default marker is U+2503 (fzf's default). */
@@ -1498,20 +3209,27 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         /* The marker of a selected item uses the theme's marker colour. */
         mm_color_t mfg = (sel && ui->multi)
                              ? ui_theme_color(ui, ui->theme.marker, MM_THEME_MARKER)
-                             : (cur ? pfg : MM_COL_DEFAULT);
+                             : (cur ? ui_theme_color(ui, ui->theme.fg, pfg)
+                                    : MM_COL_DEFAULT);
+        /* The current line shows the pointer, the other lines the
+           gutter character. Continuations of a multi-line item reuse it. */
+        char jump_ptr[2] = {0, 0};
+        const char *ptr = cur ? ((ui->pointer) ? ui->pointer
+                                                : (ui->no_unicode ? " " : "\u258c"))
+                              : gutter;
+        if (ui->jump_mode && (size_t)block < strlen(jump_labels)) {
+            jump_ptr[0] = jump_labels[block];
+            ptr = jump_ptr;
+        }
+        /* A selected multi-line item uses the three-part marker. */
+        const char *ml_top = ui->no_unicode ? "." : "\u257b";
+        const char *ml_mid = ui->no_unicode ? "|" : "\u2503";
+        const char *ml_bot = ui->no_unicode ? "'" : "\u2579";
+        bool ml_selected = break_lines && n_pieces > 1 && sel && ui->multi;
+        const char *first_mark = ml_selected ? ml_top : mark;
         if (visible) {
-            /* The current line shows the pointer, the other lines the
-               gutter character. */
-            char jump_ptr[2] = {0, 0};
-            const char *ptr = cur ? ((ui->pointer) ? ui->pointer
-                                                    : (ui->no_unicode ? " " : "\u258c"))
-                                      : gutter;
-            if (ui->jump_mode && (size_t)block < strlen(jump_labels)) {
-                jump_ptr[0] = jump_labels[block];
-                ptr = jump_ptr;
-            }
             mm_window_cprint(listwin, pfg, bg, pointer_attr, ptr);
-            mm_window_cprint(listwin, mfg, bg, 0, mark);
+            mm_window_cprint(listwin, mfg, bg, 0, first_mark);
         }
         if (visible && ui->ansi) {
             mm_renderer_stderr(listwin->r, fitted ? fitted : text);
@@ -1521,46 +3239,62 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
             for (int c = 0; c < n_pieces; c++) {
                 if (screen_y + c < list_first || screen_y + c > list_last) continue;
                 if (c > 0) {
+                    const char *cont_ptr;
+                    if (!break_lines)
+                        cont_ptr = (cur && ui->pointer) ? ui->pointer : "\u258c";
+                    else if (ui->jump_mode)
+                        cont_ptr = gutter;
+                    else
+                        cont_ptr = ptr;
+                    const char *cont_mark = mark;
+                    if (ml_selected)
+                        cont_mark = (c == n_pieces - 1) ? ml_bot : ml_mid;
                     mm_window_move(listwin, screen_y + c, area_x + content_x + list_border_inset);
-                    mm_window_cprint(listwin, pfg, bg, pointer_attr,
-                                     (cur && ui->pointer) ? ui->pointer : "\u258c");
-                    mm_window_cprint(listwin, mfg, bg, 0, mark);
+                    mm_window_cprint(listwin, pfg, bg, pointer_attr, cont_ptr);
+                    mm_window_cprint(listwin, mfg, bg, 0, cont_mark);
                     /* The wrap sign uses the style of the line with the
-                       dim attribute added (fzf's behaviour). */
-                    mm_window_cprint(listwin, fg, bg, attr | MM_DIM, sign);
+                       dim attribute added (fzf's behaviour). A multi-line
+                       item has no wrap sign between its own lines. */
+                    if (!break_lines)
+                        mm_window_cprint(listwin, fg, bg, attr | MM_DIM, sign);
                 }
                 /* The matched offsets of this piece. */
                 mm_match_pos_t sub = { NULL, 0 };
                 int *subpos = NULL;
                 int nsub = 0;
+                int piece_runes = break_lines ? ui_rune_count(pieces[c]) : 0;
                 if (matched && matched->npos > 0 && matched->pos) {
                     subpos = malloc(sizeof(int) * (size_t)matched->npos);
                     if (subpos) {
                         for (int k = 0; k < matched->npos; k++) {
                             int p = matched->pos[k] - piece_off[c];
-                            if (p >= 0) subpos[nsub++] = p;
+                            if (p < 0) continue;
+                            if (break_lines && p >= piece_runes) continue;
+                            subpos[nsub++] = p;
                         }
                     }
                 }
                 sub.pos = subpos;
                 sub.npos = nsub;
-                ui_print_item(listwin, ui, pieces[c], &sub, fg, bg, attr, cur);
+                ui_print_item(listwin, ui, pieces[c] ? pieces[c] : "", &sub, fg, bg, attr, cur);
                 free(subpos);
                 /* Clear the rest of this line.  Every line is cleared on its
                    own, so that the spaces never run past the edge of the
                    row. */
-                int used = 2 + (c > 0 ? sign_width : 0) + ui_str_width(pieces[c]);
+                int used = 2 + ((c > 0 && !break_lines) ? sign_width : 0) +
+                           ui_str_width(pieces[c] ? pieces[c] : "");
                 mm_color_t clear_bg = (cur && ui->highlight_line) ? bg : MM_COL_DEFAULT;
                 ui_clear_to_eol(listwin, area_x + area_w - 1,
                                 area_x + content_x + list_border_inset + used, clear_bg);
             }
         } else if (visible) {
-            ui_print_item(listwin, ui, fitted, matched, fg, bg, attr, cur);
+            ui_print_item(listwin, ui, fitted ? fitted : text, shown, fg, bg, attr, cur);
             mm_color_t clear_bg = (cur && ui->highlight_line) ? bg : MM_COL_DEFAULT;
             ui_clear_to_eol(listwin, area_x + area_w - 1,
                             area_x + content_x + list_border_inset + 2 + text_width, clear_bg);
         }
         free(fitted);
+        free(view_pos);
         free(single_line_text);
         free(display_text);
         if (pieces) {
@@ -1569,20 +3303,23 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
         }
         free(piece_off);
 
-        /* Scrollbar, drawn in the last column of the list area. */
+        /* Scrollbar, drawn in the last column of every visible row of the
+           item. The range is in list-area rows, the same coordinates fzf
+           uses for printBar. */
         if (!ui->no_scrollbar && bar_len > 0) {
-            int screen_line = screen_y;
-            int row_in_list = screen_line - list_first;
-            if (row_in_list >= bar_start && row_in_list < bar_start + bar_len) {
-                mm_window_move(listwin, screen_line,
-                              b_right ? area_x + area_w - 2 : area_x + area_w - 1);
-                mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.scrollbar, MM_THEME_BORDER),
-                                 MM_COL_DEFAULT, 0,
-                                 ui->no_unicode ? "|" : "\u2502");
-            } else {
-                mm_window_move(listwin, screen_line,
-                              b_right ? area_x + area_w - 2 : area_x + area_w - 1);
-                mm_window_cprint(listwin, MM_COL_DEFAULT, MM_COL_DEFAULT, 0, " ");
+            int col = b_right ? area_x + area_w - 2 : area_x + area_w - 1;
+            for (int screen_line = screen_y; screen_line <= block_last; screen_line++) {
+                if (screen_line < list_first || screen_line > list_last) continue;
+                int row_in_list = screen_line - list_first;
+                if (row_in_list >= bar_start && row_in_list < bar_start + bar_len) {
+                    mm_window_move(listwin, screen_line, col);
+                    mm_window_cprint(listwin, ui_theme_color(ui, ui->theme.scrollbar, MM_THEME_BORDER),
+                                     MM_COL_DEFAULT, 0,
+                                     ui->no_unicode ? "|" : "\u2502");
+                } else {
+                    mm_window_move(listwin, screen_line, col);
+                    mm_window_cprint(listwin, MM_COL_DEFAULT, MM_COL_DEFAULT, 0, " ");
+                }
             }
         }
 
@@ -1806,9 +3543,18 @@ static void ui_render(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *listwin,
                     MM_COL_DEFAULT, 0, ui->list_label);
             }
         }
-        if (draw_header_box)
-            ui_draw_border_box(listwin, hg, bcol, left, right,
-                               header_row - 1, header_row + header_rows, total);
+        if (draw_header_box) {
+            int hshape = ui_resolve_header_shape(ui);
+            const mm_border_glyphs_t *hsg = ui->no_unicode
+                ? mm_border_glyphs_ascii(hshape) : mm_border_glyphs(hshape);
+            bool ht, hb, edge_l, edge_r;
+            mm_border_sides(hshape, &ht, &hb, &edge_l, &edge_r);
+            int box_top = ht ? header_row - 1 : header_row;
+            int box_bottom = hb ? header_row + header_rows : header_row + header_rows - 1;
+            if (box_bottom < box_top) box_bottom = box_top;
+            ui_draw_section_border(listwin, hsg ? hsg : hg, bcol, left, right,
+                                   box_top, box_bottom, hshape);
+        }
         if (draw_header_box && ui->header_label && *ui->header_label) {
             int label_width = ui_str_width(ui->header_label);
             int label_row = ui->header_label_bottom
@@ -1869,7 +3615,11 @@ static const char *ui_expect_key(mm_ui_t *ui, const mm_event_t *ev) {
 static mm_color_t ui_theme_color(const mm_ui_t *ui, mm_color_attr_t entry,
                                  mm_color_t fallback) {
     if (ui->no_color) return MM_COL_DEFAULT;
-    return ui_color(entry, fallback);
+    if (entry.color != MM_COL_UNDEFINED && entry.color != MM_COL_DEFAULT)
+        return entry.color;
+    /* A plain base has no dark-theme fallbacks; only explicit colours show. */
+    if (ui->plain_theme) return MM_COL_DEFAULT;
+    return fallback;
 }
 
 /* Print the padding of a preview row.  With a gap the reference draws the
@@ -1903,13 +3653,17 @@ static void ui_preview_scrollbar(mm_ui_t *ui, mm_window_t *win, int x, int y, in
     if (offset < 0) offset = 0;
     if (offset > max_offset) offset = max_offset;
     int bar_start = (content_h - bar_len) * offset / max_offset;
-    for (int i = 0; i < bar_len; i++) {
-        int r = content_y + bar_start + i;
-        if (r >= content_y + content_h) break;
-        mm_window_move(win, r, content_x + content_w);
-        mm_window_cprint(win, ui_theme_color(ui, ui->theme.scrollbar, MM_THEME_BORDER),
-                         MM_COL_DEFAULT, 0,
-                         ui->no_unicode ? "|" : "\u2502");
+    if (bar_start > content_h - bar_len) bar_start = content_h - bar_len;
+    if (bar_start < 0) bar_start = 0;
+    /* Rewrite the whole column. A scroll moves the thumb, and the cells it
+       leaves have to become spaces. fzf does this in renderPreviewScrollbar;
+       drawing only the thumb leaves the previous bar on the next page. */
+    const char *glyph = ui->no_unicode ? "|" : "\u2502";
+    mm_color_t scol = ui_theme_color(ui, ui->theme.scrollbar, MM_THEME_BORDER);
+    for (int i = 0; i < content_h; i++) {
+        mm_window_move(win, content_y + i, content_x + content_w);
+        mm_window_cprint(win, scol, MM_COL_DEFAULT, 0,
+                         (i >= bar_start && i < bar_start + bar_len) ? glyph : " ");
     }
     char info[32];
     int shown = offset + 1;
@@ -1922,28 +3676,93 @@ static void ui_preview_scrollbar(mm_ui_t *ui, mm_window_t *win, int x, int y, in
     }
 }
 
+/* Clip one preview line the way fzf's trimRight does, then expand tabs.
+   The limit is a display width. A tab occupies the columns up to the next
+   tab stop, and a rune that would pass the limit is left off. */
+static char *ui_preview_clip(const char *line, size_t len, int limit, int tabstop) {
+    if (tabstop < 1) tabstop = 8;
+    while (len && (line[len - 1] == '\n' || line[len - 1] == '\r')) len--;
+    size_t start = 0;
+    while (start < len && line[start] == '\r') start++;
+    line += start;
+    len -= start;
+    if (limit < 1 || len == 0) {
+        char *empty = malloc(1);
+        if (empty) empty[0] = '\0';
+        return empty;
+    }
+    int width = 0;
+    size_t i = 0, cut = 0;
+    while (i < len) {
+        wchar_t cp;
+        size_t used = mm_utf8_decode(line + i, len - i, &cp);
+        if (used == 0) used = 1;
+        int cw = (cp == L'\t') ? tabstop - (width % tabstop) : mm_runewidth(cp);
+        if (cw < 1) cw = 1;
+        if (width + cw > limit) break;
+        width += cw;
+        i += used;
+        cut = i;
+    }
+    char *out = malloc(len * (size_t)tabstop + 1);
+    if (!out) return NULL;
+    size_t j = 0;
+    width = 0;
+    i = 0;
+    while (i < cut) {
+        wchar_t cp;
+        size_t used = mm_utf8_decode(line + i, cut - i, &cp);
+        if (used == 0) { out[j++] = line[i++]; continue; }
+        if (cp == L'\t') {
+            int spaces = tabstop - (width % tabstop);
+            for (int s = 0; s < spaces; s++) out[j++] = ' ';
+            width += spaces;
+        } else {
+            memcpy(out + j, line + i, used);
+            j += used;
+            width += mm_runewidth(cp);
+        }
+        i += used;
+    }
+    out[j] = '\0';
+    return out;
+}
+
 static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
                             int x, int y, int w, int h) {
     (void)r;
     if (w <= 0 || h <= 0) return;
-    const mm_border_glyphs_t *g = ui->no_unicode
-        ? mm_border_glyphs_ascii(ui->preview_border)
-        : mm_border_glyphs(ui->preview_border);
+    int shape = ui_preview_shape(ui);
+    bool side_top, side_bottom, side_left, side_right;
+    mm_border_sides(shape, &side_top, &side_bottom, &side_left, &side_right);
+    bool any_border = side_top || side_bottom || side_left || side_right;
+    bool full_border = side_top && side_bottom && side_left && side_right;
+    bool left_only = side_left && !side_right && !side_top && !side_bottom;
+    const mm_border_glyphs_t *g = NULL;
+    if (any_border) {
+        g = ui->no_unicode ? mm_border_glyphs_ascii(shape) : mm_border_glyphs(shape);
+        if (!g) any_border = false;
+    }
     mm_color_t bcol = ui_theme_color(ui, ui->theme.border, MM_THEME_BORDER);
-    bool bordered = ui->preview_win.border && g;
-    bool full_border = bordered && !ui->preview_win.border_left_only;
 
-    int content_x = x + (bordered ? 2 : 0);
-    int content_y = y + (full_border ? 1 : 0);
-    /* A left-only border reserves its glyph and padding but no top, bottom,
-       or right edge. */
-    int content_w = w - (full_border ? 4 : (bordered ? 2 : 0));
-    int content_h = h - (full_border ? 2 : 0);
+    bool outer_top, outer_bottom, outer_left, outer_right;
+    mm_border_sides(ui->border, &outer_top, &outer_bottom, &outer_left, &outer_right);
+    /* Inside an outer border, a preview with no left edge keeps the outer
+       padding column. border-left draws its own padding instead. */
+    int gutter = (!side_left && outer_left) ? 1 : 0;
+    int content_x = x + (side_left ? 2 : gutter);
+    int content_y = y + (side_top ? 1 : 0);
+    /* A side border reserves its glyph and a padding column. */
+    int content_w = w - (side_left ? 2 : 0) - (side_right ? 2 : 0) - gutter;
+    /* No right edge: fzf reserves that column for the preview scrollbar. */
+    if (!side_right) content_w -= 1;
+    if (content_w < 1) content_w = 1;
+    int content_h = h - (side_top ? 1 : 0) - (side_bottom ? 1 : 0);
     ui->preview_page_size = content_h > 0 ? content_h : 1;
 
     /* With a gap the reference pads the preview content with the border
        colour. */
-    if (bordered) {
+    if (side_left && g) {
         /* The reference draws the space between the border and the content
            in the border colour. */
         mm_window_move(win, content_y, x + 1);
@@ -1951,7 +3770,7 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
                          MM_COL_DEFAULT, 0, " ");
     }
 
-    if (full_border) {
+    if (full_border && g) {
         /* top and bottom lines */
         for (int which = 0; which < 2; which++) {
             int row = which == 0 ? y : (y + h - 1);
@@ -2001,7 +3820,7 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
             mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, " ");
             mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, g->right);
         }
-    } else if (bordered) {
+    } else if (left_only && g) {
         /* border-left: draw the divider without top/bottom corners or a
            border on the far side of the preview. */
         for (int i = 0; i < h; i++) {
@@ -2009,11 +3828,51 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
             mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, g->left);
             mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, " ");
         }
+    } else if (any_border && g && (side_top || side_bottom)) {
+        /* border-top / border-bottom: one horizontal edge, no side frame. */
+        for (int which = 0; which < 2; which++) {
+            bool on = which == 0 ? side_top : side_bottom;
+            if (!on) continue;
+            int row = which == 0 ? y : (y + h - 1);
+            const char *mid = which == 0 ? g->top : g->bottom;
+            int line_x = x + gutter;
+            int line_w = w - gutter;
+            if (line_w < 1) line_w = 1;
+            char *line = malloc((size_t)line_w * 4 + 8);
+            if (!line) break;
+            size_t o = 0;
+            size_t glen = strlen(mid);
+            for (int i = 0; i < line_w && glen > 0; i++) {
+                memcpy(line + o, mid, glen);
+                o += glen;
+            }
+            line[o] = 0;
+            mm_window_move(win, row, line_x);
+            mm_window_cprint(win, bcol, MM_COL_DEFAULT, 0, line);
+            free(line);
+            if (ui->preview_label && *ui->preview_label) {
+                int label_width = ui_str_width(ui->preview_label);
+                if (label_width > 0 && label_width <= line_w) {
+                    int label_row = ui->preview_label_bottom ? y + h - 1 : row;
+                    if (!side_top && side_bottom) label_row = y + h - 1;
+                    int label_x = line_x + (line_w - label_width) / 2;
+                    if (ui->preview_label_pos > 0)
+                        label_x = line_x + ui->preview_label_pos - 1;
+                    else if (ui->preview_label_pos < 0)
+                        label_x = line_x + line_w - label_width + ui->preview_label_pos + 1;
+                    if (label_x < line_x) label_x = line_x;
+                    mm_window_move(win, label_row, label_x);
+                    mm_window_cprint(win,
+                        ui_theme_color(ui, ui->theme.border_label, 145),
+                        MM_COL_DEFAULT, 0, ui->preview_label);
+                }
+            }
+        }
     }
 
     /* The content area is cleared, so that the leftovers of the previous
        frame do not show through. */
-    if (bordered) {
+    if (any_border) {
         for (int i = 0; i < content_h; i++) {
             mm_window_move(win, content_y + i, content_x);
             ui_clear_to_eol(win, content_x + content_w, content_x, MM_COL_DEFAULT);
@@ -2128,24 +3987,9 @@ static void ui_draw_preview(mm_ui_t *ui, mm_renderer_t *r, mm_window_t *win,
         while (*p && row < content_y + content_h) {
             const char *nl = strchr(p, '\n');
             size_t len = nl ? (size_t)(nl - p) : strlen(p);
-            char *line = malloc(len + 1);
+            char *line = ui_preview_clip(p, len, content_w, ui->tabstop);
             if (!line) break;
-            memcpy(line, p, len);
-            line[len] = 0;
             mm_window_move(win, row, content_x);
-            /* Clip to the available width. */
-            int wchars = mm_utf8_count(line);
-            if (wchars > content_w) {
-                int cut = 0, i = 0;
-                while (i < (int)len && cut < content_w) {
-                    int clen = 1;
-                    unsigned char c = (unsigned char)line[i];
-                    if (c >= 0xF0) clen = 4; else if (c >= 0xE0) clen = 3;
-                    else if (c >= 0xC0) clen = 2;
-                    i += clen; cut++;
-                }
-                line[i] = 0;
-            }
             mm_window_cprint(win, MM_COL_DEFAULT, MM_COL_DEFAULT, 0, line);
             ui_preview_pad(win, ui, content_w, ui_str_width(line));
             free(line);
@@ -2329,10 +4173,14 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
 
     /* Commit the replacement only after every new item is ready.  Keep the
        old result indices until ui_search has used them for --track. */
-    for (int i = 0; i < ui->count; i++) {
+    for (int i = 0; i < ui->count; i++)
         mm_item_free(&ui->items[i]);
-        free(ui->lines[i]);
-    }
+    ui_free_line_storage(ui);
+    ui_free_rune_slabs(ui);
+    ui_qcache_clear(ui);
+    ui->results_item_count = 0;
+    ui->has_non_ascii = false;
+    ui->lazy_highlight = false;
     free(ui->items);
     free(ui->lines);
     free(ui->selected);
@@ -2341,6 +4189,8 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     ui->items = items;
     ui->selected = selected;
     ui->excluded = excluded;
+    ui->has_excluded = false;
+    ui->plain_results = false;
     ui->count = n;
     ui->lines_cap = n;
     ui->nselected = 0;
@@ -2348,6 +4198,9 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     if (selected_key_count > 0)
         ui_restore_selected_keys(ui, selected_keys, selected_key_count);
     ui_free_identity_keys(selected_keys, selected_key_count);
+    ui_rebuild_header_lines(ui);
+    for (int item = 0; item < ui->count && item < ui->header_line_count; item++)
+        ui_deselect_item(ui, item);
     if (!ui->track && !ui->track_current) ui->cursor = 0;
     ui->offset = 0;
     free(ui->pending_track_key);
@@ -2355,10 +4208,78 @@ static void ui_reload(mm_ui_t *ui, const char *cmd) {
     ui_search(ui);
 }
 
+/* A negative --min-height is the "N+" form: N plus the rows the chrome
+   needs. fzf's default is 10+. An explicit non-negative value is a flat floor. */
+static int ui_text_line_count(const char *text) {
+    if (!text || !*text) return 0;
+    int n = 1;
+    for (const char *p = text; *p; p++)
+        if (*p == '\n') n++;
+    if (text[strlen(text) - 1] == '\n') n--;
+    return n;
+}
+
+static bool ui_height_is_percent(const char *spec) {
+    if (!spec) return false;
+    const char *p = spec;
+    if (*p == '~' || *p == '-') p++;
+    if (*p < '0' || *p > '9') return false;
+    while (*p >= '0' && *p <= '9') p++;
+    return *p == '%';
+}
+
+/* Whether the info section has no separator row of its own. */
+static bool ui_no_separator_line(const mm_ui_t *ui) {
+    if (ui->no_input || ui->info_inline) return true;
+    int shape = ui->input_border_set ? ui->input_border : MM_BORDER_NONE;
+    if (shape == MM_BORDER_LINE)
+        shape = ui->reverse ? MM_BORDER_BOTTOM : MM_BORDER_TOP;
+    bool top, bottom, left, right;
+    mm_border_sides(shape, &top, &bottom, &left, &right);
+    bool faces = ui->reverse ? bottom : top;
+    bool sep = ui->separator_default ? !faces : (ui->separator && ui->separator[0]);
+    if (!ui->info || ui->info_inline_right) return !sep;
+    return false;
+}
+
+/* Turn the "N+" minimum into a row count. Percent heights only; an absolute
+   --height keeps the value the user wrote. */
+static void ui_expand_min_height(mm_ui_t *ui) {
+    if (ui->min_height >= 0) return;
+    if (!ui_height_is_percent(ui->height_spec)) return;
+    int h = -ui->min_height;
+    h += ui_border_line_count(ui->border);
+    h += ui_border_line_count(ui->list_border_set ? ui->list_border : MM_BORDER_NONE);
+    if (!ui->no_input) {
+        int input_shape = ui->input_border_set ? ui->input_border : MM_BORDER_NONE;
+        h += 1 + ui_border_line_count(input_shape);
+        if (!ui_no_separator_line(ui)) h++;
+    }
+    if (ui->header && ui->header[0]) {
+        int shape = ui->header_border_set ? ui->header_border : MM_BORDER_NONE;
+        h += ui_border_line_count(shape) + ui_text_line_count(ui->header);
+    }
+    if (ui->header_line_count > 0) {
+        int shape = ui->header_border_set ? ui->header_border : MM_BORDER_NONE;
+        if (ui->header_lines_border_set && ui->header_lines_border != MM_BORDER_NONE)
+            shape = ui->header_lines_border;
+        h += ui_border_line_count(shape) + ui->header_line_count;
+    }
+    if (ui->preview && !ui->preview_win.hidden &&
+        ui->preview_win.pos == MM_PREVIEW_TOP) {
+        int shape = ui_preview_shape(ui);
+        if (shape == MM_BORDER_LINE) shape = MM_BORDER_TOP;
+        h += ui_border_line_count(shape) + 10;
+    }
+    h += ui->margin * 2 + ui->padding * 2;
+    if (h < 1) h = 1;
+    ui->min_height = h;
+}
+
 /* Evaluate a --height specification.  Returns the number of rows the inline
-   window may use, or 0 for the full screen.  A percentage is relative to the
-   terminal height and never drops below fzf's minimum height of 10 rows for
-   the list, plus the info line and the prompt. */
+   window may use, or 0 for the full screen.  A percentage is a fraction of
+   the terminal. --min-height is a floor, not extra rows added on top of
+   that fraction. The default floor already includes the window chrome. */
 int mm_ui_height(const char *spec, int rows, int min_height) {
     if (!spec || !*spec) return 0;
     const char *p = spec;
@@ -2372,15 +4293,8 @@ int mm_ui_height(const char *spec, int rows, int min_height) {
         return h;
     }
     int h = (int)((double)value * (double)rows / 100.0);
-    if (min_height > 0) {
-        /* An explicit --min-height is the lower bound of the window. */
-        if (h < min_height) h = min_height;
-    } else {
-        /* Without --min-height a percentage never drops below ten rows for
-           the list, plus the info line and the prompt. */
-        if (h < 10) h = 10;
-        h += 2;
-    }
+    int floor = min_height < 0 ? -min_height : min_height;
+    if (h < floor) h = floor;
     if (h > rows) h = rows;
     return h;
 }
@@ -2388,10 +4302,26 @@ int mm_ui_height(const char *spec, int rows, int min_height) {
 /* Start (or restart) the preview command for the current item. */
 static bool ui_command_append(char **out, size_t *length, size_t *capacity,
                               const char *text, size_t n);
+
+/* Remember which item and query the preview command was started for.
+   A later key that does not change either must not run the command again:
+   preview-page-down would lose the offset it just applied. */
+static void ui_preview_note(mm_ui_t *ui) {
+    int idx = -1;
+    if (ui->nresults > 0 && ui->cursor >= 0 && ui->cursor < ui->nresults)
+        idx = ui->results[ui->cursor];
+    ui->preview_item = idx;
+    free(ui->preview_query);
+    ui->preview_query = strdup(ui->query_buf ? ui->query_buf : "");
+}
+
 static void ui_preview_restart(mm_ui_t *ui) {
     if (!ui->preview) return;
     int idx = ui->nresults > 0 ? ui->results[ui->cursor] : -1;
-    if (idx < 0 || idx >= ui->count) return;
+    if (idx < 0 || idx >= ui->count) {
+        ui_preview_note(ui);
+        return;
+    }
 
     char *raw = NULL, *shell = NULL;
     size_t raw_len = 0, raw_cap = 0, shell_len = 0, shell_cap = 0;
@@ -2449,6 +4379,31 @@ static void ui_preview_restart(mm_ui_t *ui) {
     free(shell);
     ui->preview_offset = 0;
     mm_preview_start(ui->preview, ui->lines[idx], ui->query_buf, idx);
+    ui->preview_fresh = true;
+    ui_preview_note(ui);
+}
+
+/* A fast preview (printf, ls) has usually exited before the repaint. Read
+   it now so that paint shows the new text. A slow command is left for the
+   poll loop; the wait is only the time until output arrives, capped. */
+static void ui_preview_catch_up(mm_ui_t *ui) {
+    if (!ui->preview_fresh || !ui->preview || ui->preview_hidden) return;
+    ui->preview_fresh = false;
+    mm_preview_drain(ui->preview, 8);
+}
+
+/* Re-run the preview only when the current item or the query changed.
+   Scrolling, layout keys, and other actions keep the existing output. */
+static void ui_preview_sync(mm_ui_t *ui) {
+    if (!ui->preview || ui->preview_hidden) return;
+    int idx = -1;
+    if (ui->nresults > 0 && ui->cursor >= 0 && ui->cursor < ui->nresults)
+        idx = ui->results[ui->cursor];
+    const char *query = ui->query_buf ? ui->query_buf : "";
+    if (ui->preview_query && idx == ui->preview_item &&
+        strcmp(ui->preview_query, query) == 0)
+        return;
+    ui_preview_restart(ui);
 }
 
 
@@ -2870,7 +4825,7 @@ static void ui_run_command(mm_ui_t *ui, const char *cmd, bool silent,
     if (!silent) {
         /* Re-enter the alternate screen and repaint. */
         mm_renderer_init(ui->renderer, ui->renderer->ttyin, ui->renderer->ttyout,
-                         false, 8, true, true);
+                         ui->mouse, 8, true, true);
     }
 }
 
@@ -2894,7 +4849,7 @@ static bool ui_apply_transform_output(mm_ui_t *ui, char *output, size_t len) {
             if (mm_bind_parse(&actions, spec, false, &error)) {
                 for (int i = 0; i < actions.n; i++) {
                     mm_binding_t action = actions.items[i];
-                    if (!ui_execute_action(ui, &action)) {
+                    if (!ui_run_action(ui, &action)) {
                         keep_running = false;
                         break;
                     }
@@ -2907,20 +4862,21 @@ static bool ui_apply_transform_output(mm_ui_t *ui, char *output, size_t len) {
     return keep_running;
 }
 
-/* Run transform(command), capture stdout, then execute the returned action chain. */
-static bool ui_transform(mm_ui_t *ui, const char *cmd) {
-    if (!cmd || !*cmd) return true;
+/* Run a command and return its stdout. *out_len is the byte count. */
+static char *ui_capture_output(mm_ui_t *ui, const char *cmd, size_t *out_len) {
+    *out_len = 0;
+    if (!cmd || !*cmd) return calloc(1, 1);
     size_t placeholder_checkpoint = ui->placeholder_files_n;
     char *expanded = ui_expand_command(ui, cmd, false);
     if (!expanded) {
         ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
-        return true;
+        return NULL;
     }
     int fds[2];
     if (pipe(fds) != 0) {
         free(expanded);
         ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
-        return true;
+        return NULL;
     }
     pid_t pid = fork();
     if (pid == 0) {
@@ -2936,7 +4892,7 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
     if (pid < 0) {
         close(fds[0]);
         ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
-        return true;
+        return NULL;
     }
     size_t len = 0, cap = 256;
     char *output = malloc(cap);
@@ -2944,7 +4900,7 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
         close(fds[0]);
         while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
         ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
-        return true;
+        return NULL;
     }
     for (;;) {
         if (len + 128 + 1 > cap) {
@@ -2962,6 +4918,23 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
     while (waitpid(pid, NULL, 0) < 0 && errno == EINTR) {}
     output[len] = '\0';
     ui_cleanup_placeholder_files(ui, placeholder_checkpoint);
+    *out_len = len;
+    return output;
+}
+
+static void ui_trim_first_line(char *output, size_t *len) {
+    size_t n = 0;
+    while (n < *len && output[n] != '\n') n++;
+    if (n > 0 && output[n - 1] == '\r') n--;
+    output[n] = '\0';
+    *len = n;
+}
+
+/* Run transform(command), capture stdout, then execute the returned action chain. */
+static bool ui_transform(mm_ui_t *ui, const char *cmd) {
+    size_t len = 0;
+    char *output = ui_capture_output(ui, cmd, &len);
+    if (!output) return true;
     bool keep = ui_apply_transform_output(ui, output, len);
     free(output);
     return keep;
@@ -2970,7 +4943,10 @@ static bool ui_transform(mm_ui_t *ui, const char *cmd) {
 /* Start a transform without blocking input. Only one job is active at a time. */
 static void ui_bg_transform_cancel(mm_ui_t *ui);
 
-static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd) {
+static void ui_bg_transform_start(mm_ui_t *ui, const char *cmd,
+                                  mm_action_t target, bool first_line) {
+    ui->bg_transform_target = target;
+    ui->bg_transform_first_line = first_line;
     if (!cmd || !*cmd) return;
     ui_bg_transform_cancel(ui);
     size_t placeholder_checkpoint = ui->placeholder_files_n;
@@ -3066,12 +5042,25 @@ static bool ui_bg_transform_poll(mm_ui_t *ui) {
        chain may start or cancel another background transform. */
     char *output = ui->bg_transform_output;
     size_t output_len = ui->bg_transform_len;
+    mm_action_t target = ui->bg_transform_target;
+    bool first_line = ui->bg_transform_first_line;
     ui->bg_transform_output = NULL;
     ui->bg_transform_len = ui->bg_transform_cap = 0;
+    ui->bg_transform_target = MM_ACT_NONE;
+    ui->bg_transform_first_line = false;
     if (!output) output = calloc(1, 1);
     bool keep = true;
-    if (output)
-        keep = ui_apply_transform_output(ui, output, output_len);
+    if (output) {
+        if (target != MM_ACT_NONE && target != MM_ACT_BG_TRANSFORM) {
+            if (first_line) ui_trim_first_line(output, &output_len);
+            mm_binding_t fake = {0};
+            fake.action = target;
+            fake.arg = output;
+            keep = ui_run_action(ui, &fake);
+        } else {
+            keep = ui_apply_transform_output(ui, output, output_len);
+        }
+    }
     free(output);
     return keep;
 }
@@ -3138,6 +5127,57 @@ static void ui_preview_scroll(mm_ui_t *ui, int delta) {
 }
 
 /* Execute one action. Returns false when the action should end the loop. */
+static bool ui_transform_kind(mm_action_t action, mm_action_t *target,
+                              bool *first_line, bool *background) {
+    static const struct {
+        mm_action_t action;
+        mm_action_t target;
+        bool first_line;
+        bool background;
+    } table[] = {
+        { MM_ACT_TRANSFORM_PROMPT, MM_ACT_CHANGE_PROMPT, true, false },
+        { MM_ACT_TRANSFORM_QUERY, MM_ACT_CHANGE_QUERY, true, false },
+        { MM_ACT_TRANSFORM_HEADER, MM_ACT_CHANGE_HEADER, false, false },
+        { MM_ACT_TRANSFORM_FOOTER, MM_ACT_CHANGE_FOOTER, false, false },
+        { MM_ACT_TRANSFORM_HEADER_LABEL, MM_ACT_CHANGE_HEADER_LABEL, true, false },
+        { MM_ACT_TRANSFORM_FOOTER_LABEL, MM_ACT_CHANGE_FOOTER_LABEL, true, false },
+        { MM_ACT_TRANSFORM_INPUT_LABEL, MM_ACT_CHANGE_INPUT_LABEL, true, false },
+        { MM_ACT_TRANSFORM_LIST_LABEL, MM_ACT_CHANGE_LIST_LABEL, true, false },
+        { MM_ACT_TRANSFORM_BORDER_LABEL, MM_ACT_CHANGE_BORDER_LABEL, true, false },
+        { MM_ACT_TRANSFORM_PREVIEW_LABEL, MM_ACT_CHANGE_PREVIEW_LABEL, true, false },
+        { MM_ACT_TRANSFORM_HEADER_LINES, MM_ACT_CHANGE_HEADER_LINES, true, false },
+        { MM_ACT_TRANSFORM_GHOST, MM_ACT_CHANGE_GHOST, true, false },
+        { MM_ACT_TRANSFORM_NTH, MM_ACT_CHANGE_NTH, true, false },
+        { MM_ACT_TRANSFORM_WITH_NTH, MM_ACT_CHANGE_WITH_NTH, true, false },
+        { MM_ACT_TRANSFORM_POINTER, MM_ACT_CHANGE_POINTER, true, false },
+        { MM_ACT_TRANSFORM_SEARCH, MM_ACT_SEARCH, true, false },
+        { MM_ACT_BG_TRANSFORM_PROMPT, MM_ACT_CHANGE_PROMPT, true, true },
+        { MM_ACT_BG_TRANSFORM_QUERY, MM_ACT_CHANGE_QUERY, true, true },
+        { MM_ACT_BG_TRANSFORM_HEADER, MM_ACT_CHANGE_HEADER, false, true },
+        { MM_ACT_BG_TRANSFORM_FOOTER, MM_ACT_CHANGE_FOOTER, false, true },
+        { MM_ACT_BG_TRANSFORM_HEADER_LABEL, MM_ACT_CHANGE_HEADER_LABEL, true, true },
+        { MM_ACT_BG_TRANSFORM_FOOTER_LABEL, MM_ACT_CHANGE_FOOTER_LABEL, true, true },
+        { MM_ACT_BG_TRANSFORM_INPUT_LABEL, MM_ACT_CHANGE_INPUT_LABEL, true, true },
+        { MM_ACT_BG_TRANSFORM_LIST_LABEL, MM_ACT_CHANGE_LIST_LABEL, true, true },
+        { MM_ACT_BG_TRANSFORM_BORDER_LABEL, MM_ACT_CHANGE_BORDER_LABEL, true, true },
+        { MM_ACT_BG_TRANSFORM_PREVIEW_LABEL, MM_ACT_CHANGE_PREVIEW_LABEL, true, true },
+        { MM_ACT_BG_TRANSFORM_HEADER_LINES, MM_ACT_CHANGE_HEADER_LINES, true, true },
+        { MM_ACT_BG_TRANSFORM_GHOST, MM_ACT_CHANGE_GHOST, true, true },
+        { MM_ACT_BG_TRANSFORM_NTH, MM_ACT_CHANGE_NTH, true, true },
+        { MM_ACT_BG_TRANSFORM_WITH_NTH, MM_ACT_CHANGE_WITH_NTH, true, true },
+        { MM_ACT_BG_TRANSFORM_POINTER, MM_ACT_CHANGE_POINTER, true, true },
+        { MM_ACT_BG_TRANSFORM_SEARCH, MM_ACT_SEARCH, true, true },
+    };
+    for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++) {
+        if (table[i].action != action) continue;
+        *target = table[i].target;
+        *first_line = table[i].first_line;
+        *background = table[i].background;
+        return true;
+    }
+    return false;
+}
+
 static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     /* One-shot tracking ends as soon as the user explicitly moves focus.
        Query edits and refreshes keep it active so the same item can be found
@@ -3156,6 +5196,26 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             break;
         default:
             break;
+        }
+    }
+    {
+        mm_action_t target = MM_ACT_NONE;
+        bool first_line = false, background = false;
+        if (ui_transform_kind(b->action, &target, &first_line, &background)) {
+            if (background) {
+                ui_bg_transform_start(ui, b->arg, target, first_line);
+                return true;
+            }
+            size_t len = 0;
+            char *output = ui_capture_output(ui, b->arg, &len);
+            if (!output) return true;
+            if (first_line) ui_trim_first_line(output, &len);
+            mm_binding_t fake = {0};
+            fake.action = target;
+            fake.arg = output;
+            bool keep = ui_execute_action(ui, &fake);
+            free(output);
+            return keep;
         }
     }
     switch (b->action) {
@@ -3434,9 +5494,6 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_BACKWARD_WORD:
         while (ui->query_pos > 0 &&
-               ui->query_buf[ui->query_pos - 1] == ' ')
-            ui->query_pos--;
-        while (ui->query_pos > 0 &&
                ui->query_buf[ui->query_pos - 1] != ' ')
             ui->query_pos--;
         while (ui->query_pos > 0 &&
@@ -3446,9 +5503,6 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_FORWARD_WORD:
         while ((size_t)ui->query_pos < ui->query_len &&
                ui->query_buf[ui->query_pos] != ' ')
-            ui->query_pos++;
-        while ((size_t)ui->query_pos < ui->query_len &&
-               ui->query_buf[ui->query_pos] == ' ')
             ui->query_pos++;
         while ((size_t)ui->query_pos < ui->query_len &&
                ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
@@ -3480,8 +5534,29 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui_search(ui);
         break;
     case MM_ACT_DELETE_CHAR:
-        query_delete(ui);
-        ui_search(ui);
+        if (query_delete(ui)) ui_search(ui);
+        break;
+    case MM_ACT_DELETE_CHAR_EOF: {
+        bool can_delete = (size_t)ui->query_pos < ui->query_len;
+        if (query_delete(ui)) {
+            ui_search(ui);
+        } else if (!can_delete && ui->query_pos == 0) {
+            ui->exit_code = 130;
+            ui->aborted = true;
+            return false;
+        }
+        break;
+    }
+    case MM_ACT_BACKWARD_DELETE_CHAR_EOF:
+        if (ui->query_len == 0) {
+            ui->exit_code = 130;
+            ui->aborted = true;
+            return false;
+        }
+        if (ui->query_pos > 0) {
+            query_backspace(ui);
+            ui_search(ui);
+        }
         break;
     case MM_ACT_KILL_LINE:
         query_kill_after_cursor(ui);
@@ -3496,6 +5571,27 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             query_delete(ui);
         ui_search(ui);
         break;
+    case MM_ACT_KILL_SUBWORD: {
+        size_t pos = (size_t)ui->query_pos;
+        if (pos > ui->query_len) pos = ui->query_len;
+        size_t end = query_kill_subword_end(ui->query_buf, ui->query_len, pos);
+        if (end > pos) {
+            size_t n = end - pos;
+            char *yanked = malloc(n + 1);
+            if (yanked) {
+                memcpy(yanked, ui->query_buf + pos, n);
+                yanked[n] = '\0';
+                free(ui->yank_buf);
+                ui->yank_buf = yanked;
+            }
+            memmove(ui->query_buf + pos, ui->query_buf + end,
+                    ui->query_len - end + 1);
+            ui->query_len -= n;
+            query_note_edit(ui);
+            ui_search(ui);
+        }
+        break;
+    }
     case MM_ACT_BACKWARD_KILL_WORD:
     case MM_ACT_UNIX_WORD_RUBOUT:
         while (ui->query_pos > 0 &&
@@ -3518,7 +5614,7 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_TRANSFORM:
         return ui_transform(ui, b->arg);
     case MM_ACT_BG_TRANSFORM:
-        ui_bg_transform_start(ui, b->arg);
+        ui_bg_transform_start(ui, b->arg, MM_ACT_BG_TRANSFORM, false);
         break;
     case MM_ACT_BG_CANCEL:
         ui_bg_transform_cancel(ui);
@@ -3531,6 +5627,8 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             for (int i = 0; i < ui->count; i++) {
                 if (ui->selected[i] && !ui->excluded[i]) {
                     ui->excluded[i] = true;
+                    ui->has_excluded = true;
+                    ui->plain_results = false;
                     ui->selected[i] = false;
                     changed = true;
                 }
@@ -3546,6 +5644,8 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             int item = ui->results[ui->cursor];
             if (item >= 0 && item < ui->count && !ui->excluded[item]) {
                 ui->excluded[item] = true;
+                ui->has_excluded = true;
+                ui->plain_results = false;
                 if (ui->selected[item]) {
                     ui->selected[item] = false;
                     if (ui->nselected > 0) ui->nselected--;
@@ -3559,6 +5659,8 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             }
         }
         if (changed) {
+            ui_qcache_clear(ui);
+            ui->results_item_count = 0;
             ui_search(ui);
             if (ui->cursor >= ui->nresults) ui->cursor = ui->nresults > 0 ? ui->nresults - 1 : 0;
         }
@@ -3606,6 +5708,34 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
                 ui->header = ui->saved_header;
         }
         break;
+    case MM_ACT_CHANGE_HEADER_LINES: {
+        int n = 0;
+        if (!ui_parse_nonneg_int(b->arg, &n) || n == ui->header_line_count) break;
+        int prev_item = -1;
+        int prev_pos = 0;
+        if (ui->results && ui->cursor >= 0 && ui->cursor < ui->nresults) {
+            prev_item = ui->results[ui->cursor];
+            prev_pos = ui->cursor - ui->offset;
+            if (prev_pos < 0) prev_pos = 0;
+        }
+        ui->header_line_count = n;
+        for (int item = 0; item < ui->count && item < n; item++)
+            ui_deselect_item(ui, item);
+        ui_rebuild_header_lines(ui);
+        ui_qcache_clear(ui);
+        ui->results_item_count = 0;
+        ui_search(ui);
+        if (prev_item >= 0) {
+            for (int i = 0; i < ui->nresults; i++) {
+                if (ui->results[i] != prev_item) continue;
+                ui->cursor = i;
+                ui->offset = i - prev_pos;
+                if (ui->offset < 0) ui->offset = 0;
+                break;
+            }
+        }
+        break;
+    }
     case MM_ACT_CHANGE_NTH:
     case MM_ACT_CHANGE_WITH_NTH: {
         mm_range_t *ranges = NULL;
@@ -3624,6 +5754,8 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
             ui->with_nth = ranges;
             ui->with_nth_n = nranges;
         }
+        ui_qcache_clear(ui);
+        ui->results_item_count = 0;
         ui_search(ui);
         break;
     }
@@ -3730,7 +5862,13 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         ui->header = ui->saved_header;
         break;
     case MM_ACT_SHOW_INPUT:
+        /* Already visible: fzf skips the redraw and continues the chain. */
+        if (!ui->no_input) break;
         ui->no_input = false;
+        break;
+    case MM_ACT_HIDE_INPUT:
+        if (ui->no_input) break;
+        ui->no_input = true;
         break;
     case MM_ACT_TOGGLE_INPUT:
         ui->no_input = !ui->no_input;
@@ -3764,8 +5902,41 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_CHANGE_PREVIEW_WINDOW:
         if (b->arg && ui->preview) {
-            /* Change the preview window options. */
-            mm_preview_window_parse(b->arg, &ui->preview_win);
+            /* fzf resets to the original --preview-window, applies the first
+               alternative, then rotates that alternative to the end. An
+               empty alternative restores the original. Wrap state is kept
+               unless the alternative sets it. */
+            mm_binding_t *mut = (mm_binding_t *)b;
+            const char *arg = mut->arg;
+            const char *bar = strchr(arg, '|');
+            size_t n = bar ? (size_t)(bar - arg) : strlen(arg);
+            char *tok = malloc(n + 1);
+            if (!tok) break;
+            memcpy(tok, arg, n);
+            tok[n] = 0;
+            mm_preview_win_t next = ui->preview_win_initial;
+            next.wrap = ui->preview_win.wrap;
+            next.wrap_word = ui->preview_win.wrap_word;
+            if (n > 0 && ui->preview_win_initial.hidden) next.hidden = false;
+            bool ok = mm_preview_window_apply(tok, &next);
+            free(tok);
+            if (!ok) break;
+            bool was_hidden = ui->preview_hidden;
+            ui->preview_win = next;
+            ui->preview_hidden = next.hidden;
+            if (!next.hidden && was_hidden) ui_preview_restart(ui);
+            if (bar) {
+                size_t rest = strlen(bar + 1);
+                char *rotated = malloc(rest + 1 + n + 1);
+                if (rotated) {
+                    memcpy(rotated, bar + 1, rest);
+                    rotated[rest] = '|';
+                    memcpy(rotated + rest + 1, arg, n);
+                    rotated[rest + 1 + n] = 0;
+                    free(mut->arg);
+                    mut->arg = rotated;
+                }
+            }
         }
         break;
     case MM_ACT_PREVIEW_TOP: ui_preview_scroll(ui, INT_MIN); break;
@@ -3818,6 +5989,8 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
         break;
     case MM_ACT_TOGGLE_SORT:
         ui->no_sort = !ui->no_sort;
+        ui_qcache_clear(ui);
+        ui->results_item_count = 0;
         ui_search(ui);
         break;
     case MM_ACT_TOGGLE_TRACK:
@@ -3842,8 +6015,19 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_REBIND:
         if (b->arg) (void)mm_bind_rebind(&ui->keymap, &ui->disabled_keymap, b->arg);
         break;
+    case MM_ACT_TOGGLE_BIND:
+        if (b->arg) (void)mm_bind_toggle(&ui->keymap, &ui->disabled_keymap, b->arg);
+        break;
     case MM_ACT_UNIX_LINE_DISCARD:
-        query_set(ui, "");
+        /* Discard everything from the start of the line to the cursor. */
+        if (ui->query_pos > 0) {
+            size_t pos = (size_t)ui->query_pos;
+            memmove(ui->query_buf, ui->query_buf + pos,
+                    ui->query_len - pos + 1);
+            ui->query_len -= pos;
+            ui->query_pos = 0;
+            ui->query_buf[ui->query_len] = 0;
+        }
         ui_search(ui);
         break;
     case MM_ACT_UNTRACK_CURRENT:
@@ -3852,7 +6036,52 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     case MM_ACT_WAIT:
         break;
     case MM_ACT_YANK:
+        if (ui->yank_buf && ui->yank_buf[0]) {
+            query_insert(ui, ui->yank_buf, strlen(ui->yank_buf));
+            ui_search(ui);
+        }
         break;
+    case MM_ACT_SEARCH: {
+        const char *text = b->arg ? b->arg : "";
+        char *copy = strdup(text);
+        if (!copy) break;
+        free(ui->search_override);
+        ui->search_override = copy;
+        ui_search(ui);
+        break;
+    }
+    case MM_ACT_TRIGGER: {
+        if (!b->arg || ui->trigger_depth > 8) break;
+        ui->trigger_depth++;
+        const char *p = b->arg;
+        bool keep = true;
+        while (keep && *p) {
+            while (*p == ' ' || *p == '\t' || *p == ',') p++;
+            if (!*p) break;
+            const char *comma = strchr(p, ',');
+            size_t len = comma ? (size_t)(comma - p) : strlen(p);
+            while (len && (p[len - 1] == ' ' || p[len - 1] == '\t')) len--;
+            char name[64];
+            if (len == 0 || len >= sizeof(name)) {
+                p = comma ? comma + 1 : p + strlen(p);
+                continue;
+            }
+            memcpy(name, p, len);
+            name[len] = '\0';
+            mm_event_t ev;
+            if (mm_bind_parse_key(name, &ev)) {
+                const mm_binding_t *found[16];
+                int nf = mm_bind_lookup(&ui->keymap, &ev, found, 16);
+                for (int i = 0; i < nf && keep && !ui->stop_chain; i++)
+                    keep = ui_run_action(ui, found[i]);
+                ui->stop_chain = false;
+            }
+            p = comma ? comma + 1 : p + strlen(p);
+        }
+        ui->trigger_depth--;
+        if (!keep) return false;
+        break;
+    }
     default:
         /* Actions that need features this port does not implement yet are
            accepted and ignored rather than silently mis-executed. */
@@ -3860,6 +6089,66 @@ static bool ui_execute_action(mm_ui_t *ui, const mm_binding_t *b) {
     }
     return true;
 }
+
+/* fzf restores the pre-action query when the input section is hidden, and
+   stops the rest of the chain without leaving the finder. */
+static bool ui_run_action(mm_ui_t *ui, const mm_binding_t *b) {
+    char *snap = strdup(ui->query_buf ? ui->query_buf : "");
+    bool keep = ui_execute_action(ui, b);
+    if (ui->no_input && snap &&
+        (!ui->query_buf || strcmp(ui->query_buf, snap) != 0)) {
+        query_restore(ui, snap);
+        ui_search(ui);
+    } else if (ui->no_input) {
+        ui->query_pos = (int)ui->query_len;
+    }
+    free(snap);
+    return keep;
+}
+
+static bool ui_tty_pending(int ttyin) {
+    if (ttyin < 0) return false;
+    struct pollfd pfd = { .fd = ttyin, .events = POLLIN };
+    int ready;
+    do {
+        ready = poll(&pfd, 1, 0);
+    } while (ready < 0 && errno == EINTR);
+    return ready > 0 && (pfd.revents & (POLLIN | POLLERR | POLLHUP));
+}
+
+static int64_t ui_mono_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+/* Read one available chunk. When the pipe is empty and block_ms > 0, wait
+   that long for the producer or a key. Returns true when items were added
+   or the stream finished. */
+static bool ui_pull_input(mm_ui_t *ui, int ttyin, int block_ms) {
+    if (ui->input_fd < 0 || ui->input_done) return false;
+    bool changed = mm_ui_read_items(ui, ttyin);
+    if (ui->input_done || ui->input_fd < 0 || ui_tty_pending(ttyin))
+        return changed;
+    if (changed || block_ms <= 0) return changed;
+    struct pollfd pfds[2];
+    nfds_t np = 1;
+    pfds[0].fd = ui->input_fd;
+    pfds[0].events = POLLIN;
+    if (ttyin >= 0) {
+        pfds[1].fd = ttyin;
+        pfds[1].events = POLLIN;
+        np = 2;
+    }
+    int rc;
+    do {
+        rc = poll(pfds, np, block_ms);
+    } while (rc < 0 && errno == EINTR);
+    if (rc > 0 && (pfds[0].revents & (POLLIN | POLLHUP | POLLERR)))
+        changed = mm_ui_read_items(ui, ttyin) || changed;
+    return changed;
+}
+
 int mm_ui_run(mm_ui_t *ui) {
     if (!ui->saved_header) ui->saved_header = ui->header;
     int ttyin = open("/dev/tty", O_RDONLY);
@@ -3880,9 +6169,10 @@ int mm_ui_run(mm_ui_t *ui) {
         if (ioctl(ttyout, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) total_rows = ws.ws_row;
         else total_rows = 24;
     }
+    ui_expand_min_height(ui);
     int win_height = ui->height_spec ? mm_ui_height(ui->height_spec, total_rows,
                                                 ui->min_height) : 0;
-    if (!mm_renderer_init(&r, ttyin, ttyout, false, ui->tabstop, !ui->no_clear, win_height == 0)) {
+    if (!mm_renderer_init(&r, ttyin, ttyout, ui->mouse, ui->tabstop, !ui->no_clear, win_height == 0)) {
         fprintf(stderr, "fzf: failed to initialize terminal\n");
         close(ttyin); close(ttyout);
         return 2;
@@ -3895,6 +6185,10 @@ int mm_ui_run(mm_ui_t *ui) {
     }
 
     /* Trigger the "start" event. */
+    setenv("FZF_CLICK_HEADER_LINE", "0", 1);
+    setenv("FZF_CLICK_HEADER_COLUMN", "0", 1);
+    setenv("FZF_CLICK_FOOTER_LINE", "0", 1);
+    setenv("FZF_CLICK_FOOTER_COLUMN", "0", 1);
     ui_exec_event(ui, "start");
 
     mm_keybuf_t input;
@@ -3911,18 +6205,42 @@ int mm_ui_run(mm_ui_t *ui) {
     mm_window_init(&infowin, &r, 0, 0, mm_renderer_max_x(&r), 1,
                    MM_WIN_INPUT, MM_BORDER_NONE, false);
 
-    /* The items that are already available are shown right away; the rest
-       arrives while the program is running (a live stream). */
-    if (mm_ui_read_items(ui, ttyin)) ui_search(ui);
-    ui_search(ui);
-    ui_render(ui, &r, &listwin, &promptwin, &infowin);
-
-    /* Trigger the "load" event after the initial search. */
-    ui_exec_event(ui, "load");
-
+    /* Show items as they arrive. A fast walk keeps the pipe full, so waiting
+       for it to go idle hides the list until the walker finishes. */
     bool running = true;
+    bool load_sent = false;
+    bool painted = false;
+    /* Items read since the last paint. A chunk can arrive just after a
+       frame; the next pass still has to draw it once 16 ms have elapsed,
+       even when that pass's read finds the pipe empty. */
+    bool input_dirty = false;
+    int64_t last_paint = 0;
     int focused_item = -2; /* sentinel forces the initial focus event */
-    ui_exec_focus_if_changed(ui, &focused_item);
+    if (ui->input_fd < 0 || ui->input_done) ui_search(ui);
+    while (running && ui->input_fd >= 0 && !ui->input_done &&
+           !ui_tty_pending(ttyin)) {
+        bool more = ui_pull_input(ui, ttyin, 1);
+        bool done = ui->input_fd < 0 || ui->input_done;
+        if (more) input_dirty = true;
+        int64_t now = ui_mono_ms();
+        if ((input_dirty || done) &&
+            (!painted || done || now - last_paint >= MM_PAINT_MS)) {
+            if (ui->count != ui->nresults) ui_search(ui);
+            ui_exec_focus_if_changed(ui, &focused_item);
+            ui_render(ui, &r, &listwin, &promptwin, &infowin);
+            last_paint = now;
+            painted = true;
+            input_dirty = false;
+        }
+        if (done) break;
+    }
+    if (ui->count != ui->nresults) ui_search(ui);
+    if ((ui->input_fd < 0 || ui->input_done) && !load_sent) {
+        /* A load action such as accept has to leave the finder. */
+        if (!ui_exec_event(ui, "load")) running = false;
+        load_sent = true;
+    }
+
     /* Do not auto-accept a transient single result while a producer is still
        feeding the input stream. fzf evaluates --select-1/--exit-0 against the
        completed initial result set, not an arbitrary partial read. */
@@ -3931,6 +6249,15 @@ int mm_ui_run(mm_ui_t *ui) {
         ((ui->select_1 && ui->nresults == 1) ||
          (ui->exit_0 && ui->nresults == 0)))
         running = false;
+
+    if (running) {
+        ui_exec_focus_if_changed(ui, &focused_item);
+        ui_render(ui, &r, &listwin, &promptwin, &infowin);
+        last_paint = ui_mono_ms();
+        painted = true;
+        input_dirty = false;
+    }
+
     int exit_code = 0;
     if (ui->preview) ui_preview_restart(ui);
 
@@ -3943,6 +6270,8 @@ int mm_ui_run(mm_ui_t *ui) {
     if (sigaction(SIGWINCH, &resize_action, &previous_resize_action) == 0)
         resize_handler_installed = true;
 
+    bool mouse_down = false;
+    int mouse_x = -1, mouse_y = -1;
     while (running) {
         mm_event_t ev;
         /* A cancellable read lets us poll the preview command while waiting
@@ -3958,7 +6287,11 @@ int mm_ui_run(mm_ui_t *ui) {
                                           ui->min_height);
                 r.inline_height = ui->height;
             }
-            ui->page_size = resized_height > 3 ? resized_height - 3 : 1;
+            /* Page through the window that is actually on screen. The tty
+               can be taller than --height. */
+            int page_rows = resized_height;
+            if (ui->height > 0 && ui->height < page_rows) page_rows = ui->height;
+            ui->page_size = page_rows > 3 ? page_rows - 3 : 1;
             mm_window_init(&listwin, &r, 0, 0, resized_width,
                            resized_height > 0 ? resized_height : 1,
                            MM_WIN_LIST, MM_BORDER_NONE, false);
@@ -3967,24 +6300,71 @@ int mm_ui_run(mm_ui_t *ui) {
             mm_window_init(&infowin, &r, 0, 0, resized_width, 1,
                            MM_WIN_INPUT, MM_BORDER_NONE, false);
             ui_exec_event(ui, "resize");
+            /* The preview spec is unchanged, so the layout stamp would
+               skip the erase and the previous box would stay outside the
+               new one. fzf fullRedraw clears from the origin first. */
+            mm_renderer_clear(&r);
             ui_render(ui, &r, &listwin, &promptwin, &infowin);
         }
         if (!got_event) break;
+        if (ev.type == MM_EV_MOUSE) {
+            int x = ev.x;
+            int y = ev.y - r.yoffset;
+            bool clicked = mouse_down && !ev.mouse_down && !ev.mouse_scroll &&
+                           x == mouse_x && y == mouse_y;
+            if (ev.mouse_down && !mouse_down) {
+                mouse_x = x;
+                mouse_y = y;
+            }
+            if (!ev.mouse_down) mouse_down = false;
+            else mouse_down = true;
+            if (ui->mouse && clicked) {
+                int hit = ui_dispatch_click(ui, x, y);
+                if (hit == 2) { running = false; break; }
+                if (hit == 1) {
+                    ui_exec_focus_if_changed(ui, &focused_item);
+                    ui_preview_sync(ui);
+                    ui_preview_catch_up(ui);
+                    if (running) ui_render(ui, &r, &listwin, &promptwin, &infowin);
+                }
+            }
+            continue;
+        }
         if (ev.type == MM_EV_INVALID) {
             /* Timed out: read the items that arrived in the meantime and
                give the preview a chance to produce output. */
-            bool more = mm_ui_read_items(ui, ttyin);
+            bool more = ui_pull_input(ui, ttyin, 0);
+            if (more) input_dirty = true;
             bool bg_transform_active = ui->bg_transform_pid > 0;
             if (!ui_bg_transform_poll(ui)) running = false;
-            if (more) { ui_search(ui); }
             input_complete = ui->input_fd < 0 || ui->input_done;
+            bool loaded_now = false;
+            int64_t now = ui_mono_ms();
+            bool due = input_dirty && (input_complete || !painted ||
+                                       now - last_paint >= MM_PAINT_MS);
+            if (due || loaded_now) {
+                if (ui->count != ui->nresults) ui_search(ui);
+            }
+            if (!load_sent && input_complete) {
+                if (!ui_exec_event(ui, "load")) running = false;
+                load_sent = true;
+                loaded_now = true;
+            }
             if (input_complete &&
                 ((ui->select_1 && ui->nresults == 1) ||
                  (ui->exit_0 && ui->nresults == 0)))
                 running = false;
             if (more) ui_exec_focus_if_changed(ui, &focused_item);
-            if ((more || bg_transform_active || (ui->preview && mm_preview_poll(ui->preview))) && running) {
-                ui_render(ui, &r, &listwin, &promptwin, &infowin);
+            {
+                bool preview_ready = ui->preview && mm_preview_poll(ui->preview);
+                if ((due || loaded_now || bg_transform_active || preview_ready) &&
+                    running) {
+                    if (ui->count != ui->nresults) ui_search(ui);
+                    ui_render(ui, &r, &listwin, &promptwin, &infowin);
+                    last_paint = now;
+                    painted = true;
+                    if (ui->count == ui->nresults) input_dirty = false;
+                }
             }
             continue;
         }
@@ -4024,7 +6404,8 @@ int mm_ui_run(mm_ui_t *ui) {
                     ui_exec_event(ui, "jump-cancel");
                 }
                 ui_exec_focus_if_changed(ui, &focused_item);
-                if (ui->preview) ui_preview_restart(ui);
+                ui_preview_sync(ui);
+                ui_preview_catch_up(ui);
                 if (running) ui_render(ui, &r, &listwin, &promptwin, &infowin);
                 continue;
             }
@@ -4035,11 +6416,17 @@ int mm_ui_run(mm_ui_t *ui) {
             /* User bindings take precedence over the built-in behaviour. */
             if (nf > 0) {
                 bool cont = true;
-                for (int i = 0; i < nf && cont; i++)
-                    cont = ui_execute_action(ui, found[i]);
+                ui->stop_chain = false;
+                ui->defer_search++;
+                for (int i = 0; i < nf && cont && !ui->stop_chain; i++)
+                    cont = ui_run_action(ui, found[i]);
+                ui->stop_chain = false;
+                ui->defer_search--;
+                if (cont && ui->search_dirty) ui_search(ui);
                 if (!cont) { running = false; break; }
                 ui_exec_focus_if_changed(ui, &focused_item);
-                if (ui->preview) ui_preview_restart(ui);
+                ui_preview_sync(ui);
+                ui_preview_catch_up(ui);
                 if (running) ui_render(ui, &r, &listwin, &promptwin, &infowin);
                 continue;
             }
@@ -4085,6 +6472,7 @@ int mm_ui_run(mm_ui_t *ui) {
             break;
         case MM_EV_UP:
         case MM_EV_CTRL_P:
+        case MM_EV_CTRL_K:
             if (ui->nresults > 0) {
                 int step = ui_nav_step(ui, 1);
                 if (ui->cycle) {
@@ -4098,9 +6486,6 @@ int mm_ui_run(mm_ui_t *ui) {
         case MM_EV_CTRL_LEFT:
         case MM_EV_ALT_LEFT:
             while (ui->query_pos > 0 &&
-                   ui->query_buf[ui->query_pos - 1] == ' ')
-                ui->query_pos--;
-            while (ui->query_pos > 0 &&
                    ui->query_buf[ui->query_pos - 1] != ' ')
                 ui->query_pos--;
             while (ui->query_pos > 0 &&
@@ -4111,9 +6496,6 @@ int mm_ui_run(mm_ui_t *ui) {
         case MM_EV_ALT_RIGHT:
             while ((size_t)ui->query_pos < ui->query_len &&
                    ui->query_buf[ui->query_pos] != ' ')
-                ui->query_pos++;
-            while ((size_t)ui->query_pos < ui->query_len &&
-                   ui->query_buf[ui->query_pos] == ' ')
                 ui->query_pos++;
             while ((size_t)ui->query_pos < ui->query_len &&
                    ((unsigned char)ui->query_buf[ui->query_pos] & 0xC0) == 0x80)
@@ -4178,10 +6560,6 @@ int mm_ui_run(mm_ui_t *ui) {
             query_kill_before_cursor(ui);
             ui_search(ui);
             break;
-        case MM_EV_CTRL_K:
-            query_kill_after_cursor(ui);
-            ui_search(ui);
-            break;
         case MM_EV_CTRL_W:
             /* Delete the previous word. */
             while (ui->query_pos > 0 && ui->query_buf[ui->query_pos - 1] == ' ')
@@ -4216,7 +6594,8 @@ int mm_ui_run(mm_ui_t *ui) {
             break;
         }
         ui_exec_focus_if_changed(ui, &focused_item);
-        if (ui->preview) ui_preview_restart(ui);
+        ui_preview_sync(ui);
+        ui_preview_catch_up(ui);
         if (running) ui_render(ui, &r, &listwin, &promptwin, &infowin);
     }
 
@@ -4236,6 +6615,28 @@ int mm_ui_run(mm_ui_t *ui) {
     if (ui->become_command) {
         fflush(stdout);
         fflush(stderr);
+        /* Inside a popup the parent owns the replacement. Write the command
+           and exit 126 so it can exec after the pane closes. */
+        if (ui->proxy_script && ui->proxy_script[0]) {
+            char path[PATH_MAX];
+            int nw = snprintf(path, sizeof(path), "%s.become", ui->proxy_script);
+            if (nw > 0 && (size_t)nw < sizeof(path)) {
+                FILE *bf = fopen(path, "wb");
+                if (bf) {
+                    fputs(ui->become_command, bf);
+                    fputc('\0', bf);
+                    extern char **environ;
+                    if (environ) {
+                        for (char **ev = environ; *ev; ev++) {
+                            fputs(*ev, bf);
+                            fputc('\0', bf);
+                        }
+                    }
+                    fclose(bf);
+                }
+            }
+            return 126;
+        }
         /* The replacement command must be able to read any {f}/{+f}/{*f}
            files created during expansion. Do not unlink them on exec failure. */
         if (ui->shell && *ui->shell)
@@ -4307,26 +6708,77 @@ static bool ui_grow(mm_ui_t *ui, int need) {
     return true;
 }
 
-/* Append one item to the list. */
-static void ui_add_line(mm_ui_t *ui, char *line) {
-    if (!ui_grow(ui, 1)) { free(line); return; }
+static bool ui_pending_append(mm_ui_t *ui, const char *data, size_t n) {
+    if (n == 0) return true;
+    if (n > SIZE_MAX - ui->pending_len - 1) return false;
+    size_t required = ui->pending_len + n + 1;
+    if (required > ui->pending_cap) {
+        size_t ncap = ui->pending_cap ? ui->pending_cap : 4096;
+        while (ncap < required) {
+            if (ncap > SIZE_MAX / 2) {
+                ncap = required;
+                break;
+            }
+            ncap *= 2;
+        }
+        char *np = realloc(ui->pending, ncap);
+        if (!np) return false;
+        ui->pending = np;
+        ui->pending_cap = ncap;
+    }
+    memcpy(ui->pending + ui->pending_len, data, n);
+    ui->pending_len += n;
+    ui->pending[ui->pending_len] = '\0';
+    return true;
+}
+
+/* Append one item. Runes stay undecoded until a non-empty search. */
+static bool ui_push_span(mm_ui_t *ui, const char *src, size_t llen) {
+    if (ui->input_sep == '\n' && llen > 0 && src[llen - 1] == '\r') llen--;
+    char *line = ui_store_line(ui, src, llen);
+    if (!line) return false;
+    if (!ui_grow(ui, 1)) {
+        ui_discard_line(ui, line);
+        return false;
+    }
     int idx = ui->count;
     ui->lines[idx] = line;
     if (!mm_item_init(&ui->items[idx], line, idx)) {
-        free(line);
+        ui_discard_line(ui, line);
         ui->lines[idx] = NULL;
-        return;
-    }
-    if (!mchars_decode(&ui->items[idx].text)) {
-        mm_item_free(&ui->items[idx]);
-        free(line);
-        ui->lines[idx] = NULL;
-        memset(&ui->items[idx], 0, sizeof(ui->items[idx]));
-        return;
+        return false;
     }
     ui->selected[idx] = false;
     ui->excluded[idx] = false;
+    if (!ui->items[idx].text.ascii) ui->has_non_ascii = true;
     ui->count++;
+    return true;
+}
+
+/* Split a read into lines. Complete lines are stored in place; only the
+   unfinished tail is copied into the pending buffer. */
+static bool ui_consume(mm_ui_t *ui, const char *data, size_t len, bool *added) {
+    if (ui->pending_len > 0) {
+        const char *sep = memchr(data, (unsigned char)ui->input_sep, len);
+        size_t head = sep ? (size_t)(sep - data) : len;
+        if (!ui_pending_append(ui, data, head)) return false;
+        if (!sep) return true;
+        if (!ui_push_span(ui, ui->pending, ui->pending_len)) return false;
+        *added = true;
+        ui->pending_len = 0;
+        data += head + 1;
+        len -= head + 1;
+    }
+    const char *p = data;
+    const char *end = data + len;
+    while (p < end) {
+        const char *sep = memchr(p, (unsigned char)ui->input_sep, (size_t)(end - p));
+        if (!sep) return ui_pending_append(ui, p, (size_t)(end - p));
+        if (!ui_push_span(ui, p, (size_t)(sep - p))) return false;
+        *added = true;
+        p = sep + 1;
+    }
+    return true;
 }
 
 /* Read the items that are available on the input and append them to the
@@ -4347,80 +6799,35 @@ bool mm_ui_read_items(mm_ui_t *ui, int ttyin) {
             break;
         }
         if (n == 0) { ui->input_done = true; finished = true; break; }
-        if ((size_t)n > SIZE_MAX - ui->pending_len - 1) {
+        if (!ui_consume(ui, buf, (size_t)n, &added)) {
             ui->input_done = true;
             break;
         }
-        size_t required = ui->pending_len + (size_t)n + 1;
-        if (required > ui->pending_cap) {
-            size_t ncap = ui->pending_cap ? ui->pending_cap : 65536;
-            while (ncap < required) {
-                if (ncap > SIZE_MAX / 2) {
-                    ncap = required;
-                    break;
-                }
-                ncap *= 2;
-            }
-            char *np = realloc(ui->pending, ncap);
-            if (!np) { ui->input_done = true; break; }
-            ui->pending = np;
-            ui->pending_cap = ncap;
-        }
-        memcpy(ui->pending + ui->pending_len, buf, (size_t)n);
-        ui->pending_len += (size_t)n;
-        /* Split the complete lines. */
-        size_t start = 0;
-        for (size_t i = 0; i < ui->pending_len; i++) {
-            if (ui->pending[i] != ui->input_sep) continue;
-            size_t llen = i - start;
-            if (ui->input_sep == '\n' && llen > 0 && ui->pending[start + llen - 1] == '\r')
-                llen--;
-            char *line = malloc(llen + 1);
-            if (!line) break;
-            memcpy(line, ui->pending + start, llen);
-            line[llen] = 0;
-            ui_add_line(ui, line);
-            added = true;
-            start = i + 1;
-        }
-        if (start > 0) {
-            memmove(ui->pending, ui->pending + start, ui->pending_len - start);
-            ui->pending_len -= start;
-        }
-        /* A continuously-writing producer can keep the pipe readable forever.
-           Stop draining when a key is pending so the event loop can handle it
-           before consuming the entire stream. With no key pending, continue
-           draining normally and avoid repeated search/render passes. */
-        if (ttyin >= 0) {
-            struct pollfd pfd = { .fd = ttyin, .events = POLLIN };
-            int ready;
-            do {
-                ready = poll(&pfd, 1, 0);
-            } while (ready < 0 && errno == EINTR);
-            if (ready > 0 && (pfd.revents & POLLIN)) break;
-        }
+        /* One chunk per call so the UI can paint between reads. A key is
+           noticed by the caller before the next chunk. */
+        break;
     }
+    (void)ttyin;
     /* The last line of the stream is not terminated. */
     if (ui->input_done && ui->pending_len > 0) {
-        size_t llen = ui->pending_len;
-        if (ui->input_sep == '\n' && llen > 0 && ui->pending[llen - 1] == '\r') llen--;
-        char *line = malloc(llen + 1);
-        if (line) {
-            memcpy(line, ui->pending, llen);
-            line[llen] = 0;
-            ui_add_line(ui, line);
-            added = true;
-        }
+        if (ui_push_span(ui, ui->pending, ui->pending_len)) added = true;
         ui->pending_len = 0;
     }
     /* Report the end of the stream as a change so that the spinner is
        cleared even when the last read did not add an item. */
+    if (added && ui->header_line_count > 0) ui_rebuild_header_lines(ui);
     return added || finished;
 }
 
 bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->result_events_initialized = false;
     ui->last_search_query = NULL;
+    ui->search_override = NULL;
+    ui->yank_buf = NULL;
+    ui->stop_chain = false;
+    ui->trigger_depth = 0;
+    ui->bg_transform_target = MM_ACT_NONE;
+    ui->bg_transform_first_line = false;
     /* No descriptor means input was collected before entering the UI.
        Streaming callers install their descriptor after initialization. */
     ui->input_fd = -1;
@@ -4430,6 +6837,9 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->bg_transform_len = ui->bg_transform_cap = 0;
     ui->bg_transform_placeholder_start = 0;
     ui->become_command = NULL;
+    ui->preview_item = -1;
+    ui->preview_query = NULL;
+    ui->preview_layout = -2;
     ui->runtime_strings = NULL;
     ui->runtime_strings_n = ui->runtime_strings_cap = 0;
     ui->placeholder_files = NULL;
@@ -4457,11 +6867,15 @@ bool mm_ui_init(mm_ui_t *ui, char **lines, int count, int cap) {
     ui->selected = calloc(alloc, sizeof(bool));
     ui->excluded = calloc(alloc, sizeof(bool));
     if (!ui->selected || !ui->excluded) return false;
-    query_set(ui, ui->query ? ui->query : "");
+    query_restore(ui, ui->query ? ui->query : "");
     ui->cursor = 0;
     ui->offset = 0;
     ui->nresults = 0;
     ui->results = NULL;
+    ui->results_cap = 0;
+    ui->plain_results = false;
+    ui->has_excluded = false;
+    ui_rebuild_header_lines(ui);
     return true;
 }
 
@@ -4470,6 +6884,11 @@ void mm_ui_free(mm_ui_t *ui) {
     ui_cleanup_placeholder_files(ui, 0);
     free(ui->placeholder_files);
     free(ui->become_command);
+    free(ui->preview_query);
+    ui->preview_query = NULL;
+    free(ui->header_lines_buf);
+    ui->header_lines_buf = NULL;
+    ui->header_lines = NULL;
     for (size_t i = 0; i < ui->runtime_strings_n; i++) free(ui->runtime_strings[i]);
     free(ui->runtime_strings);
     free(ui->nth);
@@ -4480,11 +6899,15 @@ void mm_ui_free(mm_ui_t *ui) {
     ui->with_nth_n = 0;
     if (ui->items)
         for (int i = 0; i < ui->count; i++) mm_item_free(&ui->items[i]);
-    if (ui->lines) {
-        for (int i = 0; i < ui->count; i++) free(ui->lines[i]);
-        free(ui->lines);
-        ui->lines = NULL;
-    }
+    ui_free_line_storage(ui);
+    ui_free_rune_slabs(ui);
+    ui_qcache_clear(ui);
+    mm_match_pos_free(ui->match_pos, ui->match_pos_n);
+    ui->match_pos = NULL;
+    ui->match_pos_n = 0;
+    ui_clear_window_pos(ui);
+    free(ui->lines);
+    ui->lines = NULL;
     free(ui->items);
     free(ui->selected);
     free(ui->sel_order);
@@ -4495,6 +6918,8 @@ void mm_ui_free(mm_ui_t *ui) {
     free(ui->search_results);
     free(ui->pending_track_key);
     free(ui->last_search_query);
+    free(ui->search_override);
+    free(ui->yank_buf);
     free(ui->query_buf);
     mm_delimiter_free(&ui->delim);
     mm_keymap_free(&ui->keymap);

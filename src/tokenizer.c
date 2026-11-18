@@ -644,18 +644,20 @@ char *mm_strip_last_delimiter(const char *str, mm_delimiter_t delim) {
             size_t start = begin + (size_t)match[0].rm_so;
             size_t end = begin + (size_t)match[0].rm_eo;
             if (start > length || end > length || end < start) break;
-            last_start = start;
-            last_end = end;
-            found = true;
+            bool more = false;
             if (end > begin) {
                 begin = end;
+                more = true;
             } else if (start < length) {
                 wchar_t rune;
                 size_t used = mm_utf8_decode(str + start, length - start, &rune);
                 begin = start + (used ? used : 1);
-            } else {
-                break;
+                more = true;
             }
+            if (!more) break;
+            last_start = start;
+            last_end = end;
+            found = true;
         }
         return found && last_end == length
             ? strndup(str, last_start) : strdup(str);

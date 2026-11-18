@@ -1,6 +1,7 @@
 /* bind.c - parse --bind specifications and look up actions. */
 #define _POSIX_C_SOURCE 200809L
 #include "bind.h"
+#include "preview.h"
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -61,6 +62,7 @@ static const struct { const char *name; mm_action_t action; } action_table[] = {
     { "change-query", MM_ACT_CHANGE_QUERY },
     { "change-prompt", MM_ACT_CHANGE_PROMPT },
     { "change-header", MM_ACT_CHANGE_HEADER },
+    { "change-header-lines", MM_ACT_CHANGE_HEADER_LINES },
     { "change-multi", MM_ACT_CHANGE_MULTI },
     { "change-nth", MM_ACT_CHANGE_NTH },
     { "change-with-nth", MM_ACT_CHANGE_WITH_NTH },
@@ -143,12 +145,52 @@ static const struct { const char *name; mm_action_t action; } action_table[] = {
     { "select-down", MM_ACT_SELECT_DOWN },
     { "deselect-up", MM_ACT_DESELECT_UP },
     { "bg-cancel", MM_ACT_BG_CANCEL },
+    { "backward-delete-char/eof", MM_ACT_BACKWARD_DELETE_CHAR_EOF },
+    { "delete-char/eof", MM_ACT_DELETE_CHAR_EOF },
+    { "kill-subword", MM_ACT_KILL_SUBWORD },
+    { "hide-input", MM_ACT_HIDE_INPUT },
+    { "toggle-bind", MM_ACT_TOGGLE_BIND },
+    { "search", MM_ACT_SEARCH },
+    { "trigger", MM_ACT_TRIGGER },
+    { "transform-prompt", MM_ACT_TRANSFORM_PROMPT },
+    { "transform-query", MM_ACT_TRANSFORM_QUERY },
+    { "transform-header", MM_ACT_TRANSFORM_HEADER },
+    { "transform-footer", MM_ACT_TRANSFORM_FOOTER },
+    { "transform-header-label", MM_ACT_TRANSFORM_HEADER_LABEL },
+    { "transform-footer-label", MM_ACT_TRANSFORM_FOOTER_LABEL },
+    { "transform-input-label", MM_ACT_TRANSFORM_INPUT_LABEL },
+    { "transform-list-label", MM_ACT_TRANSFORM_LIST_LABEL },
+    { "transform-border-label", MM_ACT_TRANSFORM_BORDER_LABEL },
+    { "transform-preview-label", MM_ACT_TRANSFORM_PREVIEW_LABEL },
+    { "transform-header-lines", MM_ACT_TRANSFORM_HEADER_LINES },
+    { "transform-ghost", MM_ACT_TRANSFORM_GHOST },
+    { "transform-nth", MM_ACT_TRANSFORM_NTH },
+    { "transform-with-nth", MM_ACT_TRANSFORM_WITH_NTH },
+    { "transform-pointer", MM_ACT_TRANSFORM_POINTER },
+    { "transform-search", MM_ACT_TRANSFORM_SEARCH },
+    { "bg-transform-prompt", MM_ACT_BG_TRANSFORM_PROMPT },
+    { "bg-transform-query", MM_ACT_BG_TRANSFORM_QUERY },
+    { "bg-transform-header", MM_ACT_BG_TRANSFORM_HEADER },
+    { "bg-transform-footer", MM_ACT_BG_TRANSFORM_FOOTER },
+    { "bg-transform-header-label", MM_ACT_BG_TRANSFORM_HEADER_LABEL },
+    { "bg-transform-footer-label", MM_ACT_BG_TRANSFORM_FOOTER_LABEL },
+    { "bg-transform-input-label", MM_ACT_BG_TRANSFORM_INPUT_LABEL },
+    { "bg-transform-list-label", MM_ACT_BG_TRANSFORM_LIST_LABEL },
+    { "bg-transform-border-label", MM_ACT_BG_TRANSFORM_BORDER_LABEL },
+    { "bg-transform-preview-label", MM_ACT_BG_TRANSFORM_PREVIEW_LABEL },
+    { "bg-transform-header-lines", MM_ACT_BG_TRANSFORM_HEADER_LINES },
+    { "bg-transform-ghost", MM_ACT_BG_TRANSFORM_GHOST },
+    { "bg-transform-nth", MM_ACT_BG_TRANSFORM_NTH },
+    { "bg-transform-with-nth", MM_ACT_BG_TRANSFORM_WITH_NTH },
+    { "bg-transform-pointer", MM_ACT_BG_TRANSFORM_POINTER },
+    { "bg-transform-search", MM_ACT_BG_TRANSFORM_SEARCH },
     { NULL, MM_ACT_IGNORE }
 };
 
 const char *mm_action_name(mm_action_t a) {
     for (size_t i = 0; i < sizeof(action_table) / sizeof(action_table[0]); i++)
-        if (action_table[i].action == a) return action_table[i].name;
+        if (action_table[i].name && action_table[i].action == a)
+            return action_table[i].name;
     return "none";
 }
 
@@ -180,8 +222,40 @@ static bool parse_key(const char *key, mm_event_type_t *type, wchar_t *rune) {
         *rune = decoded;
         return true;
     }
-    if (mm_event_from_name(key, type)) return true;
+    if (mm_event_from_name(key, type)) {
+        /* alt-j is MM_EV_ALT plus the rune. Named chords such as alt-up
+           already have their own event and leave the rune at 0. */
+        if (*type == MM_EV_ALT && strncmp(key, "alt-", 4) == 0) {
+            const char *rest = key + 4;
+            mbstate_t st = {0};
+            wchar_t decoded_alt = 0;
+            size_t nb = mbrtowc(&decoded_alt, rest, strlen(rest), &st);
+            if (nb == strlen(rest) && decoded_alt != 0) *rune = decoded_alt;
+        }
+        return true;
+    }
     return false;
+}
+
+/* Next '+' outside parentheses. Empty pieces are returned so the caller
+   can skip them; a NULL token ends the chain. */
+static char *split_action_chain(char *s, char **next) {
+    if (!s || !*s) {
+        *next = NULL;
+        return NULL;
+    }
+    int depth = 0;
+    for (char *p = s; *p; p++) {
+        if (*p == '(') depth++;
+        else if (*p == ')' && depth > 0) depth--;
+        else if (*p == '+' && depth == 0) {
+            *p = 0;
+            *next = p + 1;
+            return s;
+        }
+    }
+    *next = NULL;
+    return s;
 }
 
 /* Parse an action name with an optional "(argument)" suffix. */
@@ -205,7 +279,7 @@ static bool parse_action(const char *spec, mm_action_t *action, char **arg) {
     memcpy(name, spec, nlen);
     name[nlen] = 0;
     for (size_t i = 0; i < sizeof(action_table) / sizeof(action_table[0]); i++) {
-        if (strcmp(action_table[i].name, name) == 0) {
+        if (action_table[i].name && strcmp(action_table[i].name, name) == 0) {
             *action = action_table[i].action;
             return true;
         }
@@ -221,7 +295,7 @@ static void keymap_remove_key(mm_keymap_t *km, mm_event_type_t type, wchar_t run
     int w = 0;
     for (int i = 0; i < km->n; i++) {
         if (km->items[i].type == type &&
-            (type != MM_EV_RUNE || km->items[i].rune == rune)) {
+            ((type != MM_EV_RUNE && type != MM_EV_ALT) || km->items[i].rune == rune)) {
             free(km->items[i].arg);
             continue;
         }
@@ -232,7 +306,8 @@ static void keymap_remove_key(mm_keymap_t *km, mm_event_type_t type, wchar_t run
 
 static bool key_matches(const mm_binding_t *b, mm_event_type_t type,
                          wchar_t rune) {
-    return b->type == type && (type != MM_EV_RUNE || b->rune == rune);
+    return b->type == type &&
+           ((type != MM_EV_RUNE && type != MM_EV_ALT) || b->rune == rune);
 }
 
 static bool binding_key_spec(const char *p, size_t len,
@@ -289,6 +364,47 @@ bool mm_bind_rebind(mm_keymap_t *km, mm_keymap_t *disabled, const char *keys) {
     return binding_control(km, disabled, keys, true);
 }
 
+bool mm_bind_parse_key(const char *key, mm_event_t *ev) {
+    if (!ev) return false;
+    memset(ev, 0, sizeof(*ev));
+    if (!key || !parse_key(key, &ev->type, &ev->rune)) return false;
+    return ev->type != MM_EV_INVALID;
+}
+
+bool mm_bind_toggle(mm_keymap_t *km, mm_keymap_t *disabled, const char *keys) {
+    if (!km || !disabled || !keys || !*keys) return false;
+    const char *p = keys;
+    while (*p) {
+        const char *comma = strchr(p, ',');
+        size_t len = comma ? (size_t)(comma - p) : strlen(p);
+        mm_event_type_t type = MM_EV_INVALID;
+        wchar_t rune = 0;
+        if (!binding_key_spec(p, len, &type, &rune)) return false;
+        bool bound = false;
+        for (int i = 0; i < km->n; i++) {
+            if (key_matches(&km->items[i], type, rune)) {
+                bound = true;
+                break;
+            }
+        }
+        char spec[128];
+        if (len >= sizeof(spec)) return false;
+        memcpy(spec, p, len);
+        spec[len] = '\0';
+        if (bound) {
+            if (!mm_bind_unbind(km, disabled, spec)) return false;
+        } else if (!mm_bind_rebind(km, disabled, spec)) {
+            return false;
+        }
+        if (!comma) break;
+        p = comma + 1;
+        if (!*p) return false;
+    }
+    return true;
+}
+
+static bool is_event_name(const char *name);
+
 bool mm_bind_parse(mm_keymap_t *km, const char *spec, bool replace, const char **err) {
     if (!spec || !*spec) { *err = "bind action required"; return false; }
 
@@ -309,18 +425,6 @@ bool mm_bind_parse(mm_keymap_t *km, const char *spec, bool replace, const char *
         memcpy(key, p, (size_t)(colon - p));
         key[colon - p] = 0;
 
-        mm_event_type_t type;
-        wchar_t rune;
-        if (!parse_key(key, &type, &rune)) {
-            free(key);
-            *err = "unsupported key";
-            return false;
-        }
-        free(key);
-
-        /* A user binding replaces the built-in binding of the same key. */
-        if (replace) keymap_remove_key(km, type, rune);
-
         /* Action part: up to the next ',' at depth 0. */
         const char *q = colon + 1;
         depth = 0;
@@ -331,22 +435,67 @@ bool mm_bind_parse(mm_keymap_t *km, const char *spec, bool replace, const char *
             else if (*r == ',' && depth == 0) { end = r; break; }
         }
         if (!end) end = q + strlen(q);
+
+        mm_event_type_t type;
+        wchar_t rune;
+        /* Event bindings are installed by mm_bind_parse_full. A second pass
+           over the same spec must not reject click-header, focus, and the rest. */
+        if (is_event_name(key)) {
+            free(key);
+            p = (*end == ',') ? end + 1 : end;
+            if (*p == 0) break;
+            continue;
+        }
+        if (!parse_key(key, &type, &rune)) {
+            free(key);
+            *err = "unsupported key";
+            return false;
+        }
+        free(key);
+
+        /* A user binding replaces the built-in binding of the same key. */
+        if (replace) keymap_remove_key(km, type, rune);
         size_t alen = (size_t)(end - q);
         char *actions = malloc(alen + 1);
         if (!actions) { *err = "out of memory"; return false; }
         memcpy(actions, q, alen);
         actions[alen] = 0;
 
-        /* Actions may be chained with '+'. */
-        char *save = NULL;
-        for (char *tok = strtok_r(actions, "+", &save); tok;
-             tok = strtok_r(NULL, "+", &save)) {
+        /* Actions may be chained with '+' outside parentheses. */
+        char *chain = actions;
+        for (char *tok = split_action_chain(chain, &chain); tok;
+             tok = split_action_chain(chain, &chain)) {
+            if (!*tok) continue;
             mm_action_t action;
             char *arg = NULL;
             if (!parse_action(tok, &action, &arg)) {
                 free(actions);
                 *err = "unsupported action";
                 return false;
+            }
+            if (action == MM_ACT_CHANGE_PREVIEW_WINDOW && arg) {
+                /* Each '|' alternative has to be a preview-window spec. */
+                const char *piece = arg;
+                bool specs_ok = true;
+                while (specs_ok) {
+                    const char *cut = strchr(piece, '|');
+                    size_t plen = cut ? (size_t)(cut - piece) : strlen(piece);
+                    char *one = malloc(plen + 1);
+                    if (!one) { specs_ok = false; break; }
+                    memcpy(one, piece, plen);
+                    one[plen] = 0;
+                    mm_preview_win_t tmp;
+                    specs_ok = mm_preview_window_parse(one, &tmp);
+                    free(one);
+                    if (!cut) break;
+                    piece = cut + 1;
+                }
+                if (!specs_ok) {
+                    free(arg);
+                    free(actions);
+                    *err = "invalid preview window";
+                    return false;
+                }
             }
             mm_binding_t b = { type, rune, action, arg };
             if (!keymap_push(km, b)) {
@@ -370,7 +519,7 @@ int mm_bind_lookup(const mm_keymap_t *km, const mm_event_t *ev,
     for (int i = 0; i < km->n && found < max; i++) {
         const mm_binding_t *b = &km->items[i];
         if (b->type != ev->type) continue;
-        if (b->type == MM_EV_RUNE && b->rune != ev->rune) continue;
+        if ((b->type == MM_EV_RUNE || b->type == MM_EV_ALT) && b->rune != ev->rune) continue;
         out[found++] = b;
     }
     return found;
@@ -454,9 +603,10 @@ bool mm_event_bind_parse(mm_event_map_t *em, const char *spec, const char **err)
         memcpy(actions, q, alen);
         actions[alen] = 0;
 
-        char *save = NULL;
-        for (char *tok = strtok_r(actions, "+", &save);
-             tok; tok = strtok_r(NULL, "+", &save)) {
+        char *chain = actions;
+        for (char *tok = split_action_chain(chain, &chain); tok;
+             tok = split_action_chain(chain, &chain)) {
+            if (!*tok) continue;
             mm_action_t action;
             char *arg = NULL;
             if (!parse_action(tok, &action, &arg)) {
@@ -556,9 +706,10 @@ bool mm_bind_parse_full(mm_keymap_t *km, mm_event_map_t *em, const char *spec,
         memcpy(actions, q, alen);
         actions[alen] = 0;
 
-        char *save = NULL;
-        for (char *tok = strtok_r(actions, "+", &save);
-             tok; tok = strtok_r(NULL, "+", &save)) {
+        char *chain = actions;
+        for (char *tok = split_action_chain(chain, &chain); tok;
+             tok = split_action_chain(chain, &chain)) {
+            if (!*tok) continue;
             mm_action_t action;
             char *arg = NULL;
             if (!parse_action(tok, &action, &arg)) {

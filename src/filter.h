@@ -9,6 +9,7 @@
 
 typedef struct {
     char **lines;
+    size_t *line_lens;
     int count;
     /* Optional: items that have already been decoded.  When they are given,
        the search reuses them instead of decoding the lines again, which
@@ -47,5 +48,21 @@ int *mm_batch_search(mm_input_t *input, mm_pattern_t *pat, const mm_sort_criteri
 
 /* Release the match positions returned by mm_batch_search(). */
 void mm_match_pos_free(mm_match_pos_t *pos, int n);
+
+/* Runes for one match call on this thread. ASCII is widened into scratch
+   and is not stored on the item. A negative length means the scratch
+   buffer could not be allocated. The pointer dies at the next call. */
+mm_text_t mm_item_match_text(const mm_item_t *it);
+
+/* Interactive scan. Reads items in place, allocates no per-match position
+   list, and sorts with the same bounds as mm_batch_search. candidates, when
+   non-NULL, are searched in addition to the half-open index range. *out_n
+   is -1 on failure. An empty match list is a non-NULL allocation. */
+int *mm_batch_search_interactive(mm_item_t *items, int item_count,
+                                 const int *candidates, int ncand,
+                                 int range_lo, int range_hi,
+                                 const bool *excluded, int header_lines,
+                                 mm_pattern_t *pat, const mm_sort_criteria_t *crit,
+                                 bool tac, int *out_n);
 
 #endif /* MMENU_FILTER_H */

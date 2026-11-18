@@ -69,7 +69,9 @@ typedef enum {
 typedef struct {
     mm_event_type_t type;
     wchar_t         rune;   /* for MM_EV_RUNE */
-    int             x, y;   /* mouse coordinates */
+    int             x, y;   /* mouse coordinates, 0-based */
+    bool            mouse_down;
+    int             mouse_scroll; /* 1 up, -1 down, 0 otherwise */
 } mm_event_t;
 
 /* Human readable name of an event type, as used by --bind. Returns a

@@ -19,6 +19,95 @@
 
 static struct termios g_orig_termios;
 static bool g_termios_saved = false;
+static int g_tty_in_fd = -1;
+static int g_tty_out_fd = -1;
+static volatile sig_atomic_t g_tty_live = 0;
+static char g_restore_seq[96];
+static size_t g_restore_len = 0;
+static struct sigaction g_prev_int, g_prev_term, g_prev_hup;
+static volatile sig_atomic_t g_handlers_installed = 0;
+
+/* Mouse tracking, bracketed paste, the alternate screen and the raw termios
+   are not undone by the kernel when the process dies. Ctrl+C must either be
+   delivered as a byte (ISIG off, same as fzf's MakeRaw) so the normal close
+   path runs, or a fatal signal must write the same restore sequences. */
+static void tty_write_all(int fd, const char *s, size_t n) {
+    size_t off = 0;
+    while (off < n) {
+        ssize_t w = write(fd, s + off, n - off);
+        if (w < 0) {
+            if (errno == EINTR) continue;
+            break;
+        }
+        if (w == 0) break;
+        off += (size_t)w;
+    }
+}
+
+static void tty_build_restore(bool mouse, bool fullscreen, bool paste_on) {
+    size_t n = 0;
+#define PUT(lit) do { \
+        memcpy(g_restore_seq + n, lit, sizeof(lit) - 1); \
+        n += sizeof(lit) - 1; \
+    } while (0)
+    if (mouse) {
+        PUT("\x1b[?1000l");
+        PUT("\x1b[?1002l");
+        PUT("\x1b[?1006l");
+    }
+    PUT("\x1b[?25h");
+    PUT("\x1b[?7h");
+    if (fullscreen) PUT("\x1b[?1049l");
+    if (paste_on) PUT("\x1b[?2004h");
+    else PUT("\x1b[?2004l");
+#undef PUT
+    g_restore_len = n;
+}
+
+static void tty_fatal(int sig) {
+    if (g_tty_live) {
+        size_t n = g_restore_len;
+        int out = g_tty_out_fd;
+        int in = g_tty_in_fd;
+        g_tty_live = 0;
+        if (out >= 0 && n > 0) tty_write_all(out, g_restore_seq, n);
+        if (g_termios_saved && in >= 0)
+            tcsetattr(in, TCSANOW, &g_orig_termios);
+    }
+    struct sigaction dfl = {0};
+    dfl.sa_handler = SIG_DFL;
+    sigaction(sig, &dfl, NULL);
+    raise(sig);
+}
+
+static void tty_install_handlers(void) {
+    if (g_handlers_installed) return;
+    struct sigaction sa = {0};
+    sa.sa_handler = tty_fatal;
+    sigemptyset(&sa.sa_mask);
+    sigaddset(&sa.sa_mask, SIGINT);
+    sigaddset(&sa.sa_mask, SIGTERM);
+    sigaddset(&sa.sa_mask, SIGHUP);
+    if (sigaction(SIGINT, &sa, &g_prev_int) != 0) return;
+    if (sigaction(SIGTERM, &sa, &g_prev_term) != 0) {
+        sigaction(SIGINT, &g_prev_int, NULL);
+        return;
+    }
+    if (sigaction(SIGHUP, &sa, &g_prev_hup) != 0) {
+        sigaction(SIGINT, &g_prev_int, NULL);
+        sigaction(SIGTERM, &g_prev_term, NULL);
+        return;
+    }
+    g_handlers_installed = 1;
+}
+
+static void tty_uninstall_handlers(void) {
+    if (!g_handlers_installed) return;
+    sigaction(SIGINT, &g_prev_int, NULL);
+    sigaction(SIGTERM, &g_prev_term, NULL);
+    sigaction(SIGHUP, &g_prev_hup, NULL);
+    g_handlers_installed = 0;
+}
 
 /* ---- buffered output ---- */
 static void queued_append(mm_renderer_t *r, const char *s, size_t n) {
@@ -163,7 +252,9 @@ bool mm_renderer_init(mm_renderer_t *r, int ttyin, int ttyout, bool mouse,
         if (tcgetattr(ttyin, &g_orig_termios) == 0) {
             g_termios_saved = true;
             struct termios raw = g_orig_termios;
-            raw.c_lflag &= (tcflag_t)~(ECHO | ICANON | IEXTEN);
+            /* ISIG off, as in golang.org/x/term MakeRaw: Ctrl+C arrives as
+               0x03 and the abort binding can restore the terminal. */
+            raw.c_lflag &= (tcflag_t)~(ECHO | ICANON | IEXTEN | ISIG);
             raw.c_iflag &= (tcflag_t)~(IXON | ICRNL | BRKINT | INPCK | ISTRIP);
             raw.c_oflag &= (tcflag_t)~(OPOST);
             raw.c_cflag |= CS8;
@@ -177,6 +268,12 @@ bool mm_renderer_init(mm_renderer_t *r, int ttyin, int ttyout, bool mouse,
         mm_renderer_flush(r);
         flush_raw(r, "\x1b[?1049h", 8);
     }
+    g_tty_in_fd = ttyin;
+    g_tty_out_fd = ttyout;
+    tty_build_restore(mouse, fullscreen,
+                      r->have_paste_was_set && r->paste_was_set);
+    g_tty_live = 1;
+    tty_install_handlers();
     enable_modes(r);
     int my = mm_renderer_max_y(r);
     if (r->inline_mode) {
@@ -218,6 +315,8 @@ void mm_renderer_close(mm_renderer_t *r) {
     mm_renderer_flush(r);
     if (g_termios_saved && isatty(r->ttyin))
         tcsetattr(r->ttyin, TCSANOW, &g_orig_termios);
+    g_tty_live = 0;
+    tty_uninstall_handlers();
     free(r->queued);
     r->queued = NULL;
     r->queued_len = r->queued_cap = 0;
@@ -370,6 +469,8 @@ void mm_border_sides(int shape, bool *top, bool *bottom, bool *left, bool *right
     case MM_BORDER_BOTTOM:     *top = *left = *right = false; break;
     case MM_BORDER_LEFT:       *top = *bottom = *right = false; break;
     case MM_BORDER_RIGHT:      *top = *bottom = *left = false; break;
+    case MM_BORDER_LINE:
+    case MM_BORDER_INLINE:     *top = *bottom = *left = *right = false; break;
     default: break;
     }
 }
@@ -401,6 +502,16 @@ const mm_border_glyphs_t *mm_border_glyphs(int shape) {
     case MM_BORDER_RIGHT:      return &border_sharp;
     default:                   return NULL;
     }
+}
+
+int mm_border_parse_component(const char *spec) {
+    if (!spec || !*spec) return -1;
+    if (!strcmp(spec, "line")) return MM_BORDER_LINE;
+    if (!strcmp(spec, "inline")) return MM_BORDER_INLINE;
+    if (!strcmp(spec, "none")) return MM_BORDER_NONE;
+    /* "line" and "inline" are already handled. The outer parser maps those
+       two names onto other shapes, so it must not see them here. */
+    return mm_border_parse(spec);
 }
 
 int mm_border_parse(const char *spec) {

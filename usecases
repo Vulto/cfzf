@@ -1,0 +1,81 @@
+packageFzf() {
+    eix --only-names |
+        fzf \
+            --ansi \
+            --layout=reverse \
+            --border=rounded \
+            --border-label=' GENTOO PACKAGE BROWSER ' \
+            --preview-label=' EBUILD DETAILS ' \
+            --prompt='emerge> ' \
+            --pointer='▶' \
+            --marker='✓' \
+            --info=inline-right \
+            --header='Search packages • ENTER: Install • CTRL-/: Preview layout' \
+            --color='fg:#c0caf5,bg+:#292e42,hl:#7aa2f7,hl+:#7dcfff,prompt:#bb9af7,pointer:#7dcfff,marker:#9ece6a,info:#7aa2f7,border:#3b4261,header:#565f89' \
+            --preview='eix --category-name --exact --verbose {}' \
+            --preview-window='right,58%,border-left,wrap' \
+            --bind='ctrl-/:change-preview-window(down,45%,border-top,wrap|hidden|right,58%,border-left,wrap)' \
+            --bind='enter:become(emerge --ask --verbose {})'
+}
+
+fileFzf() {
+    fd \
+        --type f \
+        --hidden \
+        --no-ignore \
+        --absolute-path \
+        --exclude .git \
+        --exclude .cache \
+        . "$HOME" |
+        fzf \
+            --scheme=path \
+            --height=88% \
+            --layout=reverse \
+            --border=double \
+            --prompt='nopen> ' \
+            --info=inline \
+            --pointer='▶' \
+            --header='Search $HOME • ENTER: Open with nopen • CTRL-U/D: Scroll preview' \
+            --color='fg:#d8dee9,bg+:#3b4252,hl:#88c0d0,hl+:#8fbcbb,prompt:#a3be8c,pointer:#ebcb8b,info:#81a1c1,border:#4c566a' \
+            --preview='bat --style=numbers --color=always --paging=never --line-range 1:250 -- {}' \
+            --preview-window='down,45%,border-top,wrap' \
+            --bind='ctrl-u:preview-page-up,ctrl-d:preview-page-down' \
+            --bind='enter:become(nopen {})'
+}
+
+directoryFzf() {
+    local directory
+
+    directory=$(
+        {
+            printf '%s\n' "$HOME"
+
+            fd \
+                --type d \
+                --hidden \
+                --no-ignore \
+                --absolute-path \
+                --exclude .git \
+                --exclude .cache \
+                . "$HOME"
+        } |
+            fzf \
+                --cycle \
+                --tiebreak=begin,length \
+                --height=78% \
+                --layout=reverse \
+                --border=bold \
+                --header-first \
+                --prompt='cd> ' \
+                --info=hidden \
+                --pointer='◆' \
+                --header='HOME NAVIGATOR • ALT-J/K: Navigate • CTRL-/: Preview' \
+                --color='fg:#f8f8f2,bg+:#44475a,hl:#8be9fd,hl+:#50fa7b,prompt:#ff79c6,pointer:#bd93f9,info:#f1fa8c,border:#6272a4' \
+                --preview='ls -lah --color=always -- {}' \
+                --preview-window='right,42%,border-left,wrap' \
+                --bind='alt-j:down,alt-k:up,ctrl-/:toggle-preview'
+    ) || return
+
+    [[ -n "$directory" ]] && builtin cd -- "$directory"
+}
+

@@ -40,6 +40,7 @@ KEYMAP = {
     "right": b"\x1b[C",
     "left": b"\x1b[D",
     "ctrl-c": b"\x03",
+    "ctrl-d": b"\x04",
     "ctrl-a": b"\x01",
     "ctrl-e": b"\x05",
     "ctrl-u": b"\x15",

@@ -65,6 +65,12 @@ void mm_pattern_set_sortable(mm_pattern_t *p, bool sortable);
 bool mm_pattern_match(const mm_pattern_t *p, const mm_text_t *text, int *score,
                       int **pos, int *npos);
 
+/* Match without allocating a position list. On success, *begin is the first
+   matched rune and *end is one past the last, or both are -1 when the match
+   has no offsets. Those bounds are the min and max of the position list. */
+bool mm_pattern_match_span(const mm_pattern_t *p, const mm_text_t *text,
+                           int *score, int *begin, int *end);
+
 /* A search segment (e.g. an --nth token) with its rune prefix offset. */
 typedef struct {
     mm_text_t text;

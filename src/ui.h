@@ -16,6 +16,14 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#define MM_UI_QCACHE 4
+typedef struct {
+    char *query;
+    int   item_count;
+    int   n;
+    int  *idx;
+} mm_qcache_slot_t;
+
 typedef struct {
     /* Input */
     char      **lines;
@@ -45,11 +53,21 @@ typedef struct {
     const char      *saved_header; /* last configured header while hidden */
     bool              header_hidden;
     const char      *header_lines; /* --header-lines: the first N input lines */
+    char            *header_lines_buf; /* owned text of header_lines */
+    int              header_line_count; /* items hidden as header lines */
     const char      *footer;     /* --footer: the text at the top of the list */
     const char      *footer_label; /* label over the footer divider */
     int              footer_label_pos; /* 0 = centered */
+    bool             footer_label_bottom;
+    int              footer_border; /* --footer-border; line when unset */
+    bool             footer_border_set;
+    int              header_lines_border;
+    bool             header_lines_border_set;
+    bool             separator_default; /* true until --separator / --no-separator */
     bool             info;
+    bool             info_inline;       /* --info=inline: count shares the prompt line */
     bool             info_inline_right; /* --info=inline-right */
+    const char      *info_prefix;      /* --info=inline:PREFIX; NULL is " < " */
     bool             print_query;
     bool             expect;
     bool             read0;
@@ -67,10 +85,20 @@ typedef struct {
     mm_item_t   *items;
     int         *results;   /* indices into items, in display order */
     int          nresults;
+    int          results_cap; /* allocated entries in results */
+    /* results[i] == i for every i, so a live empty query can append. */
+    bool         plain_results;
+    bool         has_excluded; /* an exclude action hid at least one item */
     int          cursor;
     char        *pending_track_key; /* identity captured before reload */
     int          offset;    /* first visible row */
     char        *query_buf; /* current query text */
+    char        *search_override; /* search action: match text, display stays query_buf */
+    char        *yank_buf;   /* last killed text, inserted by yank */
+    bool         stop_chain; /* hide-input/show-input: drop the rest of this chain */
+    int          trigger_depth;
+    int          defer_search; /* >0 while an action chain is running */
+    bool         search_dirty; /* a deferred action asked for a new search */
     char        *last_search_query; /* owned snapshot used by change events */
     size_t       query_len, query_cap;
     bool        *selected;
@@ -85,6 +113,10 @@ typedef struct {
     size_t       pending_len;
     size_t       pending_cap;
     int          lines_cap;     /* the capacity of the lines array */
+    /* Streamed lines are packed into slabs. NULL means each lines[i] was
+       malloc'd on its own and must be freed on its own. */
+    void        *line_slabs;
+    bool         lines_pooled;
     /* The selected items in the order they were selected (fzf prints them
        in that order). */
     int         *sel_order;
@@ -101,15 +133,27 @@ typedef struct {
     mm_preview_t *preview;   /* preview runner (NULL when disabled) */
     pid_t        bg_transform_pid;
     int          bg_transform_fd;
+    mm_action_t  bg_transform_target; /* field to apply, or BG_TRANSFORM for a chain */
+    bool         bg_transform_first_line;
     char        *bg_transform_output;
     size_t       bg_transform_len, bg_transform_cap;
     size_t       bg_transform_placeholder_start;
     bool         preview_hidden; /* visibility toggled without destroying command */
     int          preview_offset; /* first preview output line to display */
     int          preview_page_size; /* visible preview content rows */
+    int          preview_item; /* result index the running preview was started for */
+    char        *preview_query; /* query that preview was started with */
+    bool         preview_fresh; /* the command was just started and not drained */
+    int          preview_layout; /* last preview geometry painted, for erasing */
     mm_match_pos_t *match_pos;  /* the matched offsets of every result */
     int             match_pos_n;
+    /* Lazy highlights cover the visible window only. Index 0 is the result
+       at window_pos_from. A full match_pos array is the non-lazy path. */
+    mm_match_pos_t *window_pos;
+    int             window_pos_n;
+    int             window_pos_from;
     mm_preview_win_t preview_win;
+    mm_preview_win_t preview_win_initial; /* --preview-window, before rotations */
     mm_theme_t   theme;      /* --color theme */
     int          border;     /* --border shape id */
     int          preview_border; /* --preview-border shape id */
@@ -132,6 +176,7 @@ typedef struct {
     const char  *gutter_raw;     /* --gutter: the marker of the other lines */
     const char  *marker;     /* --marker: the multi-select marker */
     const char  *shell;      /* --with-shell: the shell used by execute */
+    const char  *proxy_script; /* --proxy-script: become writes here and exits 126 */
     char         *become_command; /* expanded command that replaces this process */
     char        **runtime_strings; /* owned strings installed by dynamic actions */
     size_t        runtime_strings_n, runtime_strings_cap;
@@ -143,7 +188,9 @@ typedef struct {
     const char  *height_spec; /* --height: the raw specification */
     int          layout;     /* 0 = default, 1 = reverse-list (top down) */
     bool         no_bold;    /* --no-bold */
-    bool         no_color;   /* --no-color */
+    bool         no_color;   /* --no-color or NO_COLOR with no later --color */
+    bool         mouse;      /* mouse reporting, off with --no-mouse */
+    bool         plain_theme; /* NO_COLOR / --no-color base, then a --color spec */
     int          min_height; /* --min-height: the minimum inline window height */
     const char  *ellipsis;   /* --ellipsis: the truncation marker */
     int          gap;        /* --gap: blank lines between the list items */
@@ -152,6 +199,8 @@ typedef struct {
     int          margin;     /* --margin: columns of margin around the list */
     int          scroll_off; /* --scroll-off: lines of context above/below the cursor */
     int          hscroll_off;/* --hscroll-off: columns of context left/right of the cursor */
+    int          freeze_left; /* --freeze-left: fields kept visible on the left */
+    int          freeze_right; /* --freeze-right: fields kept visible on the right */
     const char  *separator;  /* --separator: the line drawn between list items */
     bool         no_scrollbar;/* --no-scrollbar: hide the scrollbar column */
     bool         no_clear;    /* --no-clear: do not clear the screen on exit */
@@ -193,7 +242,18 @@ typedef struct {
     mm_renderer_t *renderer; /* set while the loop runs */
     bool         aborted;    /* an abort action ended the loop */
     int          search_count; /* number of items already searched in streaming mode */
-    int         *search_results; /* cached results if doing incremental search */
+    int         *search_results; /* unused; the query cache replaced this */
+    /* ui->count at the time results was built. A longer query may rescan
+       only that list and the items appended after it. */
+    int          results_item_count;
+    /* Highlights are filled for the visible rows, not for every match. */
+    bool         lazy_highlight;
+    /* A streamed line needed a rune slab. ASCII lists skip that pass. */
+    bool         has_non_ascii;
+    void        *rune_slabs; /* decoded non-ASCII runes, borrowed by items */
+    int          runes_ready; /* items [0, runes_ready) have been considered */
+    mm_qcache_slot_t qcache[MM_UI_QCACHE];
+    int          qcache_next;
 } mm_ui_t;
 
 /* Evaluate a --height specification; 0 means the full screen. */

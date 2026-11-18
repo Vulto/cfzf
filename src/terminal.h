@@ -32,6 +32,9 @@ enum {
     MM_BORDER_BOTTOM,
     MM_BORDER_LEFT,
     MM_BORDER_RIGHT,
+    /* Resolved by the layout before drawing. */
+    MM_BORDER_LINE,
+    MM_BORDER_INLINE,
 };
 
 /* The glyphs that make up a border shape (fzf's tui.BorderStyle). */
@@ -40,8 +43,13 @@ typedef struct {
     const char *top_left, *top_right, *bottom_left, *bottom_right;
 } mm_border_glyphs_t;
 
-/* Parse a --border value. Returns the shape id, or -1 on an unknown shape. */
+/* Parse a --border value. Returns the shape id, or -1 on an unknown shape.
+   "line" and "inline" collapse to the shapes the outer frame has always used. */
 int mm_border_parse(const char *spec);
+
+/* Parse a component border (--footer-border, --header-lines-border).
+   Keeps line and inline distinct. Returns -1 on an empty or unknown shape. */
+int mm_border_parse_component(const char *spec);
 
 /* Glyphs for a shape. */
 const mm_border_glyphs_t *mm_border_glyphs(int shape);

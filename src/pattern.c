@@ -579,3 +579,88 @@ bool mm_pattern_match(const mm_pattern_t *p, const mm_text_t *text, int *score,
     mm_token_t tok = { *text, 0 };
     return mm_pattern_match_tokens(p, &tok, 1, score, pos, npos);
 }
+
+bool mm_pattern_match_span(const mm_pattern_t *p, const mm_text_t *text,
+                           int *score, int *begin, int *end) {
+    if (score) *score = 0;
+    if (begin) *begin = -1;
+    if (end) *end = -1;
+    if (!p || !text || !score || !begin || !end) return false;
+    if (mm_pattern_is_empty(p)) return true;
+
+    mm_token_t tok = { *text, 0 };
+    if (!p->extended) {
+        mm_term_t t = {0};
+        t.typ = p->fuzzy ? TERM_FUZZY : TERM_EXACT;
+        t.case_sensitive = p->case_sensitive;
+        t.normalize = p->normalize;
+        t.text = p->text;
+        t.tlen = p->textlen;
+        if (p->textlen == 0) return true;
+        mm_match_t m = run_term_tokens(&t, &tok, 1, p->forward, false);
+        bool ok = m.result.start >= 0;
+        if (ok) {
+            *score = m.result.score;
+            if (m.result.end > m.result.start) {
+                *begin = m.result.start;
+                *end = m.result.end;
+            }
+        }
+        mm_match_free(&m);
+        return ok;
+    }
+
+    int total = 0;
+    int matched_sets = 0;
+    int span_begin = INT_MAX;
+    int span_end = -1;
+    for (int i = 0; i < p->ntermsets; i++) {
+        mm_termset_t *ts = &p->term_sets[i];
+        bool matched = false;
+        int cur_score = 0;
+        int cur_begin = -1, cur_end = -1;
+        for (int j = 0; j < ts->count; j++) {
+            mm_term_t *t = &ts->terms[j];
+            mm_match_t m = run_term_tokens(t, &tok, 1, p->forward, false);
+            if (m.result.start == -2) {
+                mm_match_free(&m);
+                return false;
+            }
+            if (m.result.start >= 0) {
+                if (t->inv) {
+                    mm_match_free(&m);
+                    continue;
+                }
+                matched = true;
+                cur_score = m.result.score;
+                if (m.result.end > m.result.start) {
+                    cur_begin = m.result.start;
+                    cur_end = m.result.end;
+                }
+                mm_match_free(&m);
+                break;
+            }
+            if (t->inv) {
+                matched = true;
+                cur_score = 0;
+                mm_match_free(&m);
+                continue;
+            }
+            mm_match_free(&m);
+        }
+        if (!matched) continue;
+        matched_sets++;
+        total += cur_score;
+        if (cur_begin >= 0 && cur_end > cur_begin) {
+            if (cur_begin < span_begin) span_begin = cur_begin;
+            if (cur_end > span_end) span_end = cur_end;
+        }
+    }
+    if (matched_sets != p->ntermsets || p->ntermsets <= 0) return false;
+    *score = total;
+    if (span_begin != INT_MAX && span_end > span_begin) {
+        *begin = span_begin;
+        *end = span_end;
+    }
+    return true;
+}

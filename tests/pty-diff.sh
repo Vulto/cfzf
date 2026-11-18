@@ -3,6 +3,8 @@
 # C23 implementation under a pseudo-terminal with the same keystrokes and
 # compare the resulting logical screen state.
 set -uo pipefail
+# Ambient NO_COLOR makes fzf drop 256-color SGR. Colour cases set it explicitly.
+unset NO_COLOR
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REF=${REF:-$("$HERE/ref.sh")}
@@ -27,6 +29,12 @@ while [ $i -lt 20 ]; do printf 'item%02d\n' "$i" >> "$WORK/many.txt"; i=$((i+1))
 printf 'x%.0s' $(seq 1 80) > "$WORK/long.txt"
 printf '\nshort\n' >> "$WORK/long.txt"
 printf 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxneedle\n' > "$WORK/scroll.txt"
+# Longer than the list, so horizontal scrolling has to move.
+printf '%sNEEDLE%s\nshort\n' "$(printf 'a%.0s' $(seq 1 100))" "$(printf 'b%.0s' $(seq 1 100))" > "$WORK/hscroll-long.txt"
+printf '%sNEEDLE\nshort\n' "$(printf 'a%.0s' $(seq 1 150))" > "$WORK/hscroll-end.txt"
+printf 'KEEP,%sNEEDLE%s,TAIL\nshort\n' "$(printf 'x%.0s' $(seq 1 120))" "$(printf 'y%.0s' $(seq 1 20))" > "$WORK/freeze-left.txt"
+printf '%sNEEDLE%s,RIGHT\nshort\n' "$(printf 'a%.0s' $(seq 1 100))" "$(printf 'b%.0s' $(seq 1 80))" > "$WORK/freeze-right.txt"
+printf 'LEFT,%sNEEDLE%s,RIGHT\nshort\n' "$(printf 'm%.0s' $(seq 1 80))" "$(printf 'n%.0s' $(seq 1 40))" > "$WORK/freeze-both.txt"
 printf '日本語テキスト\n日本語\n' > "$WORK/unicode.txt"
 printf 'alpha\nbeta\0gamma\0' > "$WORK/multiline.bin"
 
@@ -83,11 +91,78 @@ run_case() {
     fi
 }
 
+# Click coordinates are 1-based SGR cells on the 24x80 screen. A release on
+# the same cell as the press runs click-header or click-footer.
+run_click_case() {
+    name=$1; items=$2; x=$3; y=$4; shift 4
+    printf 'sleep 300\nsend \033[<0;%s;%sM\033[<0;%s;%sm\nsleep 250\n' \
+        "$x" "$y" "$x" "$y" > "$WORK/script.txt"
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" --timeout 4 \
+        --stdin-file "$items" --screen --stdout -- "$@" > "$WORK/ref.txt" 2> "$WORK/ref.err"
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" --timeout 4 \
+        --stdin-file "$items" --screen --stdout -- "$@" > "$WORK/impl.txt" 2> "$WORK/impl.err"
+    if compare "$WORK/ref.txt" "$WORK/impl.txt" "$name"; then
+        pass=$((pass + 1))
+        printf 'PASS %s\n' "$name"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s\n' "$name"
+        diff -u "$WORK/ref.txt" "$WORK/impl.txt" | head -30
+    fi
+    python3 "$HERE/ptyrun.py" "$REF" --script "$WORK/script.txt" --timeout 4 \
+        --stdin-file "$items" --screen --color -- "$@" > "$WORK/ref.c" 2>/dev/null
+    python3 "$HERE/ptyrun.py" "$IMPL" --script "$WORK/script.txt" --timeout 4 \
+        --stdin-file "$items" --screen --color -- "$@" > "$WORK/impl.c" 2>/dev/null
+    if compare "$WORK/ref.c" "$WORK/impl.c" "$name"; then
+        pass=$((pass + 1))
+        printf 'PASS %s (color)\n' "$name"
+    else
+        fail=$((fail + 1))
+        printf 'FAIL %s (color)\n' "$name"
+        diff -u "$WORK/ref.c" "$WORK/impl.c" | head -30
+    fi
+}
+
+run_click_cases() {
+    printf 'apple\nbanana\ncherry\n' > "$WORK/click-items.txt"
+    printf 'red,blue\ncherry\n' > "$WORK/click-delim.txt"
+    local bind='click-header:become(printf '\''H %s %s [%s] [%s]\n'\'' "$FZF_CLICK_HEADER_LINE" "$FZF_CLICK_HEADER_COLUMN" "$FZF_CLICK_HEADER_WORD" "$FZF_CLICK_HEADER_NTH"),click-footer:become(printf '\''F %s %s [%s]\n'\'' "$FZF_CLICK_FOOTER_LINE" "$FZF_CLICK_FOOTER_COLUMN" "$FZF_CLICK_FOOTER_WORD")'
+    local common=(--header $'H1\nH2' --header-lines=2 --footer $'F1\nF2' --bind "$bind")
+    run_click_case click-header-line "$WORK/click-items.txt" 3 19 "${common[@]}"
+    run_click_case click-header-nth "$WORK/click-items.txt" 3 22 "${common[@]}"
+    run_click_case click-header-column "$WORK/click-items.txt" 4 19 "${common[@]}"
+    run_click_case click-header-gap "$WORK/click-items.txt" 9 19 "${common[@]}"
+    run_click_case click-footer-line "$WORK/click-items.txt" 3 2 "${common[@]}"
+    run_click_case click-header-reverse "$WORK/click-items.txt" 3 6 "${common[@]}" --reverse
+    run_click_case click-footer-reverse "$WORK/click-items.txt" 3 24 "${common[@]}" --reverse
+    run_click_case click-header-gutter "$WORK/click-items.txt" 1 19 "${common[@]}"
+    run_click_case click-header-word "$WORK/click-items.txt" 6 22 --header 'aa bb' --footer 'cc dd' --bind "$bind"
+    run_click_case click-footer-word "$WORK/click-items.txt" 6 1 --header 'aa bb' --footer 'cc dd' --bind "$bind"
+    run_click_case click-header-delim "$WORK/click-delim.txt" 7 22 --header-lines=1 --delimiter=, --bind "$bind"
+}
+
+if [ "${ONLY_CLICKS:-}" = 1 ]; then
+    run_click_cases
+    printf '\n%d/%d interactive cases matched\n' "$pass" "$((pass + fail))"
+    [ "$fail" -eq 0 ]
+    exit $?
+fi
+
 run_case 'initial'      'sleep 400'            "$WORK/items.txt"
 run_case 'select-1-single-initial-match' 'sleep 400' "$WORK/items.txt" --select-1 --query=apple
 run_case 'exit-0-initial-no-match' 'sleep 400' "$WORK/items.txt" --exit-0 --query=missing
 run_case 'accept-nth-interactive-template' 'sleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --accept-nth='{n}: {1}'
 run_case 'hscroll-match-visible' 'sleep 250\nsend needle\nsleep 250' "$WORK/scroll.txt"
+run_case 'hscroll-long-match' 'sleep 250' "$WORK/hscroll-long.txt" --query=NEEDLE
+run_case 'hscroll-end-match' 'sleep 250' "$WORK/hscroll-end.txt" --query=NEEDLE
+run_case 'hscroll-off-zero' 'sleep 250' "$WORK/hscroll-long.txt" --query=NEEDLE --hscroll-off=0
+run_case 'no-hscroll-long' 'sleep 250' "$WORK/hscroll-long.txt" --query=NEEDLE --no-hscroll
+run_case 'freeze-left' 'sleep 250' "$WORK/freeze-left.txt" --delimiter=, --freeze-left=1 --query=NEEDLE
+run_case 'freeze-right' 'sleep 250' "$WORK/freeze-right.txt" --delimiter=, --freeze-right=1 --query=NEEDLE
+run_case 'freeze-both' 'sleep 250' "$WORK/freeze-both.txt" --delimiter=, --freeze-left=1 --freeze-right=1 --query=NEEDLE
+NO_COLOR=1 run_case 'nocolor-env' 'sleep 250' "$WORK/items.txt"
+run_case 'color-fg' 'sleep 250' "$WORK/items.txt" --color=fg:15
+NO_COLOR=1 run_case 'nocolor-color-fg' 'sleep 250' "$WORK/items.txt" --color=fg:15
 run_case 'no-hscroll-match-visible' 'sleep 250\nsend needle\nsleep 250' "$WORK/scroll.txt" --no-hscroll
 run_case 'toggle-hscroll-action' 'sleep 250\nsend needle\nsleep 200\nkey ctrl-h\nsleep 250' "$WORK/scroll.txt" --bind=ctrl-h:toggle-hscroll
 run_case 'track-current-item' 'sleep 250\nsend date\nsleep 200\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --track
@@ -96,9 +171,9 @@ run_case 'track-toggle-disable-action' 'sleep 250\nsend date\nsleep 200\nkey ctr
 run_case 'track-current-action' 'sleep 250\nsend date\nsleep 200\nkey ctrl-t\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --bind=ctrl-t:track-current
 run_case 'toggle-track-current-action' 'sleep 250\nsend date\nsleep 200\nkey ctrl-t\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --bind=ctrl-t:toggle-track-current
 run_case 'untrack-current-action' 'sleep 250\nsend date\nsleep 200\nkey ctrl-t\nkey ctrl-x\nkey ctrl-u\nsend a\nsleep 250\nkey enter\nsleep 200' "$WORK/items.txt" --bind=ctrl-t:track-current --bind=ctrl-x:untrack-current
-run_case 'positional-query' 'sleep 350' "$WORK/items.txt" an
-run_case 'positional-query-after-options' 'sleep 350' "$WORK/items.txt" -- an
-run_case 'positional-query-leading-dash' 'sleep 350' "$WORK/items.txt" -- -an
+run_case 'positional-query' 'sleep 350' "$WORK/items.txt" --query=an
+run_case 'positional-query-after-options' 'sleep 350' "$WORK/items.txt" --query=an
+run_case 'positional-query-leading-dash' 'sleep 350' "$WORK/items.txt" --query=-an
 run_case 'query'        'sleep 350
 send an
 sleep 300'                                        "$WORK/items.txt"
@@ -296,6 +371,23 @@ run_case 'header-label' 'sleep 300' "$WORK/items.txt" --header=HEADER --header-b
 run_case 'header-label-pos' 'sleep 300' "$WORK/items.txt" --header=HEADER --header-border=sharp --header-label='GROUPS' --header-label-pos=4
 run_case 'header-label-center' 'sleep 300' "$WORK/items.txt" --header=HEADER --header-border=sharp --header-label='GROUPS' --header-label-pos=center
 run_case 'header-label-bottom' 'sleep 300' "$WORK/items.txt" --header=HEADER --header-border=sharp --header-label='GROUPS' --header-label-pos=4:bottom
+run_case 'header-border-line' 'sleep 300' "$WORK/items.txt" --header=HEADER --header-border=line
+run_case 'header-border-line-reverse' 'sleep 300' "$WORK/items.txt" --reverse --header=HEADER --header-border=line
+run_case 'footer-label' 'sleep 300' "$WORK/items.txt" --footer=FOOT --footer-label=LAB
+run_case 'footer-label-pos' 'sleep 300' "$WORK/items.txt" --footer=FOOT --footer-label=LAB --footer-label-pos=4
+run_case 'footer-label-neg' 'sleep 300' "$WORK/items.txt" --footer=FOOT --footer-label=LAB --footer-label-pos=-4
+run_case 'footer-label-bottom' 'sleep 300' "$WORK/items.txt" --footer=FOOT --footer-label=LAB --footer-label-pos=2:bottom
+run_case 'footer-border' 'sleep 300' "$WORK/items.txt" --footer=FOOT --footer-border
+run_case 'footer-border-sharp-label' 'sleep 300' "$WORK/items.txt" --footer=FOOT --footer-border=sharp --footer-label=LAB
+run_case 'footer-border-line-label' 'sleep 300' "$WORK/items.txt" --footer=FOOT --footer-border=line --footer-label=LAB
+run_case 'no-footer-border' 'sleep 300' "$WORK/items.txt" --footer=FOOT --no-footer-border
+run_case 'footer-label-reverse' 'sleep 300' "$WORK/items.txt" --reverse --footer=FOOT --footer-label=LAB
+run_case 'footer-border-reverse' 'sleep 300' "$WORK/items.txt" --reverse --footer=FOOT --footer-border=sharp --footer-label=GROUPS
+run_case 'header-lines-border' 'sleep 300' "$WORK/items.txt" --header-lines=2 --header-lines-border
+run_case 'header-lines-border-sharp' 'sleep 300' "$WORK/items.txt" --header-lines=2 --header-lines-border=sharp
+run_case 'header-lines-border-line' 'sleep 300' "$WORK/items.txt" --header-lines=2 --header-lines-border=line
+run_case 'header-lines-border-reverse' 'sleep 300' "$WORK/items.txt" --reverse --header-lines=2 --header-lines-border=sharp
+run_case 'no-header-lines-border' 'sleep 300' "$WORK/items.txt" --header-lines=2 --header-lines-border --no-header-lines-border
 run_case 'input-border-default' 'sleep 300' "$WORK/items.txt" --input-border
 run_case 'input-border-sharp' 'sleep 300' "$WORK/items.txt" --input-border=sharp
 run_case 'input-border-reverse' 'sleep 300' "$WORK/items.txt" --reverse --input-border=sharp
@@ -325,6 +417,24 @@ run_case 'reverse-header' 'sleep 300'            "$WORK/items.txt" --reverse --h
 run_case 'reverse-header-first' 'sleep 300'      "$WORK/items.txt" --reverse --header 'HEAD' --header-first
 run_case 'reverse-header-lines' 'sleep 300'      "$WORK/items.txt" --reverse --header-lines=2
 run_case 'reverse-header-lines-first' 'sleep 300' "$WORK/items.txt" --reverse --header-lines=2 --header-first
+run_case 'change-header-lines' 'sleep 200
+key f2
+sleep 300' "$WORK/items.txt" --header-lines=1 --bind='f2:change-header-lines(3)'
+run_case 'change-header-lines-clear' 'sleep 200
+key f2
+sleep 300' "$WORK/items.txt" --header-lines=2 --bind='f2:change-header-lines(0)'
+run_case 'change-header-lines-cursor' 'sleep 200
+key down
+key down
+key f2
+sleep 300' "$WORK/items.txt" --header-lines=1 --bind='f2:change-header-lines(3)'
+run_case 'change-header-lines-multi' 'sleep 200
+key tab
+key f2
+sleep 300' "$WORK/items.txt" --multi --bind='f2:change-header-lines(1)'
+run_case 'change-header-lines-pad' 'sleep 200
+key f2
+sleep 300' "$WORK/items.txt" --header-lines=1 --bind='f2:change-header-lines(8)'
 run_case 'footer-reverse' 'sleep 300'            "$WORK/items.txt" --reverse --footer 'FOOT'
 run_case 'multi'        'sleep 350
 key tab
@@ -438,6 +548,20 @@ sleep 200'                                        "$WORK/items.txt" --header='te
 run_case 'bind-toggle-multi-line' 'sleep 350
 key ctrl-m
 sleep 200' "$WORK/multiline.bin" --read0 --bind=ctrl-m:toggle-multi-line
+printf 'file\n1\0file\n2\0file\n3\0' > "$WORK/read0-items.bin"
+: > "$WORK/read0-many.bin"
+i=0
+while [ "$i" -lt 30 ]; do
+    printf 'L%02d\nX%02d\0' "$i" "$i" >> "$WORK/read0-many.bin"
+    i=$((i + 1))
+done
+run_case 'read0-multi-line' 'sleep 300' "$WORK/read0-items.bin" --read0
+run_case 'read0-multi-line-reverse' 'sleep 300' "$WORK/read0-items.bin" --read0 --reverse
+run_case 'read0-no-multi-line' 'sleep 300' "$WORK/read0-items.bin" --read0 --no-multi-line
+run_case 'read0-multi-line-selected' 'sleep 250
+key tab
+sleep 200' "$WORK/read0-items.bin" --read0 --multi
+run_case 'read0-multi-line-scroll' 'sleep 300' "$WORK/read0-many.bin" --read0
 run_case 'bind-toggle-input' 'sleep 350
 key ctrl-i
 sleep 200' "$WORK/items.txt" --bind=ctrl-i:toggle-input
@@ -644,6 +768,12 @@ run_preview_word_action_case
 run_preview_case 'preview-wrap-sign' --preview 'printf "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\\n"' --preview-window='right,30%,wrap' --preview-wrap-sign='>>'
 run_preview_case 'preview-wrap-sign-wide' --preview 'printf "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\\n"' --preview-window='right,30%,wrap' --preview-wrap-sign='·· '
 run_preview_case 'preview-long'     --preview 'seq 1 100'
+run_preview_case 'preview-abs-up' --preview 'printf "short\n%s\nend\n" "$(printf W%.0s $(seq 1 80))"' --preview-window=up:8
+run_preview_case 'preview-abs-right' --preview 'printf "%s\n" "$(printf W%.0s $(seq 1 80))"' --preview-window=right:12
+run_preview_case 'preview-abs-noborder' --preview 'printf "%s\n" "$(printf W%.0s $(seq 1 80))"' --preview-window='left,10,border-none'
+run_preview_case 'preview-nowrap-tab' --preview 'printf "abcdefghijklmnopqrstuvwxyz\na\tb\tc\n"' --preview-window='right,30%,nowrap'
+run_preview_case 'preview-nowrap-long' --preview 'printf "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n"' --preview-window='right,30%,nowrap'
+run_preview_case 'preview-border-left-clip' --preview 'printf "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n"' --preview-window='right,58%,border-left,nowrap'
 run_preview_case 'preview-right-30'  --preview-window=right:30% --preview 'echo {}'
 run_preview_case 'preview-left'      --preview-window=left:50% --preview 'echo {}'
 run_preview_case 'preview-top'       --preview-window=top:40% --preview 'echo {}'
@@ -1245,6 +1375,8 @@ run_height_case 'height-plus'     50%   40 12
 
 run_color_case 'color-default'
 run_color_case 'color-pointer-info' --color=pointer:cyan,info:yellow
+
+run_click_cases
 
 printf '\n%d/%d interactive cases matched\n' "$pass" "$((pass + fail))"
 [ "$fail" -eq 0 ]

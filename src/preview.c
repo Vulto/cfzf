@@ -1,9 +1,13 @@
 /* preview.c - run the preview command and collect its output. */
 #define _POSIX_C_SOURCE 200809L
 #include "preview.h"
+#include "terminal.h"
 #include "util.h"
 
+#include <limits.h>
+
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,17 +29,77 @@ struct mm_preview_t {
     bool  running;
 };
 
-bool mm_preview_window_parse(const char *spec, mm_preview_win_t *out) {
-    /* Defaults: right, 50%, with a border. */
+void mm_preview_window_reset(mm_preview_win_t *out) {
+    /* Defaults: right, 50%, the --preview-border shape, visible. */
     out->pos = MM_PREVIEW_RIGHT;
     out->size = 50;
-    out->border = true;
-    out->border_left_only = false;
+    out->size_percent = true;
+    out->border_shape = -1;
+    out->hidden = false;
     out->info = true;
     out->wrap = false;
     out->wrap_word = false;
     out->cycle = false;
+}
 
+/* One comma-separated token. Returns false when fzf would reject it. */
+static bool preview_apply_token(const char *tok, mm_preview_win_t *out) {
+    if (!strcmp(tok, "right")) out->pos = MM_PREVIEW_RIGHT;
+    else if (!strcmp(tok, "left")) out->pos = MM_PREVIEW_LEFT;
+    else if (!strcmp(tok, "top") || !strcmp(tok, "up")) out->pos = MM_PREVIEW_TOP;
+    else if (!strcmp(tok, "bottom") || !strcmp(tok, "down")) out->pos = MM_PREVIEW_BOTTOM;
+    else if (!strcmp(tok, "hidden")) out->hidden = true;
+    else if (!strcmp(tok, "nohidden")) out->hidden = false;
+    else if (!strcmp(tok, "default")) mm_preview_window_reset(out);
+    else if (!strcmp(tok, "border") || !strcmp(tok, "rounded") ||
+             !strcmp(tok, "border-rounded"))
+        out->border_shape = MM_BORDER_ROUNDED;
+    else if (!strcmp(tok, "sharp") || !strcmp(tok, "border-sharp"))
+        out->border_shape = MM_BORDER_SHARP;
+    else if (!strcmp(tok, "border-bold")) out->border_shape = MM_BORDER_BOLD;
+    else if (!strcmp(tok, "border-double")) out->border_shape = MM_BORDER_DOUBLE;
+    else if (!strcmp(tok, "border-block")) out->border_shape = MM_BORDER_BLOCK;
+    else if (!strcmp(tok, "border-thinblock")) out->border_shape = MM_BORDER_THINBLOCK;
+    else if (!strcmp(tok, "border-dashed")) out->border_shape = MM_BORDER_DASHED;
+    else if (!strcmp(tok, "border-horizontal")) out->border_shape = MM_BORDER_HORIZONTAL;
+    else if (!strcmp(tok, "border-vertical")) out->border_shape = MM_BORDER_VERTICAL;
+    else if (!strcmp(tok, "border-top") || !strcmp(tok, "border-up"))
+        out->border_shape = MM_BORDER_TOP;
+    else if (!strcmp(tok, "border-bottom") || !strcmp(tok, "border-down"))
+        out->border_shape = MM_BORDER_BOTTOM;
+    else if (!strcmp(tok, "border-left")) out->border_shape = MM_BORDER_LEFT;
+    else if (!strcmp(tok, "border-right")) out->border_shape = MM_BORDER_RIGHT;
+    else if (!strcmp(tok, "noborder") || !strcmp(tok, "border-none"))
+        out->border_shape = MM_BORDER_NONE;
+    else if (!strcmp(tok, "info")) out->info = true;
+    else if (!strcmp(tok, "noinfo")) out->info = false;
+    else if (!strcmp(tok, "wrap")) { out->wrap = true; out->wrap_word = false; }
+    else if (!strcmp(tok, "nowrap")) { out->wrap = false; out->wrap_word = false; }
+    else if (!strcmp(tok, "wrap-word")) { out->wrap = true; out->wrap_word = true; }
+    else if (!strcmp(tok, "cycle")) out->cycle = true;
+    else if (!strcmp(tok, "nocycle")) out->cycle = false;
+    else if (tok[0] >= '0' && tok[0] <= '9') {
+        /* "58%" is a percentage. A bare number is columns or lines. */
+        char *end = NULL;
+        long v = strtol(tok, &end, 10);
+        if (end == tok || v < 0 || v > INT_MAX) return false;
+        if (strcmp(end, "%") == 0) {
+            if (v > 100) return false;
+            out->size = (int)v;
+            out->size_percent = true;
+        } else if (*end == '\0') {
+            out->size = (int)v;
+            out->size_percent = false;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+    return true;
+}
+
+bool mm_preview_window_apply(const char *spec, mm_preview_win_t *out) {
     if (!spec || !*spec) return true;
     const char *p = spec;
     while (*p) {
@@ -45,47 +109,20 @@ bool mm_preview_window_parse(const char *spec, mm_preview_win_t *out) {
         size_t len = sep ? (size_t)(sep - p) : strlen(p);
         char tok[64];
         if (len >= sizeof(tok)) return false;
-        memcpy(tok, p, len);
-        tok[len] = 0;
         if (len > 0) {
-            if (!strcmp(tok, "right")) out->pos = MM_PREVIEW_RIGHT;
-            else if (!strcmp(tok, "left")) out->pos = MM_PREVIEW_LEFT;
-            else if (!strcmp(tok, "top") || !strcmp(tok, "up")) out->pos = MM_PREVIEW_TOP;
-            else if (!strcmp(tok, "bottom") || !strcmp(tok, "down")) out->pos = MM_PREVIEW_BOTTOM;
-            else if (!strcmp(tok, "hidden")) { /* the preview is hidden */ }
-            else if (!strcmp(tok, "border")) {
-                out->border = true;
-                out->border_left_only = false;
-            } else if (!strcmp(tok, "border-left")) {
-                out->border = true;
-                out->border_left_only = true;
-            } else if (!strcmp(tok, "noborder")) {
-                out->border = false;
-                out->border_left_only = false;
-            } else if (!strcmp(tok, "info")) out->info = true;
-            else if (!strcmp(tok, "noinfo")) out->info = false;
-            else if (!strcmp(tok, "wrap")) { out->wrap = true; out->wrap_word = false; }
-            else if (!strcmp(tok, "nowrap")) { out->wrap = false; out->wrap_word = false; }
-            else if (!strcmp(tok, "wrap-word")) { out->wrap = true; out->wrap_word = true; }
-            else if (!strcmp(tok, "cycle")) out->cycle = true;
-            else if (!strcmp(tok, "nocycle")) out->cycle = false;
-            else if (!strcmp(tok, "nohidden") || !strcmp(tok, "default")) {
-                /* Explicit defaults; no additional state is needed here. */
-            } else if (tok[0] >= '0' && tok[0] <= '9') {
-                /* A size: "58%" or a number of lines. */
-                char *end = NULL;
-                long v = strtol(tok, &end, 10);
-                if (end == tok || v <= 0 || v > 100 ||
-                    (*end != '\0' && (strcmp(end, "%") != 0))) return false;
-                out->size = (int)v;
-            } else {
-                return false;
-            }
+            memcpy(tok, p, len);
+            tok[len] = 0;
+            if (!preview_apply_token(tok, out)) return false;
         }
         if (!sep) break;
         p = sep + 1;
     }
     return true;
+}
+
+bool mm_preview_window_parse(const char *spec, mm_preview_win_t *out) {
+    mm_preview_window_reset(out);
+    return mm_preview_window_apply(spec, out);
 }
 
 mm_preview_t *mm_preview_new(const char *command, const char *shell) {
@@ -322,6 +359,17 @@ bool mm_preview_poll(mm_preview_t *p) {
         break;
     }
     return got;
+}
+
+bool mm_preview_drain(mm_preview_t *p, int timeout_ms) {
+    if (!p || p->fd < 0) return false;
+    struct pollfd pfd = { p->fd, POLLIN, 0 };
+    int rc;
+    do {
+        rc = poll(&pfd, 1, timeout_ms);
+    } while (rc < 0 && errno == EINTR);
+    if (rc <= 0) return false;
+    return mm_preview_poll(p);
 }
 
 const char *mm_preview_output(mm_preview_t *p) {

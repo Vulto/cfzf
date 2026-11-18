@@ -37,6 +37,41 @@ static bool input_push(mm_keybuf_t *in, const char *data, size_t n) {
     return true;
 }
 
+/* ESC followed by a normal key is complete. CSI and SS3 keep their
+   parameters in 0x20-0x3f and end on a final byte in 0x40-0x7e, except
+   '$', which is an intermediate in the paste-mode report. A finished
+   sequence must not sit through another escape poll: alt-j is ESC then
+   'j', and that extra poll is a full ESC_POLL_INTERVAL on every such key. */
+static bool sequence_complete(const mm_keybuf_t *in) {
+    if (!in->buf || in->len == 0) return false;
+    unsigned char c = (unsigned char)in->buf[0];
+    if (c != 0x1b) return false;
+    if (in->len < 2) return false;
+    unsigned char n = (unsigned char)in->buf[1];
+    if (n != '[' && n != 'O' && n != 0x1b) return true;
+    /* ESC [ and ESC O are the start of a longer sequence. */
+    if (in->len < 3) return false;
+    unsigned char last = (unsigned char)in->buf[in->len - 1];
+    if (last == '$' || last == '<' || last == ';') return false;
+    if (last >= '0' && last <= '9') return false;
+    return last >= 0x40 && last <= 0x7e;
+}
+
+/* A finished key does not need the escape poll. ESC and a partial UTF-8
+   sequence still wait, because the rest of the sequence may be on its way. */
+static bool input_ready(const mm_keybuf_t *in) {
+    if (!in->buf || in->len == 0) return false;
+    unsigned char c = (unsigned char)in->buf[0];
+    if (c == 0x1b) return false;
+    if (c < 0x80) return true;
+    int need = 1;
+    if ((c & 0xE0) == 0xC0) need = 2;
+    else if ((c & 0xF0) == 0xE0) need = 3;
+    else if ((c & 0xF8) == 0xF0) need = 4;
+    else return true;
+    return (int)in->len >= need;
+}
+
 static void input_consume(mm_keybuf_t *in, size_t n) {
     if (n >= in->len) { in->len = 0; if (in->buf) in->buf[0] = 0; return; }
     memmove(in->buf, in->buf + n, in->len - n);
@@ -87,6 +122,12 @@ static mm_getchar_result_t get_bytes_internal(int fd, mm_keybuf_t *in,
     if (c == 0x1b) retries = esc_delay / ESC_POLL_INTERVAL;
 
     char pc = c;
+    /* Plain characters and finished UTF-8 are complete. Waiting here cost
+       a poll interval on every keystroke before the search could start. */
+    if (retries == 0 && input_ready(in)) {
+        if (!read_available(fd, in, 0)) return MM_GET_CHAR_ERROR;
+        return MM_GET_CHAR_SUCCESS;
+    }
     for (;;) {
         size_t before = in->len;
         if (!read_available(fd, in, ESC_POLL_INTERVAL)) return MM_GET_CHAR_ERROR;
@@ -106,6 +147,12 @@ static mm_getchar_result_t get_bytes_internal(int fd, mm_keybuf_t *in,
         else retries = 0;
         pc = cur;
         if (in->len > MAX_INPUT_BUFFER) return MM_GET_CHAR_ERROR;
+        if (sequence_complete(in)) {
+            /* Slurp a key that is already queued, then stop. Polling again
+               would wait ESC_POLL_INTERVAL for a byte that is not coming. */
+            if (!read_available(fd, in, 0)) return MM_GET_CHAR_ERROR;
+            return MM_GET_CHAR_SUCCESS;
+        }
     }
     return MM_GET_CHAR_SUCCESS;
 }
@@ -135,8 +182,154 @@ static bool is_paste_mode_report(const char *s, size_t len) {
     return i + 2 == len;
 }
 
+/* SGR mouse: ESC [ < btn ; x ; y M/m. Coordinates in the sequence are
+   1-based. Returns MM_EV_MOUSE and fills ev, or MM_EV_INVALID. */
+static mm_event_type_t mouse_sequence(const char *buf, const char *b, size_t l,
+                                      size_t *sz, mm_event_t *ev) {
+    if (l < 4) { *sz = l > 0 ? l : 1; return MM_EV_INVALID; }
+    const char *s = b + 3;
+    size_t avail = l - 3;
+    size_t end = 0;
+    while (end < avail && s[end] != 'M' && s[end] != 'm') end++;
+    if (end >= avail || end == 0) { *sz = 3; return MM_EV_INVALID; }
+    int vals[3] = {0, 0, 0};
+    int vi = 0;
+    int cur = 0;
+    bool any = false;
+    for (size_t i = 0; i < end; i++) {
+        char c = s[i];
+        if (c == ';') {
+            if (!any || vi >= 2) { *sz = 3; return MM_EV_INVALID; }
+            vals[vi++] = cur;
+            cur = 0;
+            any = false;
+        } else if (c >= '0' && c <= '9') {
+            if (cur > (1000000 - (c - '0')) / 10) { *sz = 3; return MM_EV_INVALID; }
+            cur = cur * 10 + (c - '0');
+            any = true;
+        } else {
+            *sz = 3;
+            return MM_EV_INVALID;
+        }
+    }
+    if (!any || vi != 2) { *sz = 3; return MM_EV_INVALID; }
+    vals[2] = cur;
+    *sz = (size_t)(b - buf) + 3 + end + 1;
+    int btn = vals[0];
+    ev->x = vals[1] - 1;
+    ev->y = vals[2] - 1;
+    ev->mouse_down = s[end] == 'M';
+    ev->mouse_scroll = 0;
+    if (btn >= 64) {
+        int wheel = (btn - 64) & 3;
+        ev->mouse_scroll = wheel == 0 ? 1 : wheel == 1 ? -1 : 0;
+        ev->mouse_down = false;
+    }
+    return MM_EV_MOUSE;
+}
+
+static bool byte_in(unsigned char c, const char *set) {
+    return strchr(set, (char)c) != NULL;
+}
+
+/* Modifier bits on a CSI arrow, in the same order fzf checks them. */
+static mm_event_type_t nav_modified(bool ctrl, bool alt, bool shift, unsigned char ch) {
+    switch (ch) {
+    case 'A':
+        if (ctrl && alt && shift) return MM_EV_CTRL_ALT_SHIFT_UP;
+        if (ctrl && alt) return MM_EV_CTRL_ALT_UP;
+        if (ctrl && shift) return MM_EV_CTRL_SHIFT_UP;
+        if (alt && shift) return MM_EV_ALT_SHIFT_UP;
+        if (ctrl) return MM_EV_CTRL_UP;
+        if (alt) return MM_EV_ALT_UP;
+        if (shift) return MM_EV_SHIFT_UP;
+        return MM_EV_UP;
+    case 'B':
+        if (ctrl && alt && shift) return MM_EV_CTRL_ALT_SHIFT_DOWN;
+        if (ctrl && alt) return MM_EV_CTRL_ALT_DOWN;
+        if (ctrl && shift) return MM_EV_CTRL_SHIFT_DOWN;
+        if (alt && shift) return MM_EV_ALT_SHIFT_DOWN;
+        if (ctrl) return MM_EV_CTRL_DOWN;
+        if (alt) return MM_EV_ALT_DOWN;
+        if (shift) return MM_EV_SHIFT_DOWN;
+        return MM_EV_DOWN;
+    case 'C':
+        if (ctrl && alt && shift) return MM_EV_CTRL_ALT_SHIFT_RIGHT;
+        if (ctrl && alt) return MM_EV_CTRL_ALT_RIGHT;
+        if (ctrl && shift) return MM_EV_CTRL_SHIFT_RIGHT;
+        if (alt && shift) return MM_EV_ALT_SHIFT_RIGHT;
+        if (ctrl) return MM_EV_CTRL_RIGHT;
+        if (shift) return MM_EV_SHIFT_RIGHT;
+        if (alt) return MM_EV_ALT_RIGHT;
+        return MM_EV_RIGHT;
+    case 'D':
+        if (ctrl && alt && shift) return MM_EV_CTRL_ALT_SHIFT_LEFT;
+        if (ctrl && alt) return MM_EV_CTRL_ALT_LEFT;
+        if (ctrl && shift) return MM_EV_CTRL_SHIFT_LEFT;
+        if (alt && shift) return MM_EV_ALT_SHIFT_LEFT;
+        if (ctrl) return MM_EV_CTRL_LEFT;
+        if (alt) return MM_EV_ALT_LEFT;
+        if (shift) return MM_EV_SHIFT_LEFT;
+        return MM_EV_LEFT;
+    case 'H':
+        if (ctrl && alt && shift) return MM_EV_CTRL_ALT_SHIFT_HOME;
+        if (ctrl && alt) return MM_EV_CTRL_ALT_HOME;
+        if (ctrl && shift) return MM_EV_CTRL_SHIFT_HOME;
+        if (alt && shift) return MM_EV_ALT_SHIFT_HOME;
+        if (ctrl) return MM_EV_CTRL_HOME;
+        if (alt) return MM_EV_ALT_HOME;
+        if (shift) return MM_EV_SHIFT_HOME;
+        return MM_EV_HOME;
+    case 'F':
+        if (ctrl && alt && shift) return MM_EV_CTRL_ALT_SHIFT_END;
+        if (ctrl && alt) return MM_EV_CTRL_ALT_END;
+        if (ctrl && shift) return MM_EV_CTRL_SHIFT_END;
+        if (alt && shift) return MM_EV_ALT_SHIFT_END;
+        if (ctrl) return MM_EV_CTRL_END;
+        if (alt) return MM_EV_ALT_END;
+        if (shift) return MM_EV_SHIFT_END;
+        return MM_EV_END;
+    default:
+        return MM_EV_INVALID;
+    }
+}
+
+/* "ESC [ 1 ; <mod> <key>". Kitty and xterm send plain arrows as
+   "ESC [ 1 ; 1 A", and a short read of that sequence leaves "1A" to be
+   typed into the query. The whole sequence is one navigation key. */
+static mm_event_type_t csi_modified_nav(const char *b, size_t l, size_t *sz) {
+    if (l < 6) {
+        *sz = l;
+        return MM_EV_INVALID;
+    }
+    *sz = 6;
+    unsigned char m = (unsigned char)b[4];
+    if (m < '1' || m > '9') return MM_EV_INVALID;
+    bool ctrl = byte_in(m, "5678");
+    bool alt = byte_in(m, "3478");
+    bool shift = byte_in(m, "2468");
+    unsigned char ch = (unsigned char)b[5];
+    if (m == '9') {
+        ctrl = false;
+        alt = true;
+        shift = false;
+    } else if (m == '1' && byte_in(ch, "0123456")) {
+        /* Modifier 10 through 16. The key byte follows the second digit. */
+        if (l < 7) {
+            *sz = l;
+            return MM_EV_INVALID;
+        }
+        ctrl = byte_in(ch, "3456");
+        alt = true;
+        shift = byte_in(ch, "0246");
+        *sz = 7;
+        ch = (unsigned char)b[6];
+    }
+    return nav_modified(ctrl, alt, shift, ch);
+}
+
 /* Decode an escape sequence starting at in->buf[0]. Advances *sz. */
-static mm_event_type_t esc_sequence(mm_keybuf_t *in, size_t *sz) {
+static mm_event_type_t esc_sequence(mm_keybuf_t *in, size_t *sz, mm_event_t *ev) {
     const char *buf = in->buf;
     size_t len = in->len;
 
@@ -161,26 +354,6 @@ static mm_event_type_t esc_sequence(mm_keybuf_t *in, size_t *sz) {
     case '[':
     case 'O': {
         if (l < 3) { *sz = 2; return MM_EV_INVALID; }
-        /* A modified key: "ESC [ 1 ; <mod> <letter>" where the modifier 3
-           stands for Alt. */
-        if (b[2] >= '0' && b[2] <= '9' && l > 3 && b[3] == ';') {
-            size_t k = 4;   /* skip the first parameter and the ';' */
-            int mod = 0;
-            while (k < l && b[k] >= '0' && b[k] <= '9') {
-                mod = mod * 10 + (b[k] - '0');
-                k++;
-            }
-            if (k < l && mod == 3 && b[k] >= 'A' && b[k] <= 'D') {
-                *sz = k + 1;
-                switch (b[k]) {
-                case 'A': return MM_EV_ALT_UP;
-                case 'B': return MM_EV_ALT_DOWN;
-                case 'C': return MM_EV_ALT_RIGHT;
-                case 'D': return MM_EV_ALT_LEFT;
-                default: break;
-                }
-            }
-        }
         *sz = 3;
         switch (b[2]) {
         case 'D': return alt ? MM_EV_ALT_LEFT : MM_EV_LEFT;
@@ -188,6 +361,7 @@ static mm_event_type_t esc_sequence(mm_keybuf_t *in, size_t *sz) {
         case 'B': return alt ? MM_EV_ALT_DOWN : MM_EV_DOWN;
         case 'A': return alt ? MM_EV_ALT_UP : MM_EV_UP;
         case 'Z': return MM_EV_SHIFT_TAB;
+        case '<': return mouse_sequence(buf, b, l, sz, ev);
         case 'H': return MM_EV_HOME;
         case 'F': return MM_EV_END;
         case 'P': return MM_EV_F1;
@@ -198,7 +372,29 @@ static mm_event_type_t esc_sequence(mm_keybuf_t *in, size_t *sz) {
             if (l < 4) { *sz = 3; return MM_EV_INVALID; }
             *sz = 4;
             switch (b[2]) {
-            case '1': return MM_EV_HOME;
+            case '1':
+                if (b[3] == '~') return MM_EV_HOME;
+                if (b[3] == '1' || b[3] == '2' || b[3] == '3' || b[3] == '4' ||
+                    b[3] == '5' || b[3] == '7' || b[3] == '8' || b[3] == '9') {
+                    /* ESC [ 11 ~ through ESC [ 19 ~ are F1 through F8. */
+                    if (l >= 5 && b[4] == '~') {
+                        *sz = 5;
+                        switch (b[3]) {
+                        case '1': return MM_EV_F1;
+                        case '2': return MM_EV_F2;
+                        case '3': return MM_EV_F3;
+                        case '4': return MM_EV_F4;
+                        case '5': return MM_EV_F5;
+                        case '7': return MM_EV_F6;
+                        case '8': return MM_EV_F7;
+                        case '9': return MM_EV_F8;
+                        default: break;
+                        }
+                    }
+                    return MM_EV_INVALID;
+                }
+                if (b[3] == ';') return csi_modified_nav(b, l, sz);
+                return MM_EV_INVALID;
             case '2': return MM_EV_INSERT;
             case '3': return MM_EV_DELETE;
             case '4': return MM_EV_END;
@@ -215,6 +411,12 @@ static mm_event_type_t esc_sequence(mm_keybuf_t *in, size_t *sz) {
         }
     }
     default:
+        /* ESC followed by a character is Alt-that character (alt-j, alt-k). */
+        if ((unsigned char)b[1] >= 32) {
+            *sz = 2;
+            ev->rune = (unsigned char)b[1];
+            return MM_EV_ALT;
+        }
         *sz = 2;
         return MM_EV_INVALID;
     }
@@ -237,6 +439,7 @@ bool mm_read_event(int fd, mm_keybuf_t *in, mm_event_t *ev, bool cancellable) {
     unsigned char c0 = (unsigned char)in->buf[0];
     mm_event_type_t type;
     wchar_t rune = 0;
+    memset(ev, 0, sizeof(*ev));
 
     switch (c0) {
     case 3:  type = MM_EV_CTRL_C; break;
@@ -250,7 +453,8 @@ bool mm_read_event(int fd, mm_keybuf_t *in, mm_event_t *ev, bool cancellable) {
     case 30: type = MM_EV_CTRL_CARET; break;
     case 31: type = MM_EV_CTRL_SLASH; break;
     case 0x1b:
-        type = esc_sequence(in, &sz);
+        type = esc_sequence(in, &sz, ev);
+        if (type == MM_EV_ALT) rune = ev->rune;
         break;
     default:
         if (c0 <= 26) {   /* CTRL-A ~ CTRL-Z */
@@ -276,8 +480,12 @@ bool mm_read_event(int fd, mm_keybuf_t *in, mm_event_t *ev, bool cancellable) {
     input_consume(in, sz);
     ev->type = type;
     ev->rune = rune;
-    ev->x = 0;
-    ev->y = 0;
+    if (type != MM_EV_MOUSE) {
+        ev->x = 0;
+        ev->y = 0;
+        ev->mouse_down = false;
+        ev->mouse_scroll = 0;
+    }
     return true;
 }
 

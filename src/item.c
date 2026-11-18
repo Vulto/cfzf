@@ -22,6 +22,32 @@ void mm_item_free(mm_item_t *it) {
 uint16_t mm_item_trim_length(mm_item_t *it) {
     if (it->trim_known) return it->trim_length;
     it->trim_known = true;
+    /* ASCII paths never need a rune array. The length tiebreak runs once
+       per match, so a malloc here dominates the first keystroke. */
+    if (it->text.ascii && it->text.bytes) {
+        /* iswspace in this locale is the six ASCII spaces for every byte.
+           A direct test stays in the length-tiebreak hot loop. */
+        const unsigned char *s = (const unsigned char *)it->text.bytes;
+        int len = it->text.length;
+        int i;
+        /* Paths almost never have edge whitespace. Skip the scan. */
+        if (len > 0 && s[0] > ' ' && s[len - 1] > ' ') {
+            it->trim_length = (uint16_t)len;
+            return it->trim_length;
+        }
+        for (i = len - 1; i >= 0; i--) {
+            unsigned char c = s[i];
+            if (c != ' ' && (c < '\t' || c > '\r')) break;
+        }
+        if (i < 0) { it->trim_length = 0; return 0; }
+        int j;
+        for (j = 0; j < len; j++) {
+            unsigned char c = s[j];
+            if (c != ' ' && (c < '\t' || c > '\r')) break;
+        }
+        it->trim_length = (uint16_t)(i - j + 1);
+        return it->trim_length;
+    }
     if (!mchars_decode(&it->text)) {
         it->trim_length = 0;
         return 0;

@@ -31,14 +31,14 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-002 | `--algo` | src/algo.c, src/pattern.c, src/main.c | tests/algo-diff.sh:algo=v1 q=$q, tests/algo-diff.sh:algo=v1 separate argument, tests/algo-diff.sh:algo=v2 q=$q, tests/batch-diff.sh:algo-invalid, tests/batch-diff.sh:algo-missing, tests/algo-diff.sh:algo=v1 extended query, tests/algo-diff.sh:algo=v1 nth token, tests/algo-diff.sh:unicode delimiter scheme=path, tests/algo-diff.sh:unicode delimiter scheme=history | implemented but unverified |
 | OPT-003 | `--ambidouble` | src/main.c | - | implemented |
 | OPT-004 | `--ansi` | src/ansi.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
-| OPT-005 | `--bash` | src/main.c | - | implemented |
-| OPT-006 | `--bench` | - | - | unstarted |
+| OPT-005 | `--bash` | src/main.c, shell/key-bindings.bash, shell/completion.bash | tests/batch-diff.sh:bash-integration | verified |
+| OPT-006 | `--bench` | src/main.c | tests/batch-diff.sh:bench-missing, tests/batch-diff.sh:bench-bad, tests/batch-diff.sh:bench-zero, tests/batch-diff.sh:bench-counts, tests/batch-diff.sh:bench-exact-counts | verified |
 | OPT-007 | `--bind` | src/bind.c, src/ui.c | tests/pty-diff.sh | verified |
 | OPT-008 | `--black` | src/main.c | - | implemented |
 | OPT-009 | `\-\-border` | src/terminal.c, src/ui.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
 | OPT-010 | `--border-label` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-011 | `--border-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:border-label-pos-left, tests/pty-diff.sh:border-label-pos-right, tests/pty-diff.sh:border-label-pos-bottom | implemented but unverified |
-| OPT-012 | `--color` | src/color.c, src/ui.c | tests/pty-diff.sh | verified |
+| OPT-012 | `--color` | src/color.c, src/ui.c, src/main.c | tests/pty-diff.sh:color-fg, tests/pty-diff.sh:nocolor-color-fg | verified |
 | OPT-013 | `--cycle` | src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
 | OPT-014 | `--delimiter` | src/tokenizer.c, src/main.c | tests/batch-diff.sh:delimiter-missing, tests/batch-diff.sh:delim-empty-rune-split, tests/batch-diff.sh:delim-regex-zero-width | implemented but unverified |
 | OPT-015 | `--disabled` | src/ui.c, src/main.c | tests/batch-diff.sh:disabled-filter, tests/batch-diff.sh:disabled-nomatch, tests/pty-diff.sh:disabled-toggle-search | implemented but unverified |
@@ -49,13 +49,13 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-020 | `--extended` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-021 | `--filepath-word` | src/main.c | - | implemented |
 | OPT-022 | `--filter` | src/main.c, src/filter.c | tests/batch-diff.sh, tests/batch-diff.sh:filter-missing | implemented but unverified |
-| OPT-023 | `--fish` | src/main.c | - | implemented |
+| OPT-023 | `--fish` | - | out of scope: shell integration is not part of this rewrite | n/a |
 | OPT-024 | `--footer` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
-| OPT-025 | `--footer-border` | - | - | unstarted |
-| OPT-026 | `--footer-label` | - | - | unstarted |
-| OPT-027 | `--footer-label-pos` | - | - | unstarted |
-| OPT-028 | `--freeze-left` | - | - | unstarted |
-| OPT-029 | `--freeze-right` | - | - | unstarted |
+| OPT-025 | `--footer-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:footer-border, tests/pty-diff.sh:footer-border-sharp-label, tests/pty-diff.sh:footer-border-line-label, tests/pty-diff.sh:no-footer-border, tests/pty-diff.sh:footer-border-reverse, tests/batch-diff.sh:footer-border-invalid | verified |
+| OPT-026 | `--footer-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:footer-label, tests/pty-diff.sh:footer-label-reverse, tests/batch-diff.sh:footer-label-missing | verified |
+| OPT-027 | `--footer-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:footer-label-pos, tests/pty-diff.sh:footer-label-neg, tests/pty-diff.sh:footer-label-bottom, tests/batch-diff.sh:footer-label-pos-invalid, tests/batch-diff.sh:footer-label-pos-missing | verified |
+| OPT-028 | `--freeze-left` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:freeze-left, tests/pty-diff.sh:freeze-both, tests/batch-diff.sh:freeze-left-missing, tests/batch-diff.sh:freeze-left-bad, tests/batch-diff.sh:freeze-left-negative | verified |
+| OPT-029 | `--freeze-right` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:freeze-right, tests/pty-diff.sh:freeze-both, tests/batch-diff.sh:freeze-right-missing | verified |
 | OPT-030 | `\-\-gap` | src/ui.c, src/main.c | tests/pty-diff.sh:gap-default-layout, tests/pty-diff.sh:gap-disabled-layout, tests/batch-diff.sh:gap-default, tests/batch-diff.sh:gap-explicit-value, tests/batch-diff.sh:no-gap | implemented but unverified |
 | OPT-031 | `\-\-gap\-line` | src/ui.c, src/main.c | tests/pty-diff.sh:gap-line-layout, tests/pty-diff.sh:gap-line-disabled-layout, tests/batch-diff.sh:no-gap-line, tests/batch-diff.sh:gap-line-optional | implemented but unverified |
 | OPT-032 | `\-\-ghost` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:ghost-missing | implemented but unverified |
@@ -63,17 +63,17 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-034 | `--gutter` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-035 | `--gutter-raw` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:raw-gutter-custom | implemented but unverified |
 | OPT-036 | `--header` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:no-header, tests/batch-diff.sh:header-missing | implemented but unverified |
-| OPT-037 | `--header-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
+| OPT-037 | `--header-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:header-border-default, tests/pty-diff.sh:header-border-sharp, tests/pty-diff.sh:header-border-reverse, tests/pty-diff.sh:header-border-line, tests/pty-diff.sh:header-border-line-reverse, tests/batch-diff.sh:header-border-invalid, tests/batch-diff.sh:header-border-empty | verified |
 | OPT-038 | `--header-first` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-039 | `--header-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-040 | `--header-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-041 | `--header-lines` | src/ui.c, src/main.c | tests/batch-diff.sh:header-lines-one, tests/batch-diff.sh:header-lines-two, tests/batch-diff.sh:no-header-lines | implemented but unverified |
-| OPT-042 | `--header-lines-border` | - | - | unstarted |
+| OPT-042 | `--header-lines-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh:header-lines-border, tests/pty-diff.sh:header-lines-border-sharp, tests/pty-diff.sh:header-lines-border-line, tests/pty-diff.sh:header-lines-border-reverse, tests/batch-diff.sh:header-lines-border-invalid | verified |
 | OPT-043 | `--height` | src/ui.c, src/terminal.c | tests/pty-diff.sh | verified |
 | OPT-044 | `--highlight-line` | src/ui.c | tests/pty-diff.sh | verified |
 | OPT-045 | `\-\-history` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-missing, tests/batch-diff.sh:no-history | implemented but unverified |
 | OPT-046 | `\-\-history\-size` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh, tests/batch-diff.sh:history-size-invalid, tests/batch-diff.sh:history-size-zero | implemented but unverified |
-| OPT-047 | `--hscroll-off` | src/ui.c, src/main.c | tests/batch-diff.sh:hscroll-off-negative | implemented but unverified |
+| OPT-047 | `--hscroll-off` | src/ui.c, src/main.c | tests/pty-diff.sh:hscroll-long-match, tests/pty-diff.sh:hscroll-end-match, tests/pty-diff.sh:hscroll-off-zero, tests/batch-diff.sh:hscroll-off-negative | verified |
 | OPT-048 | `--id-nth` | src/main.c, src/ui.c, src/ui.h, src/tokenizer.c | tests/batch-diff.sh:id-nth-missing, tests/batch-diff.sh:id-nth-invalid, tests/pty-diff.sh:id-nth-reload-track, tests/pty-diff.sh:id-nth-reload-selection | implemented but unverified |
 | OPT-049 | `--ignore-case` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-050 | `--info[=default/inline-right/hidden]` | src/main.c, src/ui.c | tests/batch-diff.sh, tests/pty-diff.sh | verified |
@@ -99,33 +99,33 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-070 | `--no` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-071 | `\-\-no\-bold` | src/ui.c, src/color.c | tests/pty-diff.sh | verified |
 | OPT-072 | `--no-clear` | src/ui.c, src/main.c | - | implemented |
-| OPT-073 | `\-\-no\-color` | src/ui.c, src/color.c | tests/pty-diff.sh | verified |
+| OPT-073 | `\-\-no\-color` | src/ui.c, src/color.c, src/main.c | tests/pty-diff.sh:nocolor-env, tests/pty-diff.sh:nocolor-color-fg, tests/pty-diff.sh | verified |
 | OPT-074 | `--no-expect` | - | tests/batch-diff.sh | verified |
 | OPT-075 | `--no-extended` | src/pattern.c | tests/batch-diff.sh | verified |
-| OPT-076 | `--no-header-lines-border` | - | - | unstarted |
-| OPT-077 | `--no-hscroll` | src/main.c, src/ui.c | tests/pty-diff.sh:no-hscroll-match-visible | implemented but unverified |
+| OPT-076 | `--no-header-lines-border` | src/main.c, src/ui.c | tests/pty-diff.sh:no-header-lines-border | verified |
+| OPT-077 | `--no-hscroll` | src/main.c, src/ui.c | tests/pty-diff.sh:no-hscroll-match-visible, tests/pty-diff.sh:no-hscroll-long | verified |
 | OPT-078 | `--no-ignore-case` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-079 | `--no-info` | - | tests/batch-diff.sh | verified |
 | OPT-080 | `--no-input` | src/main.c | - | implemented |
 | OPT-081 | `\-\-no\-mouse` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-082 | `--no-multi` | - | tests/batch-diff.sh | verified |
-| OPT-083 | `--no-multi-line` | src/main.c | tests/pty-diff.sh | verified |
+| OPT-083 | `--no-multi-line` | src/main.c, src/ui.c | tests/pty-diff.sh:read0-multi-line, tests/pty-diff.sh:read0-multi-line-reverse, tests/pty-diff.sh:read0-no-multi-line, tests/pty-diff.sh:read0-multi-line-selected, tests/pty-diff.sh:read0-multi-line-scroll, tests/pty-diff.sh:bind-toggle-multi-line | verified |
 | OPT-084 | `--no-scrollbar` | src/ui.c, src/main.c | - | implemented |
 | OPT-085 | `--no-separator` | src/main.c | - | implemented |
 | OPT-086 | `--no-sort` | src/pattern.c | tests/batch-diff.sh | verified |
 | OPT-087 | `--no-tty-default` | src/main.c | tests/pty-diff.sh | verified |
 | OPT-088 | `--no-unicode` | src/ui.c, src/main.c | tests/pty-diff.sh | verified |
 | OPT-089 | `--nth` | src/tokenizer.c, src/main.c | tests/batch-diff.sh:nth-missing, tests/batch-diff.sh:nth-empty-range, tests/batch-diff.sh:nth-empty-component, tests/batch-diff.sh:nth-trailing-comma, tests/batch-diff.sh:nth-overflow, tests/batch-diff.sh:nth-range-overflow | implemented but unverified |
-| OPT-090 | `--nushell` | - | - | unstarted |
+| OPT-090 | `--nushell` | - | out of scope: shell integration is not part of this rewrite | n/a |
 | OPT-091 | `--oneline` / `--no-oneline` (not in pinned upstream) | - | tests/batch-diff.sh | n/a |
 | OPT-092 | `--padding` | src/ui.c, src/main.c | tests/pty-diff.sh | implemented but unverified |
 | OPT-093 | `\-\-pointer` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
-| OPT-094 | `--popup` | - | - | unstarted |
+| OPT-094 | `--popup` | src/tmux.c, src/main.c | tests/tmux-diff.py:popup-alias, tests/tmux-diff.py:zellij-top, tests/tmux-diff.py:zellij-sharp, tests/tmux-diff.py:no-popup-after | verified |
 | OPT-095 | `\-\-preview` | src/preview.c, src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:preview-missing, tests/batch-diff.sh:no-preview | implemented but unverified |
 | OPT-096 | `--preview-border` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-097 | `--preview-label` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-098 | `--preview-label-pos` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
-| OPT-099 | `\-\-preview\-window` | src/preview.c, src/ui.c, src/main.c | tests/pty-diff.sh, tests/batch-diff.sh:preview-window-missing | implemented but unverified |
+| OPT-099 | `\-\-preview\-window` | src/preview.c, src/ui.c, src/main.c | tests/pty-diff.sh:preview-abs-up, tests/pty-diff.sh:preview-abs-right, tests/pty-diff.sh:preview-abs-noborder, tests/pty-diff.sh:preview-nowrap-tab, tests/pty-diff.sh:preview-nowrap-long, tests/pty-diff.sh:preview-border-left-clip, tests/batch-diff.sh:preview-window-missing | verified |
 | OPT-100 | `--preview-wrap-sign` | src/main.c, src/ui.c, src/ui.h | tests/pty-diff.sh | implemented but unverified |
 | OPT-101 | `--print0` | src/main.c | tests/batch-diff.sh | verified |
 | OPT-102 | `--print-query` | src/main.c | tests/batch-diff.sh | verified |
@@ -147,7 +147,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-118 | `--tail` | src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:tail-missing, tests/batch-diff.sh:tail-one, tests/batch-diff.sh:no-tail | implemented but unverified |
 | OPT-119 | `--threads` | src/main.c, src/filter.c | tests/thread-diff.sh:--threads=2, tests/thread-diff.sh:--threads=4, tests/batch-diff.sh:threads-zero-default | implemented but unverified |
 | OPT-120 | `--tiebreak` | src/result.c, src/main.c | tests/batch-diff.sh, tests/batch-diff.sh:tiebreak-missing | implemented but unverified |
-| OPT-121 | `--tmux` | - | - | unstarted |
+| OPT-121 | `--tmux` | src/tmux.c, src/main.c | tests/tmux-diff.py:default, tests/tmux-diff.py:float-default, tests/tmux-diff.py:native, tests/tmux-diff.py:height-after, tests/tmux-diff.py:filter-in-tmux | verified |
 | OPT-122 | `--track` | src/ui.c, src/main.c | tests/pty-diff.sh:track-current-item, tests/pty-diff.sh:action-reload-track, tests/pty-diff.sh:id-nth-reload-track | implemented but unverified |
 | OPT-123 | `\-\-walker` | src/walker.c, src/main.c | tests/pty-diff.sh, tests/walker-diff.sh, tests/batch-diff.sh:walker-missing | implemented but unverified |
 | OPT-124 | `\-\-walker\-root` | src/walker.c | tests/pty-diff.sh, tests/walker-diff.sh | verified |
@@ -157,7 +157,7 @@ with results tied to a specific implementation commit and pinned reference.
 | OPT-128 | `--wrap` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-129 | `--wrap-sign` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
 | OPT-130 | `--wrap-word` | src/ui.c, src/main.c | tests/pty-diff.sh, tests/manpage.sh | verified |
-| OPT-131 | `--zsh` | - | - | unstarted |
+| OPT-131 | `--zsh` | - | out of scope: shell integration is not part of this rewrite | n/a |
 
 ## Actions
 
@@ -183,7 +183,7 @@ with results tied to a specific implementation commit and pinned reference.
 | ACT-018 | `change-ghost` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-ghost | implemented but unverified |
 | ACT-019 | `change-header` | src/bind.c, src/ui.c | tests/pty-diff.sh:bind-hide-show-header | implemented but unverified |
 | ACT-020 | `change-header-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-header-label | implemented but unverified |
-| ACT-021 | `change-header-lines` | - | - | unstarted |
+| ACT-021 | `change-header-lines` | src/bind.h, src/bind.c, src/ui.c, src/ui.h, src/main.c | tests/pty-diff.sh:change-header-lines, tests/pty-diff.sh:change-header-lines-clear, tests/pty-diff.sh:change-header-lines-cursor, tests/pty-diff.sh:change-header-lines-multi, tests/pty-diff.sh:change-header-lines-pad | verified |
 | ACT-022 | `change-input-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-input-label | implemented but unverified |
 | ACT-023 | `change-list-label` | src/bind.h, src/bind.c, src/ui.c | tests/pty-diff.sh:bind-change-list-label | implemented but unverified |
 | ACT-024 | `change-multi` | src/bind.c, src/ui.c | - | implemented but unverified |
@@ -306,5 +306,5 @@ with results tied to a specific implementation commit and pinned reference.
 | EVT-009 | `zero` | src/ui.c | tests/pty-diff.sh:event-zero | implemented but unverified |
 | EVT-010 | `jump` | src/ui.c | tests/pty-diff.sh:event-jump | implemented but unverified |
 | EVT-011 | `jump-cancel` | src/ui.c | tests/pty-diff.sh:event-jump-cancel | implemented but unverified |
-| EVT-012 | `click-header` | - | - | unstarted |
-| EVT-013 | `click-footer` | - | - | unstarted |
+| EVT-012 | `click-header` | src/keys.c, src/ui.c, src/main.c, src/bind.c | tests/pty-diff.sh:click-header-line, tests/pty-diff.sh:click-header-nth, tests/pty-diff.sh:click-header-column, tests/pty-diff.sh:click-header-gap, tests/pty-diff.sh:click-header-reverse, tests/pty-diff.sh:click-header-gutter, tests/pty-diff.sh:click-header-word, tests/pty-diff.sh:click-header-delim | verified |
+| EVT-013 | `click-footer` | src/keys.c, src/ui.c, src/main.c, src/bind.c | tests/pty-diff.sh:click-footer-line, tests/pty-diff.sh:click-footer-reverse, tests/pty-diff.sh:click-footer-word | verified |
